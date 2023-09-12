@@ -64,6 +64,8 @@ where
     #[derivative(Debug = "ignore")]
     /// Parameters for hash function of Merke tree combining two nodes into one
     pub two_to_one_params: TwoToOneParam<C>,
+    /// This is a flag which determines if the random linear combination is done.
+    pub check_well_formedness: bool,
 }
 
 impl<C> PCCommitterKey for LigeroPCCommitterKey<C>
@@ -93,6 +95,8 @@ where
     pub leaf_hash_params: LeafParam<C>,
     /// Parameters for hash function of Merke tree combining two nodes into one
     pub two_to_one_params: TwoToOneParam<C>,
+    /// This is a flag which determines if the random linear combination is done.
+    pub check_well_formedness: bool,
 }
 
 impl<C> PCVerifierKey for LigeroPCVerifierKey<C>
