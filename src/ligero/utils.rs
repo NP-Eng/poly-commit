@@ -130,11 +130,11 @@ pub(crate) fn compute_dimensions<F: FftField>(n: usize) -> (usize, usize) {
 
 /// Apply reed-solomon encoding to msg.
 /// Assumes msg.len() is equal to the order of an FFT domain in F.
-/// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * rho_inv.
+/// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * RHO_INV.
 pub(crate) fn reed_solomon<F: FftField>(
     // msg, of length m, is interpreted as a vector of coefficients of a polynomial of degree m - 1
     msg: &[F],
-    rho_inv: usize,
+    RHO_INV: usize,
 ) -> Vec<F> {
     let m = msg.len();
 
@@ -149,10 +149,10 @@ pub(crate) fn reed_solomon<F: FftField>(
     );
     let poly_coeffs = domain.ifft(msg).to_vec();
 
-    let extended_domain = GeneralEvaluationDomain::<F>::new(m * rho_inv).unwrap_or_else(|| {
+    let extended_domain = GeneralEvaluationDomain::<F>::new(m * RHO_INV).unwrap_or_else(|| {
         panic!(
-            "The field F cannot accomodate FFT for msg.len() * rho_inv = {} elements (too many)",
-            m * rho_inv
+            "The field F cannot accomodate FFT for msg.len() * RHO_INV = {} elements (too many)",
+            m * RHO_INV
         )
     });
 
@@ -221,7 +221,7 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
 }
 
 #[inline]
-pub(crate) fn calculate_t(_rho_inv: usize, _sec_param: usize) -> usize {
+pub(crate) fn calculate_t(_RHO_INV: usize, _sec_param: usize) -> usize {
     // TODO calculate t somehow
     let t = 3;
     println!("WARNING: you are using dummy t = {t}");

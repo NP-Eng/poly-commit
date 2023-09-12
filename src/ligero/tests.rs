@@ -53,10 +53,10 @@ mod tests {
 
     type MTConfig = MerkleTreeParams;
     type Sponge = PoseidonSponge<Fq>;
-    type PC<F, C, D, S, P, const rho_inv: usize> = Ligero<F, C, D, S, P, rho_inv, 128>;
-    type LigeroPCS<const rho_inv: usize> = PC<Fq, MTConfig, Blake2s256, Sponge, UniPoly, rho_inv>;
-    type LigeroPCS_F<const rho_inv: usize, F> =
-        PC<F, MTConfig, Blake2s256, Sponge, DensePolynomial<F>, rho_inv>;
+    type PC<F, C, D, S, P, const RHO_INV: usize> = Ligero<F, C, D, S, P, RHO_INV, 128>;
+    type LigeroPCS<const RHO_INV: usize> = PC<Fq, MTConfig, Blake2s256, Sponge, UniPoly, RHO_INV>;
+    type LigeroPCS_F<const RHO_INV: usize, F> =
+        PC<F, MTConfig, Blake2s256, Sponge, DensePolynomial<F>, RHO_INV>;
 
     #[test]
     fn test_matrix_constructor_flat() {
@@ -133,7 +133,7 @@ mod tests {
     fn test_reed_solomon() {
         // we use this polynomial to generate the the values we will ask the fft to interpolate
 
-        let rho_inv = 3;
+        let RHO_INV = 3;
         // `i` is the min number of evaluations we need to interpolate a poly of degree `i - 1`
         for i in 1..10 {
             let deg = (1 << i) - 1;
@@ -158,7 +158,7 @@ mod tests {
 
             assert_eq!(coeffs_again[..deg + 1], *coeffs);
 
-            let encoded = reed_solomon(&evals, rho_inv);
+            let encoded = reed_solomon(&evals, RHO_INV);
             let m_p = encoded.len();
 
             // the m original elements should be interleaved in the encoded message
@@ -167,10 +167,10 @@ mod tests {
                 assert_eq!(evals[j], encoded[j * ratio]);
             }
 
-            let large_domain = GeneralEvaluationDomain::<Fq>::new(m * rho_inv).unwrap();
+            let large_domain = GeneralEvaluationDomain::<Fq>::new(m * RHO_INV).unwrap();
 
             // the encoded elements should agree with the evaluations of the polynomial in the larger domain
-            for j in 0..(rho_inv * m) {
+            for j in 0..(RHO_INV * m) {
                 assert_eq!(pol.evaluate(&large_domain.element(j)), encoded[j]);
             }
         }

@@ -28,8 +28,8 @@ use utils::{calculate_t, compute_dimensions, get_indices_from_transcript, hash_c
 
 mod tests;
 
-impl<F, C, D, S, P, const rho_inv: usize, const sec_param: usize>
-    Ligero<F, C, D, S, P, rho_inv, sec_param>
+impl<F, C, D, S, P, const RHO_INV: usize, const SEC_PARAM: usize>
+    Ligero<F, C, D, S, P, RHO_INV, SEC_PARAM>
 where
     F: PrimeField,
     C: Config,
@@ -58,7 +58,7 @@ where
         leaf_hash_params: &LeafParam<C>,
         two_to_one_params: &TwoToOneParam<C>,
     ) -> Result<(), Error> {
-        let t = calculate_t(rho_inv, sec_param);
+        let t = calculate_t(RHO_INV, SEC_PARAM);
 
         // TODO replace unwraps by proper error handling
         let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"well_formedness_transcript");
@@ -123,7 +123,7 @@ where
         }
 
         // 4. Compute the encoding w = E(v)
-        let w = reed_solomon(&proof.v, rho_inv);
+        let w = reed_solomon(&proof.v, RHO_INV);
 
         // 5. Verify the random linear combinations
         for (transcript_index, matrix_index) in indices.into_iter().enumerate() {
@@ -153,7 +153,7 @@ where
         let ext_mat = Matrix::new_from_rows(
             mat.rows()
                 .iter()
-                .map(|r| reed_solomon(r, rho_inv))
+                .map(|r| reed_solomon(r, RHO_INV))
                 .collect(),
         );
 
@@ -184,7 +184,7 @@ where
         col_tree: &MerkleTree<C>,
         transcript: &mut IOPTranscript<F>,
     ) -> LigeroPCProof<F, C> {
-        let t = calculate_t(rho_inv, sec_param); // TODO this function will now probably need to take into account the number of rows/cols of the extended matrix
+        let t = calculate_t(RHO_INV, SEC_PARAM); // TODO this function will now probably need to take into account the number of rows/cols of the extended matrix
 
         // 1. Compute the linear combination using the random coefficients
         let v = mat.row_mul(coeffs);
@@ -213,8 +213,8 @@ where
     }
 }
 
-impl<F, P, S, C, D, const rho_inv: usize, const sec_param: usize> PolynomialCommitment<F, P, S>
-    for Ligero<F, C, D, S, P, rho_inv, sec_param>
+impl<F, P, S, C, D, const RHO_INV: usize, const SEC_PARAM: usize> PolynomialCommitment<F, P, S>
+    for Ligero<F, C, D, S, P, RHO_INV, SEC_PARAM>
 where
     F: PrimeField,
     P: DenseUVPolynomial<F>,
@@ -252,11 +252,11 @@ where
         _rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
         assert!(
-            rho_inv >= 1,
-            "rho_inv is the inverse of the rate and must be at least 1"
+            RHO_INV >= 1,
+            "RHO_INV is the inverse of the rate and must be at least 1"
         );
-        // The domain will have size m * rho_inv, but we already have the first m elements
-        GeneralEvaluationDomain::<F>::compute_size_of_domain(max_degree * (rho_inv - 1))
+        // The domain will have size m * RHO_INV, but we already have the first m elements
+        GeneralEvaluationDomain::<F>::compute_size_of_domain(max_degree * (RHO_INV - 1))
             .ok_or(Error::UnsupportedDegreeBound(max_degree))?;
 
         LigeroPCUniversalParams::default();
@@ -427,7 +427,7 @@ where
             commitments.into_iter().collect();
         let values: Vec<F> = values.into_iter().collect();
 
-        let t = calculate_t(rho_inv, sec_param); // TODO include in ck/vk?
+        let t = calculate_t(RHO_INV, SEC_PARAM); // TODO include in ck/vk?
 
         if labeled_commitments.len() != proof.len() || labeled_commitments.len() != values.len() {
             // maybe return Err?

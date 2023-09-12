@@ -26,9 +26,9 @@ pub struct Ligero<
     S: CryptographicSponge,
     P: DenseUVPolynomial<F>,
     // one over the rate rho
-    const rho_inv: usize,
+    const RHO_INV: usize,
     // security parameter, used in calculating t
-    const sec_param: usize,
+    const SEC_PARAM: usize,
 > {
     pub(crate) _field: PhantomData<F>,
     pub(crate) _config: PhantomData<C>,
