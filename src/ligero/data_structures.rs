@@ -126,16 +126,15 @@ impl<Unprepared: PCVerifierKey> PCPreparedVerifierKey<Unprepared> for LigeroPCPr
 /// where each node is a hash of the column of the encoded coefficient matrix U.
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub struct LigeroPCCommitment<F: PrimeField, C: Config> {
+pub struct LigeroPCCommitment<C: Config> {
     // number of rows resp. columns of the square matrix containing the coefficients of the polynomial
     pub(crate) n_rows: usize,
     pub(crate) n_cols: usize,
     pub(crate) n_ext_cols: usize,
     pub(crate) root: C::InnerDigest,
-    pub(crate) proof: LigeroPCProof<F, C>,
 }
 
-impl<F: PrimeField, C: Config> PCCommitment for LigeroPCCommitment<F, C> {
+impl<C: Config> PCCommitment for LigeroPCCommitment<C> {
     fn empty() -> Self {
         todo!()
     }
@@ -173,7 +172,7 @@ impl PCRandomness for LigeroPCRandomness {
 /// Proof of an individual Ligero well-formedness check or opening
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub struct LigeroPCProof<F, C>
+pub(crate) struct LigeroPCProofSingle<F, C>
 where
     F: PrimeField,
     C: Config,
@@ -188,4 +187,15 @@ where
 }
 
 /// The Proof type for Ligero, which amounts to an array of individual ligero proofs
-pub type LigeroPCProofArray<F, C> = Vec<LigeroPCProof<F, C>>;
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
+pub struct LigeroPCProof<F, C>
+where
+    F: PrimeField,
+    C: Config,
+{
+    pub(crate) opening: LigeroPCProofSingle<F, C>,
+    pub(crate) well_formedness: Option<LigeroPCProofSingle<F, C>>,
+}
+
+pub(crate) type LPCPArray<F, C> = Vec<LigeroPCProof<F, C>>;
