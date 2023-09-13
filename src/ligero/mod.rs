@@ -185,7 +185,7 @@ where
         col_tree: &MerkleTree<C>,
         transcript: &mut IOPTranscript<F>,
     ) -> LigeroPCProofSingle<F, C> {
-        let t = calculate_t(RHO_INV, SEC_PARAM); // TODO this function will now probably need to take into account the number of rows/cols of the extended matrix
+        let t = calculate_t(RHO_INV, SEC_PARAM, F::MODULUS_BIT_SIZE, ext_mat.m); // TODO this function will now probably need to take into account the number of rows/cols of the extended matrix
 
         // 1. Compute the linear combination using the random coefficients
         let v = mat.row_mul(coeffs);
@@ -434,8 +434,6 @@ where
             commitments.into_iter().collect();
         let values: Vec<F> = values.into_iter().collect();
 
-        let t = calculate_t(RHO_INV, SEC_PARAM); // TODO include in ck/vk?
-
         if labeled_commitments.len() != proof_array.len()
             || labeled_commitments.len() != values.len()
         {
@@ -453,34 +451,34 @@ where
 
             // check if we've seen this commitment before. If not, we should verify it.
             if vk.check_well_formedness {
-                if let Some(well_formedness) = &proof_array[i].well_formedness {
-                    transcript
-                        .append_serializable_element(b"root", &commitment.root)
-                        .unwrap();
-
-                    // 2. Get the linear combination coefficients from the transcript
-                    let mut r = Vec::new();
-                    for _ in 0..commitment.n_rows {
-                        r.push(transcript.get_and_append_challenge(b"r").unwrap());
-                    }
-                    // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M
-                    transcript
-                        .append_serializable_element(b"v", &well_formedness.v)
-                        .unwrap();
-
-                    // Self::check_random_linear_combination(
-                    //     &r,
-                    //     &well_formedness_proof,
-                    //     &commitment.root,
-                    //     commitment.n_ext_cols,
-                    //     t,
-                    //     &mut transcript,
-                    //     leaf_hash_params,
-                    //     two_to_one_params,
-                    // );
-                } else {
+                if let None = &proof_array[i].well_formedness {
                     panic!("Handle the panic properly");
                 }
+                let well_formedness = &proof_array[i].well_formedness.as_ref().unwrap();
+                transcript
+                    .append_serializable_element(b"root", &commitment.root)
+                    .unwrap();
+
+                // 2. Get the linear combination coefficients from the transcript
+                let mut r = Vec::new();
+                for _ in 0..commitment.n_rows {
+                    r.push(transcript.get_and_append_challenge(b"r").unwrap());
+                }
+                // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M
+                transcript
+                    .append_serializable_element(b"v", &well_formedness.v)
+                    .unwrap();
+
+                // Self::check_random_linear_combination(
+                //     &r,
+                //     &well_formedness_proof,
+                //     &commitment.root,
+                //     commitment.n_ext_cols,
+                //     t,
+                //     &mut transcript,
+                //     leaf_hash_params,
+                //     two_to_one_params,
+                // );
             }
 
             // 1. Compute a and b
@@ -498,6 +496,12 @@ where
                 b.push(acc_b);
                 acc_b *= acc_a;
             }
+            let t = calculate_t(
+                RHO_INV,
+                SEC_PARAM,
+                F::MODULUS_BIT_SIZE,
+                commitment.n_ext_cols,
+            ); // TODO include in ck/vk?
 
             // 2. Seed the transcript with the point and generate t random indices
             // TODO replace unwraps by proper error handling

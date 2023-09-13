@@ -134,7 +134,7 @@ pub(crate) fn compute_dimensions<F: FftField>(n: usize) -> (usize, usize) {
 pub(crate) fn reed_solomon<F: FftField>(
     // msg, of length m, is interpreted as a vector of coefficients of a polynomial of degree m - 1
     msg: &[F],
-    RHO_INV: usize,
+    rho_inv: usize,
 ) -> Vec<F> {
     let m = msg.len();
 
@@ -149,10 +149,10 @@ pub(crate) fn reed_solomon<F: FftField>(
     );
     let poly_coeffs = domain.ifft(msg).to_vec();
 
-    let extended_domain = GeneralEvaluationDomain::<F>::new(m * RHO_INV).unwrap_or_else(|| {
+    let extended_domain = GeneralEvaluationDomain::<F>::new(m * rho_inv).unwrap_or_else(|| {
         panic!(
             "The field F cannot accomodate FFT for msg.len() * RHO_INV = {} elements (too many)",
-            m * RHO_INV
+            m * rho_inv
         )
     });
 
@@ -221,19 +221,28 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
 }
 
 #[inline]
-pub(crate) fn calculate_t(rho_inv: usize, sec_param: usize) -> usize {
+pub(crate) fn calculate_t(
+    rho_inv: usize,
+    sec_param: usize,
+    field_bits: u32,
+    block_length: usize,
+) -> usize {
     // Double-check with BCI+20 if you can simply replace
     // $\delta = \frac{1-\rho}{3}$ with $\frac{1-\rho}{2}$. In that case, we
     // will find the smallest t such that
-    // (1-\delta)^t + (\rho+\delta)^t + n/F < 2^(-\lambda). Since we do not
-    // have n/F here and and it is negligible for security less than 230 bits,
-    // we eliminate it here. with \delta = \frac{1-\rho}{2}, the expreesion is
+    // $(1-\delta)^t + (\rho+\delta)^t + n/F < 2^(-\lambda)$. Since we do not
+    // have $n/F$ here and and it is negligible for security less than 230 bits,
+    // we eliminate it here. With \delta = \frac{1-\rho}{2}, the expreesion is
     // 2 * (1-\delta)^t < 2^(-\lambda). Then
-    // `t * log2 (1-\delta) < - \lambda - 1`.
+    // $t * log2 (1-\delta) < - \lambda - 1$.
 
-    // TODO: Maybe we should not eliminate n/F.
-    let sec_param = sec_param as i64;
-    let nom = (-sec_param - 1) as f64;
+    // TODO: Maybe we should not eliminate $n/F$. In original Ligero, this was
+    // $d/F$ for $\delta = \frac{1-\rho}{3}$. But from expression 1.1 from
+    // BCI+20, I wrote $n/F$ for $\delta = \frac{1-\rho}{3}$. It is negligible
+    // anyways.
+    let sec_param = sec_param as i32;
+    let residual = block_length as f64 / 2.0_f64.powi(field_bits as i32);
+    let nom = (2.0_f64.powi(-sec_param) - residual).log2() - 1.0;
     let denom = (0.5 + 0.5 / rho_inv as f64).log2();
     let t = (nom / denom).ceil() as usize;
     t
