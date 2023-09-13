@@ -198,4 +198,5 @@ where
     pub(crate) well_formedness: Option<LigeroPCProofSingle<F, C>>,
 }
 
+// Multiple poly at one point
 pub(crate) type LPCPArray<F, C> = Vec<LigeroPCProof<F, C>>;

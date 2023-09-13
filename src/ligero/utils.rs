@@ -221,9 +221,20 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
 }
 
 #[inline]
-pub(crate) fn calculate_t(_RHO_INV: usize, _sec_param: usize) -> usize {
-    // TODO calculate t somehow
-    let t = 3;
-    println!("WARNING: you are using dummy t = {t}");
+pub(crate) fn calculate_t(rho_inv: usize, sec_param: usize) -> usize {
+    // Double-check with BCI+20 if you can simply replace
+    // $\delta = \frac{1-\rho}{3}$ with $\frac{1-\rho}{2}$. In that case, we
+    // will find the smallest t such that
+    // (1-\delta)^t + (\rho+\delta)^t + n/F < 2^(-\lambda). Since we do not
+    // have n/F here and and it is negligible for security less than 230 bits,
+    // we eliminate it here. with \delta = \frac{1-\rho}{2}, the expreesion is
+    // 2 * (1-\delta)^t < 2^(-\lambda). Then
+    // `t * log2 (1-\delta) < - \lambda - 1`.
+
+    // TODO: Maybe we should not eliminate n/F.
+    let sec_param = sec_param as i64;
+    let nom = (-sec_param - 1) as f64;
+    let denom = (0.5 + 0.5 / rho_inv as f64).log2();
+    let t = (nom / denom).ceil() as usize;
     t
 }
