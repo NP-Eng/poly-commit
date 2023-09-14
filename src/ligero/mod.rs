@@ -52,92 +52,6 @@ where
         }
     }
 
-    // /// The verifier can check the well-formedness of the commitment by taking random linear combinations.
-    // fn check_well_formedness(
-    //     root: &C::InnerDigest,
-    //     well_formedness_proof: &LigeroPCProofSingle<F, C>,
-    //     leaf_hash_params: &LeafParam<C>,
-    //     two_to_one_params: &TwoToOneParam<C>,
-    // ) -> Result<(), Error> {
-    //     let t = calculate_t(RHO_INV, SEC_PARAM);
-
-    //     // TODO replace unwraps by proper error handling
-    //     let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"well_formedness_transcript");
-    //     transcript
-    //         .append_serializable_element(b"root", root)
-    //         .unwrap();
-
-    //     // 2. Get the linear combination coefficients from the transcript
-    //     let mut r = Vec::new();
-    //     for _ in 0..commitment.n_rows {
-    //         r.push(transcript.get_and_append_challenge(b"r").unwrap());
-    //     }
-    //     // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M
-    //     transcript
-    //         .append_serializable_element(b"v", &well_formedness_proof.v)
-    //         .unwrap();
-
-    //     Self::check_random_linear_combination(
-    //         &r,
-    //         &well_formedness_proof,
-    //         &commitment.root,
-    //         commitment.n_ext_cols,
-    //         t,
-    //         &mut transcript,
-    //         leaf_hash_params,
-    //         two_to_one_params,
-    //     )
-    // }
-
-    fn check_random_linear_combination(
-        coeffs: &[F],
-        proof: &LigeroPCProofSingle<F, C>,
-        root: &C::InnerDigest,
-        n_ext_cols: usize,
-        t: usize,
-        transcript: &mut IOPTranscript<F>,
-        leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters,
-        two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
-    ) -> Result<(), Error> {
-        // 1. Hash the received columns into leaf hashes
-        let mut col_hashes: Vec<Vec<u8>> = Vec::new();
-        for c in proof.columns.iter() {
-            col_hashes.push(hash_column::<D, F>(c));
-        }
-
-        // 2. Compute t column indices to check the linear combination at
-        let indices = get_indices_from_transcript::<F>(n_ext_cols, t, transcript);
-
-        // 3. Verify the paths for each of the leaf hashes
-        for (i, (leaf, q_i)) in col_hashes.into_iter().zip(indices.iter()).enumerate() {
-            // TODO handle the error here
-            let path = &proof.paths[i];
-            assert!(
-                path.leaf_index == *q_i,
-                "Path is for a different index: i: {}, leaf index: {}!",
-                q_i,
-                path.leaf_index
-            ); // TODO return an error
-
-            path.verify(leaf_hash_params, two_to_one_params, root, leaf.clone())
-                .unwrap();
-        }
-
-        // 4. Compute the encoding w = E(v)
-        let w = reed_solomon(&proof.v, RHO_INV);
-
-        // 5. Verify the random linear combinations
-        for (transcript_index, matrix_index) in indices.into_iter().enumerate() {
-            if inner_product(coeffs, &proof.columns[transcript_index]) != w[matrix_index] {
-                // TODO return proper error
-                return Err(Error::IncorrectInputLength(
-                    "Incorrect linear combination".to_string(),
-                ));
-            }
-        }
-
-        Ok(())
-    }
     fn compute_matrices(polynomial: &P) -> (Matrix<F>, Matrix<F>) {
         let mut coeffs = polynomial.coeffs().to_vec();
 
@@ -184,8 +98,8 @@ where
         ext_mat: &Matrix<F>,
         col_tree: &MerkleTree<C>,
         transcript: &mut IOPTranscript<F>,
-    ) -> LigeroPCProofSingle<F, C> {
-        let t = calculate_t(RHO_INV, SEC_PARAM, F::MODULUS_BIT_SIZE, ext_mat.m); // TODO this function will now probably need to take into account the number of rows/cols of the extended matrix
+    ) -> Result<LigeroPCProofSingle<F, C>, Error> {
+        let t = calculate_t(RHO_INV, SEC_PARAM); // TODO this function will now probably need to take into account the number of rows/cols of the extended matrix
 
         // 1. Compute the linear combination using the random coefficients
         let v = mat.row_mul(coeffs);
@@ -193,7 +107,7 @@ where
         transcript.append_serializable_element(b"v", &v).unwrap();
 
         // 2. Generate t column indices to test the linear combination on
-        let indices = get_indices_from_transcript(ext_mat.m, t, transcript);
+        let indices = get_indices_from_transcript(ext_mat.m, t, transcript)?;
 
         // 3. Compute Merkle tree paths for the columns
         let mut queried_columns = Vec::new();
@@ -206,11 +120,11 @@ where
             paths.push(col_tree.generate_proof(i).unwrap());
         }
 
-        LigeroPCProofSingle {
+        Ok(LigeroPCProofSingle {
             paths,
             v,
             columns: queried_columns,
-        }
+        })
     }
 }
 
@@ -306,29 +220,13 @@ where
                 IOPTranscript::new(b"well_formedness_transcript");
             transcript
                 .append_serializable_element(b"root", &root)
-                .unwrap();
+                .map_err(|_| Error::TranscriptError)?;
 
             let n_rows = mat.n;
             let n_cols = mat.m;
             let n_ext_cols = ext_mat.m;
 
-            let mut r = Vec::new();
-            for _ in 0..n_rows {
-                r.push(transcript.get_and_append_challenge(b"r").unwrap());
-            }
-
             // 4. Generate the proof by choosing random columns and proving their paths in the tree
-            let well_formedness_proof = if ck.check_well_formedness {
-                Some(Self::generate_proof(
-                    &r,
-                    &mat,
-                    &ext_mat,
-                    &col_tree,
-                    &mut transcript,
-                ))
-            } else {
-                None
-            };
 
             let commitment = LigeroPCCommitment {
                 n_rows,
@@ -368,14 +266,13 @@ where
         let labeled_polynomials: Vec<&'a LabeledPolynomial<F, P>> =
             labeled_polynomials.into_iter().collect();
 
-        assert_eq!(
-            labeled_commitments.len(),
-            labeled_polynomials.len(),
-            // maybe return Err?
-            "Mismatched lengths: {} commitments, {} polynomials",
-            labeled_commitments.len(),
-            labeled_polynomials.len()
-        );
+        if labeled_commitments.len() != labeled_polynomials.len() {
+            return Err(Error::IncorrectInputLength(format!(
+                "Mismatched lengths: {} commitments, {} polynomials",
+                labeled_commitments.len(),
+                labeled_polynomials.len()
+            )));
+        }
 
         for i in 0..labeled_polynomials.len() {
             let polynomial = labeled_polynomials[i].polynomial();
@@ -405,12 +302,34 @@ where
 
             let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"opening_transcript");
 
+            let n_rows = mat.n;
+            let mut r = Vec::new();
+            for _ in 0..n_rows {
+                r.push(
+                    transcript
+                        .get_and_append_challenge(b"r")
+                        .map_err(|_| Error::TranscriptError)?,
+                );
+            }
+
+            let well_formedness_proof = if ck.check_well_formedness {
+                Some(Self::generate_proof(
+                    &r,
+                    &mat,
+                    &ext_mat,
+                    &col_tree,
+                    &mut transcript,
+                ))
+            } else {
+                None
+            };
+
             transcript
                 .append_serializable_element(b"point", point)
-                .unwrap();
+                .map_err(|_| Error::TranscriptError)?;
 
             proof_array.push(LigeroPCProof {
-                opening: Self::generate_proof(&b, &mat, &ext_mat, &col_tree, &mut transcript),
+                opening: Self::generate_proof(&b, &mat, &ext_mat, &col_tree, &mut transcript)?,
                 well_formedness: None,
             });
         }
@@ -438,8 +357,12 @@ where
             || labeled_commitments.len() != values.len()
         {
             // maybe return Err?
-            panic!("Mismatched lengths: {} proofs were provided for {} commitments with {} claimed values",
-            labeled_commitments.len(), proof_array.len(), values.len());
+            return Err(Error::IncorrectInputLength(
+                format!(
+                    "Mismatched lengths: {} proofs were provided for {} commitments with {} claimed values",
+            labeled_commitments.len(), proof_array.len(), values.len()
+                )
+            ));
         }
 
         for (i, labeled_commitment) in labeled_commitments.iter().enumerate() {
@@ -450,36 +373,34 @@ where
             let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"opening_transcript");
 
             // check if we've seen this commitment before. If not, we should verify it.
-            if vk.check_well_formedness {
+            let out = if vk.check_well_formedness {
                 if let None = &proof_array[i].well_formedness {
                     panic!("Handle the panic properly");
                 }
-                let well_formedness = &proof_array[i].well_formedness.as_ref().unwrap();
+                let tmp = &proof_array[i].well_formedness.as_ref();
+                let well_formedness = tmp.unwrap();
                 transcript
                     .append_serializable_element(b"root", &commitment.root)
-                    .unwrap();
+                    .map_err(|_| Error::TranscriptError)?;
 
                 // 2. Get the linear combination coefficients from the transcript
                 let mut r = Vec::new();
                 for _ in 0..commitment.n_rows {
-                    r.push(transcript.get_and_append_challenge(b"r").unwrap());
+                    r.push(
+                        transcript
+                            .get_and_append_challenge(b"r")
+                            .map_err(|_| Error::TranscriptError)?,
+                    );
                 }
                 // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M
                 transcript
                     .append_serializable_element(b"v", &well_formedness.v)
-                    .unwrap();
+                    .map_err(|_| Error::TranscriptError)?;
 
-                // Self::check_random_linear_combination(
-                //     &r,
-                //     &well_formedness_proof,
-                //     &commitment.root,
-                //     commitment.n_ext_cols,
-                //     t,
-                //     &mut transcript,
-                //     leaf_hash_params,
-                //     two_to_one_params,
-                // );
-            }
+                (Some(well_formedness), Some(r))
+            } else {
+                (None, None)
+            };
 
             // 1. Compute a and b
             let mut a = Vec::new();
@@ -496,74 +417,84 @@ where
                 b.push(acc_b);
                 acc_b *= acc_a;
             }
-            let t = calculate_t(
-                RHO_INV,
-                SEC_PARAM,
-                F::MODULUS_BIT_SIZE,
-                commitment.n_ext_cols,
-            ); // TODO include in ck/vk?
+            let t = calculate_t(RHO_INV, SEC_PARAM); // TODO include in ck/vk?
 
             // 2. Seed the transcript with the point and generate t random indices
             // TODO replace unwraps by proper error handling
+            // TODO Consider removing the evaluation point from the transcript.
             transcript
                 .append_serializable_element(b"point", point)
-                .unwrap();
+                .map_err(|_| Error::TranscriptError)?;
             transcript
                 .append_serializable_element(b"v", &proof_array[i].opening.v)
-                .unwrap();
+                .map_err(|_| Error::TranscriptError)?;
 
-            // 3. Check the linear combination in the proof
-            if {
-                let coeffs: &[F] = &b;
-                let root = &commitment.root;
-                let n_ext_cols = commitment.n_ext_cols;
-                let leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters = &vk.leaf_hash_params;
-                let two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters = &vk.two_to_one_params;
-                // 1. Hash the received columns into leaf hashes
-                let mut col_hashes: Vec<Vec<u8>> = Vec::new();
-                for c in proof_array[i].opening.columns.iter() {
-                    col_hashes.push(hash_column::<D, F>(c));
-                }
-
-                // 2. Compute t column indices to check the linear combination at
-                let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript);
-
-                // 3. Verify the paths for each of the leaf hashes
-                for (i, (leaf, q_i)) in col_hashes.into_iter().zip(indices.iter()).enumerate() {
-                    // TODO handle the error here
-                    let path = &proof_array[i].opening.paths[i];
-                    assert!(
-                        path.leaf_index == *q_i,
-                        "Path is for a different index: i: {}, leaf index: {}!",
-                        q_i,
-                        path.leaf_index
-                    ); // TODO return an error
-
-                    path.verify(leaf_hash_params, two_to_one_params, root, leaf.clone())
-                        .unwrap();
-                }
-
-                // 4. Compute the encoding w = E(v)
-                let w = reed_solomon(&proof_array[i].opening.v, RHO_INV);
-
-
-                // 5. Verify the random linear combinations
-                for (transcript_index, matrix_index) in indices.into_iter().enumerate() {
-                    if inner_product(coeffs, &proof_array[i].opening.columns[transcript_index]) != w[matrix_index] {
-                        // TODO return proper error
-                        return Err(Error::IncorrectInputLength(
-                            "Incorrect linear combination".to_string(),
-                        ));
-                    }
-                }
-
-                Ok::<(), Self::Error>(())
+            // 3. Evaluate and check for the given point
+            let coeffs: &[F] = &b;
+            let root = &commitment.root;
+            let n_ext_cols = commitment.n_ext_cols;
+            let leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
+                &vk.leaf_hash_params;
+            let two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
+                &vk.two_to_one_params;
+            // 1. Hash the received columns into leaf hashes
+            let mut col_hashes: Vec<Vec<u8>> = Vec::new();
+            for c in proof_array[i].opening.columns.iter() {
+                col_hashes.push(hash_column::<D, F>(c));
             }
-            .is_err()
-            {
-                // I think this can never be called since check_random_linear_combination will panick itself; must improve error handling
-                println!("Function check failed verification of opening with index {i}");
-                return Ok(false);
+
+            // 2. Compute t column indices to check the linear combination at
+            let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
+
+            // 3. Verify the paths for each of the leaf hashes - this is only run once,
+            // even if we have a well-formedness check (i.e., we save sending and checking the columns).
+            // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf)
+            for (i, (leaf, q_i)) in col_hashes.into_iter().zip(indices.iter()).enumerate() {
+                // TODO handle the error here
+                let path = &proof_array[i].opening.paths[i];
+                if path.leaf_index != *q_i {
+                    return Err(Error::InvalidCommitment);
+                }
+
+                path.verify(leaf_hash_params, two_to_one_params, root, leaf.clone())
+                    .map_err(|_| Error::InvalidCommitment)?;
+            }
+
+            // 4. Compute the encoding w = E(v)
+            let w = reed_solomon(&proof_array[i].opening.v, RHO_INV);
+
+            // check that a.b = c
+            let check_inner_product = |a, b, c| -> Result<(), Error> {
+                if inner_product(a, b) != c {
+                    return Err(Error::InvalidCommitment);
+                }
+
+                Ok(())
+            };
+
+            if let (Some(well_formedness), Some(r)) = out {
+                let w_well_formedness = reed_solomon(&well_formedness.v, RHO_INV);
+                for (transcript_index, matrix_index) in indices.iter().enumerate() {
+                    check_inner_product(
+                        &coeffs,
+                        &proof_array[i].opening.columns[transcript_index],
+                        w[*matrix_index],
+                    )?;
+                    // 5. Verify the random linear combinations
+                    check_inner_product(
+                        &r,
+                        &well_formedness.columns[transcript_index],
+                        w_well_formedness[*matrix_index],
+                    )?;
+                }
+            } else {
+                for (transcript_index, matrix_index) in indices.iter().enumerate() {
+                    check_inner_product(
+                        &coeffs,
+                        &proof_array[i].opening.columns[transcript_index],
+                        w[*matrix_index],
+                    )?;
+                }
             }
 
             if inner_product(&proof_array[i].opening.v, &a) != values[i] {

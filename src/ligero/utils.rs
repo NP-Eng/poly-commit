@@ -10,6 +10,7 @@ use rayon::{
 };
 
 use crate::streaming_kzg::ceil_div;
+use crate::Error;
 
 #[derive(Debug)]
 pub(crate) struct Matrix<F: Field> {
@@ -203,30 +204,25 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
     n: usize,
     t: usize,
     transcript: &mut IOPTranscript<F>,
-) -> Vec<usize> {
+) -> Result<Vec<usize>, Error> {
     let bytes_to_squeeze = get_num_bytes(n);
     let mut indices = Vec::with_capacity(t);
     for _ in 0..t {
         let mut bytes: Vec<u8> = vec![0; bytes_to_squeeze];
         transcript
             .get_and_append_byte_challenge(b"i", &mut bytes)
-            .unwrap();
+            .map_err(|_| Error::TranscriptError)?;
 
         // get the usize from Vec<u8>:
         let ind = bytes.iter().fold(0, |acc, &x| (acc << 8) + x as usize);
         // modulo the number of columns in the encoded matrix
         indices.push(ind % n);
     }
-    indices
+    Ok(indices)
 }
 
 #[inline]
-pub(crate) fn calculate_t(
-    rho_inv: usize,
-    sec_param: usize,
-    field_bits: u32,
-    block_length: usize,
-) -> usize {
+pub(crate) fn calculate_t(rho_inv: usize, sec_param: usize) -> usize {
     // Double-check with BCI+20 if you can simply replace
     // $\delta = \frac{1-\rho}{3}$ with $\frac{1-\rho}{2}$. In that case, we
     // will find the smallest t such that
@@ -240,9 +236,8 @@ pub(crate) fn calculate_t(
     // $d/F$ for $\delta = \frac{1-\rho}{3}$. But from expression 1.1 from
     // BCI+20, I wrote $n/F$ for $\delta = \frac{1-\rho}{3}$. It is negligible
     // anyways.
-    let sec_param = sec_param as i32;
-    let residual = block_length as f64 / 2.0_f64.powi(field_bits as i32);
-    let nom = (2.0_f64.powi(-sec_param) - residual).log2() - 1.0;
+    let sec_param = sec_param as f64;
+    let nom = -sec_param - 1.0;
     let denom = (0.5 + 0.5 / rho_inv as f64).log2();
     let t = (nom / denom).ceil() as usize;
     t
