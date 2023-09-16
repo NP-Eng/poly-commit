@@ -41,7 +41,14 @@ pub struct Ligero<
 const DEFAULT_RHO_INV: usize = 2;
 const DEFAULT_SEC_PARAM: usize = 128;
 
-pub(crate) type LigeroPCUniversalParams = ();
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Clone(bound = ""), Debug(bound = ""))]
+pub struct LigeroPCUniversalParams {
+    /// number of rows resp. columns of the square matrix containing the coefficients of the polynomial
+    pub(crate) num_rows: usize,
+    pub(crate) num_cols: usize,
+    pub(crate) num_ext_cols: usize,
+}
 
 impl PCUniversalParams for LigeroPCUniversalParams {
     fn max_degree(&self) -> usize {

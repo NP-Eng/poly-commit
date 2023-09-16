@@ -104,7 +104,9 @@ where
         // 1. Compute the linear combination using the random coefficients
         let v = mat.row_mul(coeffs);
 
-        transcript.append_serializable_element(b"v", &v).unwrap();
+        transcript
+            .append_serializable_element(b"v", &v)
+            .map_err(|_| Error::TranscriptError)?;
 
         // 2. Generate t column indices to test the linear combination on
         let indices = get_indices_from_transcript(ext_mat.m, t, transcript)?;
@@ -117,7 +119,11 @@ where
 
         for i in indices {
             queried_columns.push(ext_mat_cols[i].clone());
-            paths.push(col_tree.generate_proof(i).unwrap());
+            paths.push(
+                col_tree
+                    .generate_proof(i)
+                    .map_err(|_| Error::TranscriptError)?,
+            );
         }
 
         Ok(LigeroPCProofSingle {
@@ -174,8 +180,11 @@ where
         GeneralEvaluationDomain::<F>::compute_size_of_domain(max_degree * (RHO_INV - 1))
             .ok_or(Error::UnsupportedDegreeBound(max_degree))?;
 
-        LigeroPCUniversalParams::default();
-        Ok(())
+        Ok(LigeroPCUniversalParams {
+            num_rows: 0,
+            num_cols: 0,
+            num_ext_cols: 0,
+        })
     }
 
     fn trim(
@@ -216,8 +225,7 @@ where
             // 3. Add root to transcript and generate random linear combination with it
             let root = col_tree.root();
 
-            let mut transcript: IOPTranscript<F> =
-                IOPTranscript::new(b"well_formedness_transcript");
+            let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"transcript");
             transcript
                 .append_serializable_element(b"root", &root)
                 .map_err(|_| Error::TranscriptError)?;
@@ -300,26 +308,29 @@ where
                 acc_b *= point_pow;
             }
 
-            let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"opening_transcript");
+            let mut transcript = IOPTranscript::new(b"transcript");
+            transcript
+                .append_serializable_element(b"root", &commitment.root)
+                .map_err(|_| Error::TranscriptError)?;
 
-            let n_rows = mat.n;
-            let mut r = Vec::new();
-            for _ in 0..n_rows {
-                r.push(
-                    transcript
-                        .get_and_append_challenge(b"r")
-                        .map_err(|_| Error::TranscriptError)?,
-                );
-            }
-
+            
             let well_formedness_proof = if ck.check_well_formedness {
+                let n_rows = mat.n;
+                let mut r = Vec::new();
+                for _ in 0..n_rows {
+                    r.push(
+                        transcript
+                            .get_and_append_challenge(b"r")
+                            .map_err(|_| Error::TranscriptError)?,
+                    );
+                }
                 Some(Self::generate_proof(
                     &r,
                     &mat,
                     &ext_mat,
                     &col_tree,
                     &mut transcript,
-                ))
+                )?)
             } else {
                 None
             };
@@ -330,7 +341,7 @@ where
 
             proof_array.push(LigeroPCProof {
                 opening: Self::generate_proof(&b, &mat, &ext_mat, &col_tree, &mut transcript)?,
-                well_formedness: None,
+                well_formedness: well_formedness_proof,
             });
         }
 
@@ -359,8 +370,7 @@ where
             // maybe return Err?
             return Err(Error::IncorrectInputLength(
                 format!(
-                    "Mismatched lengths: {} proofs were provided for {} commitments with {} claimed values",
-            labeled_commitments.len(), proof_array.len(), values.len()
+                    "Mismatched lengths: {} proofs were provided for {} commitments with {} claimed values",labeled_commitments.len(), proof_array.len(), values.len()
                 )
             ));
         }
@@ -370,19 +380,18 @@ where
 
             // TODO maybe check that the parameters have been calculated honestly (n_rows/cols/ext_cols);
             //      could they be used to cheat?
-            let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"opening_transcript");
+            let mut transcript = IOPTranscript::new(b"transcript");
+            transcript
+                .append_serializable_element(b"root", &commitment.root)
+                .map_err(|_| Error::TranscriptError)?;
 
             // check if we've seen this commitment before. If not, we should verify it.
             let out = if vk.check_well_formedness {
-                if let None = &proof_array[i].well_formedness {
+                if proof_array[i].well_formedness.is_none() {
                     panic!("Handle the panic properly");
                 }
                 let tmp = &proof_array[i].well_formedness.as_ref();
                 let well_formedness = tmp.unwrap();
-                transcript
-                    .append_serializable_element(b"root", &commitment.root)
-                    .map_err(|_| Error::TranscriptError)?;
-
                 // 2. Get the linear combination coefficients from the transcript
                 let mut r = Vec::new();
                 for _ in 0..commitment.n_rows {
@@ -475,22 +484,22 @@ where
             if let (Some(well_formedness), Some(r)) = out {
                 let w_well_formedness = reed_solomon(&well_formedness.v, RHO_INV);
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
-                    check_inner_product(
-                        &coeffs,
-                        &proof_array[i].opening.columns[transcript_index],
-                        w[*matrix_index],
-                    )?;
                     // 5. Verify the random linear combinations
                     check_inner_product(
                         &r,
                         &well_formedness.columns[transcript_index],
                         w_well_formedness[*matrix_index],
                     )?;
+                    check_inner_product(
+                        coeffs,
+                        &proof_array[i].opening.columns[transcript_index],
+                        w[*matrix_index],
+                    )?;
                 }
             } else {
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     check_inner_product(
-                        &coeffs,
+                        coeffs,
                         &proof_array[i].opening.columns[transcript_index],
                         w[*matrix_index],
                     )?;

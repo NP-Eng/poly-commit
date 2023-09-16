@@ -239,6 +239,5 @@ pub(crate) fn calculate_t(rho_inv: usize, sec_param: usize) -> usize {
     let sec_param = sec_param as f64;
     let nom = -sec_param - 1.0;
     let denom = (0.5 + 0.5 / rho_inv as f64).log2();
-    let t = (nom / denom).ceil() as usize;
-    t
+    (nom / denom).ceil() as usize // This is the `t`
 }
