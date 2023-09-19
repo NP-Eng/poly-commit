@@ -307,7 +307,8 @@ where
                 .append_serializable_element(b"root", &commitment.root)
                 .map_err(|_| Error::TranscriptError)?;
 
-            let well_formedness_proof = if ck.check_well_formedness {
+            // If we are checking well-formedness, we need to compute the well-formedness proof (which is just r.M) and append it to the transcript.
+            let well_formedness = if ck.check_well_formedness {
                 let n_rows = mat.n;
                 let mut r = Vec::new();
                 for _ in 0..n_rows {
@@ -334,7 +335,7 @@ where
             proof_array.push(LigeroPCProof {
                 // compute the opening proof and append b.M to the transcript
                 opening: Self::generate_proof(&b, &mat, &ext_mat, &col_tree, &mut transcript)?,
-                well_formedness: well_formedness_proof,
+                well_formedness,
             });
         }
 
