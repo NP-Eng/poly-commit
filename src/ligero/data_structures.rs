@@ -202,7 +202,7 @@ where
     C: Config,
 {
     pub(crate) opening: LigeroPCProofSingle<F, C>,
-    pub(crate) well_formedness: Option<LigeroPCProofSingle<F, C>>,
+    pub(crate) well_formedness: Option<Vec<F>>,
 }
 
 // Multiple poly at one point

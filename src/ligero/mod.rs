@@ -313,7 +313,6 @@ where
                 .append_serializable_element(b"root", &commitment.root)
                 .map_err(|_| Error::TranscriptError)?;
 
-            
             let well_formedness_proof = if ck.check_well_formedness {
                 let n_rows = mat.n;
                 let mut r = Vec::new();
@@ -324,13 +323,13 @@ where
                             .map_err(|_| Error::TranscriptError)?,
                     );
                 }
-                Some(Self::generate_proof(
-                    &r,
-                    &mat,
-                    &ext_mat,
-                    &col_tree,
-                    &mut transcript,
-                )?)
+                // 1. Compute the linear combination using the random coefficients
+                let v = mat.row_mul(&r);
+
+                transcript
+                    .append_serializable_element(b"v", &v)
+                    .map_err(|_| Error::TranscriptError)?;
+                Some(v)
             } else {
                 None
             };
@@ -378,14 +377,11 @@ where
         for (i, labeled_commitment) in labeled_commitments.iter().enumerate() {
             let commitment = labeled_commitment.commitment();
 
-            // TODO maybe check that the parameters have been calculated honestly (n_rows/cols/ext_cols);
-            //      could they be used to cheat?
             let mut transcript = IOPTranscript::new(b"transcript");
             transcript
                 .append_serializable_element(b"root", &commitment.root)
                 .map_err(|_| Error::TranscriptError)?;
 
-            // check if we've seen this commitment before. If not, we should verify it.
             let out = if vk.check_well_formedness {
                 if proof_array[i].well_formedness.is_none() {
                     panic!("Handle the panic properly");
@@ -403,7 +399,7 @@ where
                 }
                 // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M
                 transcript
-                    .append_serializable_element(b"v", &well_formedness.v)
+                    .append_serializable_element(b"v", well_formedness)
                     .map_err(|_| Error::TranscriptError)?;
 
                 (Some(well_formedness), Some(r))
@@ -481,12 +477,12 @@ where
             };
 
             if let (Some(well_formedness), Some(r)) = out {
-                let w_well_formedness = reed_solomon(&well_formedness.v, RHO_INV);
+                let w_well_formedness = reed_solomon(&well_formedness, RHO_INV);
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     // 5. Verify the random linear combinations
                     check_inner_product(
                         &r,
-                        &well_formedness.columns[transcript_index],
+                        &proof_array[i].opening.columns[transcript_index],
                         w_well_formedness[*matrix_index],
                     )?;
                     check_inner_product(
