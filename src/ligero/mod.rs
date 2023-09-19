@@ -378,7 +378,7 @@ where
 
             let out = if vk.check_well_formedness {
                 if proof_array[i].well_formedness.is_none() {
-                    panic!("Handle the panic properly");
+                    return Err(Error::InvalidCommitment);
                 }
                 let tmp = &proof_array[i].well_formedness.as_ref();
                 let well_formedness = tmp.unwrap();
