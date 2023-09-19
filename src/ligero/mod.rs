@@ -382,8 +382,7 @@ where
                 }
                 let tmp = &proof_array[i].well_formedness.as_ref();
                 let well_formedness = tmp.unwrap();
-                // 2. Get the linear combination coefficients from the transcript
-                let mut r = Vec::new();
+                let mut r = Vec::with_capacity(commitment.n_rows);
                 for _ in 0..commitment.n_rows {
                     r.push(
                         transcript
@@ -402,7 +401,7 @@ where
             };
 
             // 1. Compute a and b
-            let mut a = Vec::new();
+            let mut a = Vec::with_capacity(commitment.n_cols);
             let mut acc_a = F::one();
             for _ in 0..commitment.n_cols {
                 a.push(acc_a);
@@ -410,7 +409,7 @@ where
             }
 
             // by now acc_a = point^n_cols
-            let mut b = Vec::new();
+            let mut b = Vec::with_capacity(commitment.n_rows);
             let mut acc_b = F::one();
             for _ in 0..commitment.n_rows {
                 b.push(acc_b);
@@ -436,10 +435,12 @@ where
             let two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
                 &vk.two_to_one_params;
             // 1. Hash the received columns into leaf hashes
-            let mut col_hashes: Vec<Vec<u8>> = Vec::new();
-            for c in proof_array[i].opening.columns.iter() {
-                col_hashes.push(hash_column::<D, F>(c));
-            }
+            let col_hashes: Vec<_> = proof_array[i]
+                .opening
+                .columns
+                .iter()
+                .map(|c| hash_column::<D, F>(c))
+                .collect();
 
             // 2. Compute t column indices to check the linear combination at
             let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
