@@ -458,10 +458,9 @@ where
             // 3. Verify the paths for each of the leaf hashes - this is only run once,
             // even if we have a well-formedness check (i.e., we save sending and checking the columns).
             // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf)
-            for (i, (leaf, q_i)) in col_hashes.into_iter().zip(indices.iter()).enumerate() {
-                // TODO handle the error here
-                let path = &proof_array[i].opening.paths[i];
-                if path.leaf_index != *q_i {
+            for (j, (leaf, q_j)) in col_hashes.into_iter().zip(indices.iter()).enumerate() {
+                let path = &proof_array[i].opening.paths[j];
+                if path.leaf_index != *q_j {
                     return Err(Error::InvalidCommitment);
                 }
 
