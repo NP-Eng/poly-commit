@@ -286,12 +286,6 @@ where
             let polynomial = labeled_polynomials[i].polynomial();
             let commitment = labeled_commitments[i].commitment();
 
-            // TODO we receive a list of polynomials and a list of commitments
-            // are we to understand that the first commitment is for the first polynomial, ...etc?
-
-            // TODO we should maybe check that these two lists match, but that would imply recomputing merkle trees...
-            // at least check labels?
-
             // 1. Compute matrices
             let (mat, ext_mat) = Self::compute_matrices(polynomial);
 
@@ -299,7 +293,7 @@ where
             let col_tree =
                 Self::create_merkle_tree(&ext_mat, &ck.leaf_hash_params, &ck.two_to_one_params);
 
-            // 3. Generate vector b and add v = b·M to the transcript
+            // 3. Generate vector b
             let mut b = Vec::new();
             let point_pow = point.pow([commitment.n_cols as u64]); // TODO this and other conversions could potentially fail
             let mut acc_b = F::one();
@@ -323,7 +317,6 @@ where
                             .map_err(|_| Error::TranscriptError)?,
                     );
                 }
-                // 1. Compute the linear combination using the random coefficients
                 let v = mat.row_mul(&r);
 
                 transcript
@@ -339,6 +332,7 @@ where
                 .map_err(|_| Error::TranscriptError)?;
 
             proof_array.push(LigeroPCProof {
+                // compute the opening proof and append b.M to the transcript
                 opening: Self::generate_proof(&b, &mat, &ext_mat, &col_tree, &mut transcript)?,
                 well_formedness: well_formedness_proof,
             });
@@ -366,7 +360,6 @@ where
         if labeled_commitments.len() != proof_array.len()
             || labeled_commitments.len() != values.len()
         {
-            // maybe return Err?
             return Err(Error::IncorrectInputLength(
                 format!(
                     "Mismatched lengths: {} proofs were provided for {} commitments with {} claimed values",labeled_commitments.len(), proof_array.len(), values.len()
@@ -425,7 +418,6 @@ where
             let t = calculate_t(RHO_INV, SEC_PARAM); // TODO include in ck/vk?
 
             // 2. Seed the transcript with the point and generate t random indices
-            // TODO replace unwraps by proper error handling
             // TODO Consider removing the evaluation point from the transcript.
             transcript
                 .append_serializable_element(b"point", point)
@@ -467,7 +459,7 @@ where
             // 4. Compute the encoding w = E(v)
             let w = reed_solomon(&proof_array[i].opening.v, RHO_INV);
 
-            // check that a.b = c
+            // helper closure for checking that a.b = c
             let check_inner_product = |a, b, c| -> Result<(), Error> {
                 if inner_product(a, b) != c {
                     return Err(Error::InvalidCommitment);
@@ -476,10 +468,12 @@ where
                 Ok(())
             };
 
+            // 5. Probabilistic checks that whatever the prover sent,
+            // matches with what the verifier computed for himself.
+            // Note: we sacrifice some code repetition in order not to repeat execution.
             if let (Some(well_formedness), Some(r)) = out {
                 let w_well_formedness = reed_solomon(&well_formedness, RHO_INV);
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
-                    // 5. Verify the random linear combinations
                     check_inner_product(
                         &r,
                         &proof_array[i].opening.columns[transcript_index],
