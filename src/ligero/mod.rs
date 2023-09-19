@@ -11,7 +11,7 @@ use digest::Digest;
 use jf_primitives::pcs::transcript::IOPTranscript;
 use std::borrow::Borrow;
 
-use crate::ligero::utils::{inner_product, reed_solomon};
+use crate::ligero::utils::{inner_product, linear_encode};
 use crate::{Error, LabeledCommitment, LabeledPolynomial, PolynomialCommitment};
 
 use ark_std::rand::RngCore;
@@ -123,7 +123,7 @@ where
         }
 
         // 4. Compute the encoding w = E(v)
-        let w = reed_solomon(&proof.v, rho_inv);
+        let w = linear_encode(&proof.v, rho_inv);
 
         // 5. Verify the random linear combinations
         for (transcript_index, matrix_index) in indices.into_iter().enumerate() {
@@ -153,7 +153,7 @@ where
         let ext_mat = Matrix::new_from_rows(
             mat.rows()
                 .iter()
-                .map(|r| reed_solomon(r, rho_inv))
+                .map(|r| linear_encode(r, rho_inv))
                 .collect(),
         );
 
