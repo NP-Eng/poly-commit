@@ -131,7 +131,7 @@ pub(crate) fn compute_dimensions<F: FftField>(n: usize) -> (usize, usize) {
 /// Apply reed-solomon encoding to msg.
 /// Assumes msg.len() is equal to the order of an FFT domain in F.
 /// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * rho_inv.
-pub(crate) fn linear_encode<F: FftField>(
+pub(crate) fn reed_solomon<F: FftField>(
     // msg, of length m, is interpreted as a vector of coefficients of a polynomial of degree m - 1
     msg: &[F],
     rho_inv: usize,

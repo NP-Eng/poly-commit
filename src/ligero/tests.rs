@@ -151,7 +151,7 @@ mod tests {
             // let evals = small_domain.fft(&coeffs);
             let m = deg + 1;
 
-            let encoded = linear_encode(&coeffs, rho_inv);
+            let encoded = reed_solomon(&coeffs, rho_inv);
 
             let large_domain = GeneralEvaluationDomain::<Fq>::new(m * rho_inv).unwrap();
 
