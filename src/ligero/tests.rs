@@ -148,7 +148,6 @@ mod tests {
             let coeffs = &pol.coeffs;
 
             // size of evals might be larger than deg + 1 (the min. number of evals needed to interpolate): we could still do R-S encoding on smaller evals, but the resulting polynomial will differ, so for this test to work we should pass it in full
-            // let evals = small_domain.fft(&coeffs);
             let m = deg + 1;
 
             let encoded = reed_solomon(&coeffs, rho_inv);
