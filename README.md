@@ -84,12 +84,12 @@ TCC 2020
 Charalampos Papamanthou, Elaine Shi, Roberto Tamassia   
 TCC 2013
 
-[Ligero: Lightweight Sublinear Arguments Without a Trusted Setup][ligero]
-Scott Ames, Carmit Hazay, Yuval Ishai, Muthuramakrishnan Venkitasubramaniam
+[Ligero: Lightweight Sublinear Arguments Without a Trusted Setup][ligero]    
+Scott Ames, Carmit Hazay, Yuval Ishai, Muthuramakrishnan Venkitasubramaniam    
 CCS 2017
 
-[Brakedown: Linear-time and field-agnostic SNARKs for R1CS][breakdown]
-Alexander Golovnev, Jonathan Lee, Srinath Setty, Justin Thaler, Riad S. Wahby
+[Brakedown: Linear-time and field-agnostic SNARKs for R1CS][breakdown]    
+Alexander Golovnev, Jonathan Lee, Srinath Setty, Justin Thaler, Riad S. Wahby    
 CRYPTO 2023
 
 ## Acknowledgements
