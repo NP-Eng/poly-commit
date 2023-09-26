@@ -172,7 +172,7 @@ where
         _num_vars: Option<usize>,
         _rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
-        if RHO_INV > 1 {
+        if RHO_INV <= 1 {
             return Err(Error::InvalidParameters(format!(
                 "RHO_INV must be an interger greater than 1",
             )));
