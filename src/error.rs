@@ -192,7 +192,7 @@ impl core::fmt::Display for Error {
             Error::IncorrectInputLength(err) => write!(f, "{}", err),
             Error::InvalidCommitment => write!(f, "Failed to verify the commitment"),
             Error::TranscriptError => write!(f, "Incorrect transcript manipulation"),
-            Error::InvalidParameters => write!(f, "Failed to construct a meaningful PCS with the parameters provided"),
+            Error::InvalidParameters(err) => write!(f, "{}", err),
         }
     }
 }
