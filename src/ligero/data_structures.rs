@@ -39,16 +39,22 @@ pub struct Ligero<
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub struct LigeroPCUniversalParams {
+pub struct LigeroPCUniversalParams<F: PrimeField> {
     /// number of rows resp. columns of the square matrix containing the coefficients of the polynomial
+    pub(crate) _field: PhantomData<F>,
     pub(crate) num_rows: usize,
     pub(crate) num_cols: usize,
     pub(crate) num_ext_cols: usize,
+    pub(crate) rho_inv: usize,
+    pub(crate) check_well_formedness: bool,
 }
 
-impl PCUniversalParams for LigeroPCUniversalParams {
+impl<F> PCUniversalParams for LigeroPCUniversalParams<F>
+where
+    F: PrimeField,
+{
     fn max_degree(&self) -> usize {
-        todo!()
+        2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
     }
 }
 

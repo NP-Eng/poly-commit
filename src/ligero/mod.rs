@@ -4,7 +4,7 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::PrimeField;
-use ark_poly::{DenseUVPolynomial, EvaluationDomain, GeneralEvaluationDomain};
+use ark_poly::DenseUVPolynomial;
 use ark_std::fmt::Debug;
 use core::marker::PhantomData;
 use digest::Digest;
@@ -147,7 +147,7 @@ where
     C::InnerDigest: Absorb,
     D: Digest,
 {
-    type UniversalParams = LigeroPCUniversalParams;
+    type UniversalParams = LigeroPCUniversalParams<F>;
 
     type CommitterKey = LigeroPCCommitterKey<C>;
 
@@ -168,32 +168,43 @@ where
     type Error = Error;
 
     fn setup<R: RngCore>(
-        max_degree: usize,
+        _max_degree: usize,
         _num_vars: Option<usize>,
-        _rng: &mut R,
+        rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
         if RHO_INV <= 1 {
-            return Err(Error::InvalidParameters(format!(
-                "RHO_INV must be an interger greater than 1",
-            )));
+            return Err(Error::InvalidParameters(
+                "RHO_INV must be an interger greater than 1".to_string(),
+            ));
         }
-        // The domain will have size m * RHO_INV, but we already have the first m elements
-        GeneralEvaluationDomain::<F>::compute_size_of_domain(max_degree * (RHO_INV - 1))
-            .ok_or(Error::UnsupportedDegreeBound(max_degree))?;
-
-        Ok(LigeroPCUniversalParams {
+        // let leaf_hash_params = <Sha256 as CRHScheme>::setup(&mut rng).unwrap();
+        // let two_to_one_params = <Sha256 as TwoToOneCRHScheme>::setup(&mut rng).unwrap().clone();
+        Ok(Self::UniversalParams {
+            _field: Default::default(),
             num_rows: 0,
             num_cols: 0,
             num_ext_cols: 0,
+            rho_inv: RHO_INV,
+            check_well_formedness: true,
         })
     }
 
     fn trim(
-        _pp: &Self::UniversalParams,
+        pp: &Self::UniversalParams,
         _supported_degree: usize,
         _supported_hiding_bound: usize,
         _enforced_degree_bounds: Option<&[usize]>,
     ) -> Result<(Self::CommitterKey, Self::VerifierKey), Self::Error> {
+        // let mut rng = &mut test_rng();
+        // let leaf_hash_params = <Sha256 as CRHScheme>::setup(&mut rng).unwrap();
+        // let two_to_one_params = <Sha256 as TwoToOneCRHScheme>::setup(&mut rng)
+        //     .unwrap()
+        //     .clone();
+        // let ck = LigeroPCCommitterKey {
+        //     leaf_hash_params,
+        //     two_to_one_params,
+        //     check_well_formedness: pp.check_well_formedness,
+        // };
         todo!();
     }
 
