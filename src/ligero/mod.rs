@@ -12,7 +12,7 @@ use jf_primitives::pcs::transcript::IOPTranscript;
 use std::borrow::Borrow;
 
 use crate::ligero::utils::{inner_product, reed_solomon};
-use crate::{Error, LabeledCommitment, LabeledPolynomial, PolynomialCommitment};
+use crate::{Error, LabeledCommitment, LabeledPolynomial, PCUniversalParams, PolynomialCommitment};
 
 use ark_std::rand::RngCore;
 
@@ -28,8 +28,7 @@ use utils::{calculate_t, compute_dimensions, get_indices_from_transcript, hash_c
 
 mod tests;
 
-impl<F, C, D, S, P, const RHO_INV: usize, const SEC_PARAM: usize>
-    Ligero<F, C, D, S, P, RHO_INV, SEC_PARAM>
+impl<F, C, D, S, P> Ligero<F, C, D, S, P>
 where
     F: PrimeField,
     C: Config,
@@ -52,7 +51,7 @@ where
         }
     }
 
-    fn compute_matrices(polynomial: &P) -> (Matrix<F>, Matrix<F>) {
+    fn compute_matrices(polynomial: &P, rho_inv: usize) -> (Matrix<F>, Matrix<F>) {
         let mut coeffs = polynomial.coeffs().to_vec();
 
         // 1. Computing parameters and initial matrix
@@ -68,7 +67,7 @@ where
         let ext_mat = Matrix::new_from_rows(
             mat.rows()
                 .iter()
-                .map(|r| reed_solomon(r, RHO_INV))
+                .map(|r| reed_solomon(r, rho_inv))
                 .collect(),
         );
 
@@ -93,13 +92,15 @@ where
         MerkleTree::<C>::new(leaf_hash_params, two_to_one_params, col_hashes).unwrap()
     }
     fn generate_proof(
+        sec_param: usize,
+        rho_inv: usize,
         coeffs: &[F],
         mat: &Matrix<F>,
         ext_mat: &Matrix<F>,
         col_tree: &MerkleTree<C>,
         transcript: &mut IOPTranscript<F>,
     ) -> Result<LigeroPCProofSingle<F, C>, Error> {
-        let t = calculate_t::<F>(RHO_INV, SEC_PARAM, ext_mat.n)?;
+        let t = calculate_t::<F>(sec_param, rho_inv, ext_mat.n)?;
 
         // 1. Compute the linear combination using the random coefficients
         let v = mat.row_mul(coeffs);
@@ -134,8 +135,7 @@ where
     }
 }
 
-impl<F, P, S, C, D, const RHO_INV: usize, const SEC_PARAM: usize> PolynomialCommitment<F, P, S>
-    for Ligero<F, C, D, S, P, RHO_INV, SEC_PARAM>
+impl<F, P, S, C, D> PolynomialCommitment<F, P, S> for Ligero<F, C, D, S, P>
 where
     F: PrimeField,
     P: DenseUVPolynomial<F>,
@@ -147,11 +147,11 @@ where
     C::InnerDigest: Absorb,
     D: Digest,
 {
-    type UniversalParams = LigeroPCUniversalParams<F>;
+    type UniversalParams = LigeroPCUniversalParams<F, C>;
 
-    type CommitterKey = LigeroPCCommitterKey<C>;
+    type CommitterKey = LigeroPCCommitterKey<F, C>;
 
-    type VerifierKey = LigeroPCVerifierKey<C>;
+    type VerifierKey = LigeroPCVerifierKey<F, C>;
 
     type PreparedVerifierKey = LigeroPCPreparedVerifierKey;
 
@@ -167,26 +167,29 @@ where
 
     type Error = Error;
 
+    /// For Ligero PCS, max_degree is derived from the Field properties, and not a user-provided value.
+    /// This is only a default setup.
     fn setup<R: RngCore>(
-        _max_degree: usize,
+        max_degree: usize,
         _num_vars: Option<usize>,
         rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
-        if RHO_INV <= 1 {
-            return Err(Error::InvalidParameters(
-                "RHO_INV must be an interger greater than 1".to_string(),
-            ));
-        }
-        // let leaf_hash_params = <Sha256 as CRHScheme>::setup(&mut rng).unwrap();
-        // let two_to_one_params = <Sha256 as TwoToOneCRHScheme>::setup(&mut rng).unwrap().clone();
-        Ok(Self::UniversalParams {
-            _field: Default::default(),
-            num_rows: 0,
-            num_cols: 0,
-            num_ext_cols: 0,
-            rho_inv: RHO_INV,
+        let leaf_hash_params = <C::LeafHash as CRHScheme>::setup(rng).unwrap();
+        let two_to_one_params = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
+            .unwrap()
+            .clone();
+        let pp = Self::UniversalParams {
+            _field: PhantomData,
+            sec_param: 128,
+            rho_inv: 4,
             check_well_formedness: true,
-        })
+            leaf_hash_params,
+            two_to_one_params,
+        };
+        if max_degree > pp.max_degree() {
+            return Err(Error::InvalidParameters("stuff".to_string()));
+        }
+        Ok(pp)
     }
 
     fn trim(
@@ -195,17 +198,23 @@ where
         _supported_hiding_bound: usize,
         _enforced_degree_bounds: Option<&[usize]>,
     ) -> Result<(Self::CommitterKey, Self::VerifierKey), Self::Error> {
-        // let mut rng = &mut test_rng();
-        // let leaf_hash_params = <Sha256 as CRHScheme>::setup(&mut rng).unwrap();
-        // let two_to_one_params = <Sha256 as TwoToOneCRHScheme>::setup(&mut rng)
-        //     .unwrap()
-        //     .clone();
-        // let ck = LigeroPCCommitterKey {
-        //     leaf_hash_params,
-        //     two_to_one_params,
-        //     check_well_formedness: pp.check_well_formedness,
-        // };
-        todo!();
+        let ck = LigeroPCCommitterKey::<F, C> {
+            _field: PhantomData,
+            sec_param: pp.sec_param,
+            rho_inv: pp.rho_inv,
+            leaf_hash_params: pp.leaf_hash_params.clone(),
+            two_to_one_params: pp.two_to_one_params.clone(),
+            check_well_formedness: pp.check_well_formedness,
+        };
+        let vk = LigeroPCVerifierKey::<F, C> {
+            _field: PhantomData,
+            sec_param: pp.sec_param,
+            rho_inv: pp.rho_inv,
+            leaf_hash_params: pp.leaf_hash_params.clone(),
+            two_to_one_params: pp.two_to_one_params.clone(),
+            check_well_formedness: pp.check_well_formedness,
+        };
+        Ok((ck, vk))
     }
 
     fn commit<'a>(
@@ -228,7 +237,7 @@ where
             let polynomial = labeled_polynomial.polynomial();
 
             // 1. Compute matrices
-            let (mat, ext_mat) = Self::compute_matrices(polynomial);
+            let (mat, ext_mat) = Self::compute_matrices(polynomial, ck.rho_inv);
 
             // 2. Create the Merkle tree from the hashes of the columns
             let col_tree =
@@ -299,7 +308,7 @@ where
             let commitment = labeled_commitments[i].commitment();
 
             // 1. Compute matrices
-            let (mat, ext_mat) = Self::compute_matrices(polynomial);
+            let (mat, ext_mat) = Self::compute_matrices(polynomial, ck.rho_inv);
 
             // 2. Create the Merkle tree from the hashes of the columns
             let col_tree =
@@ -346,7 +355,15 @@ where
 
             proof_array.push(LigeroPCProof {
                 // compute the opening proof and append b.M to the transcript
-                opening: Self::generate_proof(&b, &mat, &ext_mat, &col_tree, &mut transcript)?,
+                opening: Self::generate_proof(
+                    ck.sec_param,
+                    ck.rho_inv,
+                    &b,
+                    &mat,
+                    &ext_mat,
+                    &col_tree,
+                    &mut transcript,
+                )?,
                 well_formedness,
             });
         }
@@ -427,7 +444,7 @@ where
                 b.push(acc_b);
                 acc_b *= acc_a;
             }
-            let t = calculate_t::<F>(RHO_INV, SEC_PARAM, commitment.n_ext_cols)?;
+            let t = calculate_t::<F>(vk.sec_param, vk.rho_inv, commitment.n_ext_cols)?;
 
             // 2. Seed the transcript with the point and generate t random indices
             // TODO Consider removing the evaluation point from the transcript.
@@ -471,7 +488,7 @@ where
             }
 
             // 4. Compute the encoding w = E(v)
-            let w = reed_solomon(&proof_array[i].opening.v, RHO_INV);
+            let w = reed_solomon(&proof_array[i].opening.v, vk.rho_inv);
 
             // helper closure for checking that a.b = c
             let check_inner_product = |a, b, c| -> Result<(), Error> {
@@ -486,7 +503,7 @@ where
             // matches with what the verifier computed for himself.
             // Note: we sacrifice some code repetition in order not to repeat execution.
             if let (Some(well_formedness), Some(r)) = out {
-                let w_well_formedness = reed_solomon(&well_formedness, RHO_INV);
+                let w_well_formedness = reed_solomon(&well_formedness, vk.rho_inv);
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     check_inner_product(
                         &r,

@@ -25,10 +25,6 @@ pub struct Ligero<
     D: Digest,
     S: CryptographicSponge,
     P: DenseUVPolynomial<F>,
-    // one over the rate rho
-    const RHO_INV: usize,
-    // security parameter, used in calculating t
-    const SEC_PARAM: usize,
 > {
     pub(crate) _field: PhantomData<F>,
     pub(crate) _config: PhantomData<C>,
@@ -39,87 +35,116 @@ pub struct Ligero<
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub struct LigeroPCUniversalParams<F: PrimeField> {
-    /// number of rows resp. columns of the square matrix containing the coefficients of the polynomial
-    pub(crate) _field: PhantomData<F>,
-    pub(crate) num_rows: usize,
-    pub(crate) num_cols: usize,
-    pub(crate) num_ext_cols: usize,
-    pub(crate) rho_inv: usize,
-    pub(crate) check_well_formedness: bool,
+pub struct LigeroPCUniversalParams<F: PrimeField, C: Config>
+where
+    C: Config,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
+{
+    pub _field: PhantomData<F>,
+    /// The security parameter
+    pub sec_param: usize,
+    /// The inverse of the code rate.
+    pub rho_inv: usize,
+    /// This is a flag which determines if the random linear combination is done.
+    pub check_well_formedness: bool,
+    /// Parameters for hash function of Merkle tree leaves
+    #[derivative(Debug = "ignore")]
+    pub leaf_hash_params: LeafParam<C>,
+    /// Parameters for hash function of Merke tree combining two nodes into one
+    #[derivative(Debug = "ignore")]
+    pub two_to_one_params: TwoToOneParam<C>,
 }
 
-impl<F> PCUniversalParams for LigeroPCUniversalParams<F>
+impl<F, C> PCUniversalParams for LigeroPCUniversalParams<F, C>
 where
     F: PrimeField,
+    C: Config,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
     fn max_degree(&self) -> usize {
-        2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
+        println!("{}", (F::TWO_ADICITY - self.rho_inv as u32) * 2);
+        0
     }
 }
 
 /// Ligero commitment structure
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub struct LigeroPCCommitterKey<C>
+pub struct LigeroPCCommitterKey<F, C>
 where
+    F: PrimeField,
     C: Config,
     <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
-    #[derivative(Debug = "ignore")]
+    pub(crate) _field: PhantomData<F>,
+    /// The security parameter
+    pub(crate) sec_param: usize,
+    /// The inverse of code rate
+    pub(crate) rho_inv: usize,
     /// Parameters for hash function of Merkle tree leaves
-    pub leaf_hash_params: LeafParam<C>,
     #[derivative(Debug = "ignore")]
+    pub(crate) leaf_hash_params: LeafParam<C>,
     /// Parameters for hash function of Merke tree combining two nodes into one
-    pub two_to_one_params: TwoToOneParam<C>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) two_to_one_params: TwoToOneParam<C>,
     /// This is a flag which determines if the random linear combination is done.
-    pub check_well_formedness: bool,
+    pub(crate) check_well_formedness: bool,
 }
 
-impl<C> PCCommitterKey for LigeroPCCommitterKey<C>
+impl<F, C> PCCommitterKey for LigeroPCCommitterKey<F, C>
 where
+    F: PrimeField,
     C: Config,
     <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
     fn max_degree(&self) -> usize {
-        todo!()
+        2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
     }
 
     fn supported_degree(&self) -> usize {
-        todo!()
+        self.max_degree()
     }
 }
 /// The verifier key which holds some scheme parameters
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub struct LigeroPCVerifierKey<C>
+pub struct LigeroPCVerifierKey<F, C>
 where
+    F: PrimeField,
     C: Config,
     <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
+    pub(crate) _field: PhantomData<F>,
+    /// The security parameter
+    pub(crate) sec_param: usize,
+    /// The inverse of code rate
+    pub(crate) rho_inv: usize,
     /// Parameters for hash function of Merkle tree leaves
-    pub leaf_hash_params: LeafParam<C>,
+    pub(crate) leaf_hash_params: LeafParam<C>,
     /// Parameters for hash function of Merke tree combining two nodes into one
-    pub two_to_one_params: TwoToOneParam<C>,
+    pub(crate) two_to_one_params: TwoToOneParam<C>,
     /// This is a flag which determines if the random linear combination is done.
-    pub check_well_formedness: bool,
+    pub(crate) check_well_formedness: bool,
 }
 
-impl<C> PCVerifierKey for LigeroPCVerifierKey<C>
+impl<F, C> PCVerifierKey for LigeroPCVerifierKey<F, C>
 where
+    F: PrimeField,
     C: Config,
     <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
     fn max_degree(&self) -> usize {
-        todo!()
+        2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
     }
 
     fn supported_degree(&self) -> usize {
-        todo!()
+        self.max_degree()
     }
 }
 
