@@ -186,8 +186,11 @@ where
             leaf_hash_params,
             two_to_one_params,
         };
-        if max_degree > pp.max_degree() {
-            return Err(Error::InvalidParameters("stuff".to_string()));
+        let real_max_degree = pp.max_degree();
+        if max_degree > real_max_degree || real_max_degree == 0 {
+            return Err(Error::InvalidParameters(
+                "This field is not suitable for the proposed parameters".to_string(),
+            ));
         }
         Ok(pp)
     }
@@ -198,6 +201,11 @@ where
         _supported_hiding_bound: usize,
         _enforced_degree_bounds: Option<&[usize]>,
     ) -> Result<(Self::CommitterKey, Self::VerifierKey), Self::Error> {
+        if pp.max_degree() == 0 {
+            return Err(Error::InvalidParameters(
+                "This field is not suitable for the proposed parameters".to_string(),
+            ));
+        }
         let ck = LigeroPCCommitterKey::<F, C> {
             _field: PhantomData,
             sec_param: pp.sec_param,
@@ -270,8 +278,8 @@ where
                 None, // TODO think about this (degree_bound)
             ));
         }
-
-        Ok((commitments, Vec::new()))
+        let com_len = &commitments.len();
+        Ok((commitments, vec![Self::Randomness::default(); *com_len]))
         // TODO when should this return Err?
     }
 

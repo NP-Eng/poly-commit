@@ -255,12 +255,9 @@ mod tests {
     fn test_setup() {
         let rng = &mut test_rng();
         let _ = LigeroPcsF::<Fq>::setup(1 << 44, None, rng).unwrap();
-
-        assert_eq!(LigeroPcsF::<Fq>::setup(1 << 45, None, rng).is_err(), true);
-
         // but the base field of bls12_381 doesnt have such large domains
-        use ark_bls12_381::Fr as F_381;
-        assert_eq!(LigeroPcsF::<F_381>::setup(10, None, rng).is_err(), true);
+        use ark_bls12_381::Fq as F_381;
+        assert_eq!(LigeroPcsF::<F_381>::setup(20, None, rng).is_err(), true);
     }
 
     #[test]

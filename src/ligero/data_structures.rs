@@ -64,8 +64,13 @@ where
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
     fn max_degree(&self) -> usize {
-        println!("{}", (F::TWO_ADICITY - self.rho_inv as u32) * 2);
-        0
+        if F::TWO_ADICITY < self.rho_inv as u32 {
+            0
+        } else if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
+            2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
+        } else {
+            usize::MAX
+        }
     }
 }
 
@@ -102,7 +107,11 @@ where
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
     fn max_degree(&self) -> usize {
-        2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
+        if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
+            2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
+        } else {
+            usize::MAX
+        }
     }
 
     fn supported_degree(&self) -> usize {
@@ -140,7 +149,11 @@ where
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
     fn max_degree(&self) -> usize {
-        2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
+        if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
+            2_usize.pow((F::TWO_ADICITY - self.rho_inv as u32) * 2)
+        } else {
+            usize::MAX
+        }
     }
 
     fn supported_degree(&self) -> usize {
