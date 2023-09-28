@@ -41,19 +41,45 @@ where
     <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
 {
-    pub _field: PhantomData<F>,
+    _field: PhantomData<F>,
     /// The security parameter
-    pub sec_param: usize,
+    pub(crate) sec_param: usize,
     /// The inverse of the code rate.
-    pub rho_inv: usize,
+    pub(crate) rho_inv: usize,
     /// This is a flag which determines if the random linear combination is done.
-    pub check_well_formedness: bool,
+    pub(crate) check_well_formedness: bool,
     /// Parameters for hash function of Merkle tree leaves
     #[derivative(Debug = "ignore")]
-    pub leaf_hash_params: LeafParam<C>,
+    pub(crate) leaf_hash_params: LeafParam<C>,
     /// Parameters for hash function of Merke tree combining two nodes into one
     #[derivative(Debug = "ignore")]
-    pub two_to_one_params: TwoToOneParam<C>,
+    pub(crate) two_to_one_params: TwoToOneParam<C>,
+}
+
+impl<F, C> LigeroPCUniversalParams<F, C>
+where
+    F: PrimeField,
+    C: Config,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Debug,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Debug,
+{
+    /// Create new LigeroPCUniversalParams
+    pub fn new(
+        sec_param: usize,
+        rho_inv: usize,
+        check_well_formedness: bool,
+        leaf_hash_params: LeafParam<C>,
+        two_to_one_params: TwoToOneParam<C>,
+    ) -> Self {
+        Self {
+            _field: PhantomData,
+            sec_param,
+            rho_inv,
+            check_well_formedness,
+            leaf_hash_params,
+            two_to_one_params,
+        }
+    }
 }
 
 impl<F, C> PCUniversalParams for LigeroPCUniversalParams<F, C>
