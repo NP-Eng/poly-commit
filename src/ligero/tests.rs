@@ -713,4 +713,178 @@ mod tests {
         )
         .expect("test failed for bls12-381");
     }
+
+    #[test]
+    fn single_poly_degree_bound_test() {
+        use crate::tests::*;
+        single_poly_degree_bound_test::<_, _, LigeroPCS, _>(
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        single_poly_degree_bound_test::<_, _, LigeroPcsF<Fr381>, _>(
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+    }
+
+    #[test]
+    fn single_poly_degree_bound_multiple_queries_test() {
+        use crate::tests::*;
+        single_poly_degree_bound_multiple_queries_test::<_, _, LigeroPCS, _>(
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        single_poly_degree_bound_multiple_queries_test::<_, _, LigeroPcsF<Fr381>, _>(
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+    }
+
+    #[test]
+    fn two_polys_degree_bound_single_query_test() {
+        use crate::tests::*;
+        two_polys_degree_bound_single_query_test::<_, _, LigeroPCS, _>(
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        two_polys_degree_bound_single_query_test::<_, _, LigeroPcsF<Fr381>, _>(
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+    }
+
+    #[test]
+    fn full_end_to_end_test() {
+        use crate::tests::*;
+        full_end_to_end_test::<_, _, LigeroPCS, _>(
+            None,
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        println!("Finished bls12-377");
+        full_end_to_end_test::<_, _, LigeroPcsF<Fr381>, _>(
+            None,
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+        println!("Finished bls12-381");
+    }
+
+    #[test]
+    fn single_equation_test() {
+        use crate::tests::*;
+        single_equation_test::<_, _, LigeroPCS, _>(
+            None,
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        println!("Finished bls12-377");
+        single_equation_test::<_, _, LigeroPcsF<Fr381>, _>(
+            None,
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+        println!("Finished bls12-381");
+    }
+
+    #[test]
+    fn two_equation_test() {
+        use crate::tests::*;
+        two_equation_test::<_, _, LigeroPCS, _>(
+            None,
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        println!("Finished bls12-377");
+        two_equation_test::<_, _, LigeroPcsF<Fr381>, _>(
+            None,
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+        println!("Finished bls12-381");
+    }
+
+    #[test]
+    fn two_equation_degree_bound_test() {
+        use crate::tests::*;
+        two_equation_degree_bound_test::<_, _, LigeroPCS, _>(
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        println!("Finished bls12-377");
+        two_equation_degree_bound_test::<_, _, LigeroPcsF<Fr381>, _>(
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+        println!("Finished bls12-381");
+    }
+
+    #[test]
+    fn full_end_to_end_equation_test() {
+        use crate::tests::*;
+        full_end_to_end_equation_test::<_, _, LigeroPCS, _>(
+            None,
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        println!("Finished bls12-377");
+        full_end_to_end_equation_test::<_, _, LigeroPcsF<Fr381>, _>(
+            None,
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+        println!("Finished bls12-381");
+    }
+
+    #[test]
+    #[should_panic]
+    fn bad_degree_bound_test() {
+        use crate::tests::*;
+        bad_degree_bound_test::<_, _, LigeroPCS, _>(
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        println!("Finished bls12-377");
+        bad_degree_bound_test::<_, _, LigeroPcsF<Fr381>, _>(
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+        println!("Finished bls12-381");
+    }
 }
