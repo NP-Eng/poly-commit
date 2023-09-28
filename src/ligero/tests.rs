@@ -35,14 +35,13 @@ mod tests {
         const NUM_WINDOWS: usize = 256;
     }
 
-    type LeafH = Sha256; //::CRH<JubJub, Window4x256>;
-    type CompressH = Sha256; //pedersen::TwoToOneCRH<JubJub, Window4x256>;
+    type LeafH = Sha256;
+    type CompressH = Sha256;
 
     struct MerkleTreeParams;
 
     impl Config for MerkleTreeParams {
         type Leaf = [u8];
-        // type Leaf = Vec<u8>;
 
         type LeafDigest = <LeafH as CRHScheme>::Output;
         type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
@@ -250,15 +249,6 @@ mod tests {
     }
 
     #[test]
-    fn test_setup() {
-        let rng = &mut test_rng();
-        let _ = LigeroPcsF::<Fq>::setup(1 << 44, None, rng).unwrap();
-        // but the base field of bls12_381 doesnt have such large domains
-        use ark_bls12_381::Fq as F_381;
-        assert_eq!(LigeroPcsF::<F_381>::setup(20, None, rng).is_err(), true);
-    }
-
-    #[test]
     fn test_construction() {
         let degree = 4;
         let mut rng = &mut test_rng();
@@ -299,16 +289,6 @@ mod tests {
         let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
             ChallengeGenerator::new_univariate(&mut test_sponge);
 
-        // assert!(
-        //     LigeroPCS::check_well_formedness(
-        //         &c[0].commitment(),
-        //         &leaf_hash_params,
-        //         &two_to_one_params
-        //     )
-        //     .is_ok(),
-        //     "Well formedness check failed"
-        // );
-
         let proof = LigeroPCS::open(
             &ck,
             &[labeled_poly],
@@ -324,299 +304,6 @@ mod tests {
             &c,
             &point,
             [value],
-            &proof,
-            &mut challenge_generator,
-            None
-        )
-        .unwrap());
-    }
-
-    #[test]
-    fn test_several_polynomials() {
-        let degrees = [4_usize, 13_usize, 30_usize];
-        let mut rng = &mut test_rng();
-
-        LigeroPCS::setup(*degrees.iter().max().unwrap(), None, rng).unwrap();
-        let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
-        let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
-            .unwrap()
-            .clone();
-        let check_well_formedness = true;
-
-        let pp: LigeroPCUniversalParams<Fr, MTConfig> = LigeroPCUniversalParams {
-            _field: PhantomData,
-            sec_param: 128,
-            rho_inv: 4,
-            check_well_formedness,
-            leaf_hash_params,
-            two_to_one_params,
-        };
-
-        let (ck, vk) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
-
-        let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-        let mut test_sponge = test_sponge::<Fr>();
-        let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
-            ChallengeGenerator::new_univariate(&mut test_sponge);
-
-        let mut labeled_polys = Vec::new();
-        let mut values = Vec::new();
-
-        let point = Fr::rand(rand_chacha);
-
-        for degree in degrees {
-            let labeled_poly = LabeledPolynomial::new(
-                "test".to_string(),
-                rand_poly(degree, None, rand_chacha),
-                None,
-                None,
-            );
-
-            values.push(labeled_poly.evaluate(&point));
-            labeled_polys.push(labeled_poly);
-        }
-
-        let (commitments, randomness) = LigeroPCS::commit(&ck, &labeled_polys, None).unwrap();
-
-        let proof = LigeroPCS::open(
-            &ck,
-            &labeled_polys,
-            &commitments,
-            &point,
-            &mut (challenge_generator.clone()),
-            &randomness,
-            None,
-        )
-        .unwrap();
-        assert!(LigeroPCS::check(
-            &vk,
-            &commitments,
-            &point,
-            values,
-            &proof,
-            &mut challenge_generator,
-            None
-        )
-        .unwrap());
-    }
-
-    #[test]
-    #[should_panic(expected = "Mismatched lengths")]
-    fn test_several_polynomials_mismatched_lengths() {
-        // here we go through the same motions as in test_several_polynomials,
-        // but pass to check() one fewer value than we should
-        let degrees = [4_usize, 13_usize, 30_usize];
-        let mut rng = &mut test_rng();
-
-        LigeroPCS::setup(*degrees.iter().max().unwrap(), None, rng).unwrap();
-        let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
-        let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
-            .unwrap()
-            .clone();
-
-        let check_well_formedness = true;
-
-        let pp: LigeroPCUniversalParams<Fr, MTConfig> = LigeroPCUniversalParams {
-            _field: PhantomData,
-            sec_param: 128,
-            rho_inv: 4,
-            check_well_formedness,
-            leaf_hash_params,
-            two_to_one_params,
-        };
-
-        let (ck, vk) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
-
-        let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-        let mut test_sponge = test_sponge::<Fr>();
-        let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
-            ChallengeGenerator::new_univariate(&mut test_sponge);
-
-        let mut labeled_polys = Vec::new();
-        let mut values = Vec::new();
-
-        let point = Fr::rand(rand_chacha);
-
-        for degree in degrees {
-            let labeled_poly = LabeledPolynomial::new(
-                "test".to_string(),
-                rand_poly(degree, None, rand_chacha),
-                None,
-                None,
-            );
-
-            values.push(labeled_poly.evaluate(&point));
-            labeled_polys.push(labeled_poly);
-        }
-
-        let (commitments, randomness) = LigeroPCS::commit(&ck, &labeled_polys, None).unwrap();
-
-        let proof = LigeroPCS::open(
-            &ck,
-            &labeled_polys,
-            &commitments,
-            &point,
-            &mut (challenge_generator.clone()),
-            &randomness,
-            None,
-        )
-        .unwrap();
-        assert!(LigeroPCS::check(
-            &vk,
-            &commitments,
-            &point,
-            values[0..2].to_vec(),
-            &proof,
-            &mut challenge_generator,
-            None
-        )
-        .unwrap());
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_several_polynomials_swap_proofs() {
-        // in this test we work with three polynomials and swap the proofs of the first and last openings
-        let degrees = [4_usize, 13_usize, 30_usize];
-        let mut rng = &mut test_rng();
-
-        LigeroPCS::setup(*degrees.iter().max().unwrap(), None, rng).unwrap();
-        let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
-        let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
-            .unwrap()
-            .clone();
-        let check_well_formedness = true;
-
-        let pp: LigeroPCUniversalParams<Fr, MTConfig> = LigeroPCUniversalParams {
-            _field: PhantomData,
-            sec_param: 128,
-            rho_inv: 4,
-            check_well_formedness,
-            leaf_hash_params,
-            two_to_one_params,
-        };
-
-        let (ck, vk) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
-
-        let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-        let mut test_sponge = test_sponge::<Fr>();
-        let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
-            ChallengeGenerator::new_univariate(&mut test_sponge);
-
-        let mut labeled_polys = Vec::new();
-        let mut values = Vec::new();
-
-        let point = Fr::rand(rand_chacha);
-
-        for degree in degrees {
-            let labeled_poly = LabeledPolynomial::new(
-                "test".to_string(),
-                rand_poly(degree, None, rand_chacha),
-                None,
-                None,
-            );
-
-            values.push(labeled_poly.evaluate(&point));
-            labeled_polys.push(labeled_poly);
-        }
-
-        let (commitments, randomness) = LigeroPCS::commit(&ck, &labeled_polys, None).unwrap();
-
-        let mut proof = LigeroPCS::open(
-            &ck,
-            &labeled_polys,
-            &commitments,
-            &point,
-            &mut (challenge_generator.clone()),
-            &randomness,
-            None,
-        )
-        .unwrap();
-
-        // to do swap opening proofs
-        proof.swap(0, 2);
-
-        assert!(LigeroPCS::check(
-            &vk,
-            &commitments,
-            &point,
-            values,
-            &proof,
-            &mut challenge_generator,
-            None
-        )
-        .unwrap());
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_several_polynomials_swap_values() {
-        // in this test we work with three polynomials and swap the second
-        // and third values passed to the verifier externally
-        let degrees = [4_usize, 13_usize, 30_usize];
-        let mut rng = &mut test_rng();
-
-        LigeroPCS::setup(*degrees.iter().max().unwrap(), None, rng).unwrap();
-        let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
-        let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
-            .unwrap()
-            .clone();
-        let check_well_formedness = true;
-
-        let pp: LigeroPCUniversalParams<Fr, MTConfig> = LigeroPCUniversalParams {
-            _field: PhantomData,
-            sec_param: 128,
-            rho_inv: 4,
-            check_well_formedness,
-            leaf_hash_params,
-            two_to_one_params,
-        };
-
-        let (ck, vk) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
-
-        let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-        let mut test_sponge = test_sponge::<Fr>();
-        let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
-            ChallengeGenerator::new_univariate(&mut test_sponge);
-
-        let mut labeled_polys = Vec::new();
-        let mut values = Vec::new();
-
-        let point = Fr::rand(rand_chacha);
-
-        for degree in degrees {
-            let labeled_poly = LabeledPolynomial::new(
-                "test".to_string(),
-                rand_poly(degree, None, rand_chacha),
-                None,
-                None,
-            );
-
-            values.push(labeled_poly.evaluate(&point));
-            labeled_polys.push(labeled_poly);
-        }
-
-        let (commitments, randomness) = LigeroPCS::commit(&ck, &labeled_polys, None).unwrap();
-
-        let proof = LigeroPCS::open(
-            &ck,
-            &labeled_polys,
-            &commitments,
-            &point,
-            &mut (challenge_generator.clone()),
-            &randomness,
-            None,
-        )
-        .unwrap();
-
-        // swap values externally passed to verifier
-        values.swap(1, 2);
-
-        assert!(LigeroPCS::check(
-            &vk,
-            &commitments,
-            &point,
-            values,
             &proof,
             &mut challenge_generator,
             None
