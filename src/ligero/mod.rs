@@ -167,7 +167,6 @@ where
 
     type Error = Error;
 
-    /// For Ligero PCS, max_degree is derived from the Field properties, and not a user-provided value.
     /// This is only a default setup.
     fn setup<R: RngCore>(
         max_degree: usize,
@@ -266,9 +265,11 @@ where
             // 4. Generate the proof by choosing random columns and proving their paths in the tree
 
             let commitment = LigeroPCCommitment {
-                n_rows,
-                n_cols,
-                n_ext_cols,
+                metadata: Metadata {
+                    n_rows,
+                    n_cols,
+                    n_ext_cols,
+                },
                 root,
             };
 
@@ -314,6 +315,9 @@ where
         for i in 0..labeled_polynomials.len() {
             let polynomial = labeled_polynomials[i].polynomial();
             let commitment = labeled_commitments[i].commitment();
+            let n_rows = commitment.metadata.n_rows;
+            let n_cols = commitment.metadata.n_cols;
+            let root = &commitment.root;
 
             // 1. Compute matrices
             let (mat, ext_mat) = Self::compute_matrices(polynomial, ck.rho_inv);
@@ -324,21 +328,20 @@ where
 
             // 3. Generate vector b
             let mut b = Vec::new();
-            let point_pow = point.pow([commitment.n_cols as u64]); // TODO this and other conversions could potentially fail
-            let mut acc_b = F::one();
-            for _ in 0..commitment.n_rows {
-                b.push(acc_b);
-                acc_b *= point_pow;
+            let point_pow = point.pow([n_cols as u64]); // TODO this and other conversions could potentially fail
+            let mut pow_b = F::one();
+            for _ in 0..n_rows {
+                b.push(pow_b);
+                pow_b *= point_pow;
             }
 
             let mut transcript = IOPTranscript::new(b"transcript");
             transcript
-                .append_serializable_element(b"root", &commitment.root)
+                .append_serializable_element(b"root", root)
                 .map_err(|_| Error::TranscriptError)?;
 
             // If we are checking well-formedness, we need to compute the well-formedness proof (which is just r.M) and append it to the transcript.
             let well_formedness = if ck.check_well_formedness {
-                let n_rows = mat.n;
                 let mut r = Vec::new();
                 for _ in 0..n_rows {
                     r.push(
@@ -404,9 +407,18 @@ where
                 )
             ));
         }
+        let leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
+            &vk.leaf_hash_params;
+        let two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
+            &vk.two_to_one_params;
 
         for (i, labeled_commitment) in labeled_commitments.iter().enumerate() {
             let commitment = labeled_commitment.commitment();
+            let n_rows = commitment.metadata.n_rows;
+            let n_cols = commitment.metadata.n_cols;
+            let n_ext_cols = commitment.metadata.n_ext_cols;
+            let root = &commitment.root;
+            let t = calculate_t::<F>(vk.sec_param, vk.rho_inv, n_ext_cols)?;
 
             let mut transcript = IOPTranscript::new(b"transcript");
             transcript
@@ -419,8 +431,8 @@ where
                 }
                 let tmp = &proof_array[i].well_formedness.as_ref();
                 let well_formedness = tmp.unwrap();
-                let mut r = Vec::with_capacity(commitment.n_rows);
-                for _ in 0..commitment.n_rows {
+                let mut r = Vec::with_capacity(n_rows);
+                for _ in 0..n_rows {
                     r.push(
                         transcript
                             .get_and_append_challenge(b"r")
@@ -437,24 +449,7 @@ where
                 (None, None)
             };
 
-            // 1. Compute a and b
-            let mut a = Vec::with_capacity(commitment.n_cols);
-            let mut acc_a = F::one();
-            for _ in 0..commitment.n_cols {
-                a.push(acc_a);
-                acc_a *= point;
-            }
-
-            // by now acc_a = point^n_cols
-            let mut b = Vec::with_capacity(commitment.n_rows);
-            let mut acc_b = F::one();
-            for _ in 0..commitment.n_rows {
-                b.push(acc_b);
-                acc_b *= acc_a;
-            }
-            let t = calculate_t::<F>(vk.sec_param, vk.rho_inv, commitment.n_ext_cols)?;
-
-            // 2. Seed the transcript with the point and generate t random indices
+            // 1. Seed the transcript with the point and the recieved vector
             // TODO Consider removing the evaluation point from the transcript.
             transcript
                 .append_serializable_element(b"point", point)
@@ -463,15 +458,10 @@ where
                 .append_serializable_element(b"v", &proof_array[i].opening.v)
                 .map_err(|_| Error::TranscriptError)?;
 
-            // 3. Evaluate and check for the given point
-            let coeffs: &[F] = &b;
-            let root = &commitment.root;
-            let n_ext_cols = commitment.n_ext_cols;
-            let leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
-                &vk.leaf_hash_params;
-            let two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
-                &vk.two_to_one_params;
-            // 1. Hash the received columns into leaf hashes
+            // 2. Ask random oracle for the `t` indices where the checks happen
+            let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
+
+            // 3. Hash the received columns into leaf hashes
             let col_hashes: Vec<_> = proof_array[i]
                 .opening
                 .columns
@@ -479,10 +469,7 @@ where
                 .map(|c| hash_column::<D, F>(c))
                 .collect();
 
-            // 2. Compute t column indices to check the linear combination at
-            let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
-
-            // 3. Verify the paths for each of the leaf hashes - this is only run once,
+            // 4. Verify the paths for each of the leaf hashes - this is only run once,
             // even if we have a well-formedness check (i.e., we save sending and checking the columns).
             // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf)
             for (j, (leaf, q_j)) in col_hashes.iter().zip(indices.iter()).enumerate() {
@@ -495,10 +482,7 @@ where
                     .map_err(|_| Error::InvalidCommitment)?;
             }
 
-            // 4. Compute the encoding w = E(v)
-            let w = reed_solomon(&proof_array[i].opening.v, vk.rho_inv);
-
-            // helper closure for checking that a.b = c
+            // helper closure: checks if a.b = c
             let check_inner_product = |a, b, c| -> Result<(), Error> {
                 if inner_product(a, b) != c {
                     return Err(Error::InvalidCommitment);
@@ -507,7 +491,29 @@ where
                 Ok(())
             };
 
-            // 5. Probabilistic checks that whatever the prover sent,
+            // 5. Compute the encoding w = E(v)
+            let w = reed_solomon(&proof_array[i].opening.v, vk.rho_inv);
+
+            // 6. Compute a = [1, z, z^2, ..., z^(n_cols_1)]
+            // where z denotes the `point`. Following Justin Thaler's notation
+            let mut a = Vec::with_capacity(n_cols);
+            let mut pow_a = F::one();
+            for _ in 0..n_cols {
+                a.push(pow_a);
+                pow_a *= point;
+            }
+
+            // Here, pow_z = z^n_cols.
+            // Compute b = [1, z^n_cols, z^(2*n_cols), ..., z^((n_rows-1)*n_cols)]
+            let mut b = Vec::with_capacity(n_rows);
+            let mut pow_b = F::one();
+            for _ in 0..n_rows {
+                b.push(pow_b);
+                pow_b *= pow_a;
+            }
+            let coeffs: &[F] = &b;
+
+            // 7. Probabilistic checks that whatever the prover sent,
             // matches with what the verifier computed for himself.
             // Note: we sacrifice some code repetition in order not to repeat execution.
             if let (Some(well_formedness), Some(r)) = out {
