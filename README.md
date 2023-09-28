@@ -56,7 +56,6 @@ Unless you explicitly state otherwise, any contribution that you submit to this 
 [pcd-acc]: https://ia.cr/2020/499
 [pst]: https://ia.cr/2011/587
 [ligero]: https://ia.cr/2022/1608
-[breakdown]: https://ia.cr/2021/1043
 
 ## Reference papers
 
@@ -87,10 +86,6 @@ TCC 2013
 [Ligero: Lightweight Sublinear Arguments Without a Trusted Setup][ligero]    
 Scott Ames, Carmit Hazay, Yuval Ishai, Muthuramakrishnan Venkitasubramaniam    
 CCS 2017
-
-[Brakedown: Linear-time and field-agnostic SNARKs for R1CS][breakdown]    
-Alexander Golovnev, Jonathan Lee, Srinath Setty, Justin Thaler, Riad S. Wahby    
-CRYPTO 2023
 
 ## Acknowledgements
 
