@@ -696,4 +696,21 @@ mod tests {
         )
         .expect("test failed for bls12-381");
     }
+
+    #[test]
+    fn linear_poly_degree_bound_test() {
+        use crate::tests::*;
+        linear_poly_degree_bound_test::<_, _, LigeroPCS, _>(
+            rand_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        linear_poly_degree_bound_test::<_, _, LigeroPcsF<Fr381>, _>(
+            rand_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+    }
 }
