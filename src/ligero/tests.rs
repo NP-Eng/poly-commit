@@ -660,4 +660,23 @@ mod tests {
         )
         .expect("test failed for bls12-381");
     }
+
+    #[test]
+    fn constant_poly_test() {
+        use crate::tests::*;
+        single_poly_test::<_, _, LigeroPCS, _>(
+            None,
+            constant_poly::<Fr>,
+            rand_point::<Bls12_377>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-377");
+        single_poly_test::<_, _, LigeroPcsF<Fr381>, _>(
+            None,
+            constant_poly::<Fr381>,
+            rand_point::<Bls12_381>,
+            poseidon_sponge_for_test,
+        )
+        .expect("test failed for bls12-381");
+    }
 }
