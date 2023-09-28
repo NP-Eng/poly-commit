@@ -33,6 +33,39 @@ pub struct Ligero<
     pub(crate) _poly: PhantomData<P>,
 }
 
+/// The public parameters for the Ligero polynomial commitment scheme.
+/// This is only a default setup with reasonable parameters.
+/// To create your own public parameters, use:
+/// # Example
+/// ```rust
+/// use ark_bls12_377::Fr;
+/// use ark_crypto_primitives::{
+///     crh::{pedersen, sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
+///     merkle_tree::{ByteDigestConverter, Config},
+/// };
+/// use ark_std::test_rng;
+/// use ark_poly_commit::ligero::LigeroPCUniversalParams;
+/// use core::marker::PhantomData;
+///
+/// type LeafH = Sha256;
+/// type CompressH = Sha256;
+/// struct MerkleTreeParams;
+/// impl Config for MerkleTreeParams {
+///     type Leaf = [u8];
+///     type LeafDigest = <LeafH as CRHScheme>::Output;
+///     type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
+///     type InnerDigest = <CompressH as TwoToOneCRHScheme>::Output;
+///     type LeafHash = LeafH;
+///     type TwoToOneHash = CompressH;
+/// }
+/// type MTConfig = MerkleTreeParams;
+/// let mut rng = &mut test_rng();
+/// let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
+/// let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
+///     .unwrap()
+///     .clone();
+/// let pp: LigeroPCUniversalParams<Fr, MTConfig> = LigeroPCUniversalParams::new(128, 2, true,
+///     leaf_hash_params, two_to_one_params);
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 pub struct LigeroPCUniversalParams<F: PrimeField, C: Config>
