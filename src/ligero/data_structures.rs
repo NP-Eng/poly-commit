@@ -25,8 +25,12 @@ use super::utils::{
     calculate_t, compute_dimensions, get_indices_from_transcript, hash_column, reed_solomon,
 };
 
-/// The Ligero polynomial commitment scheme.
-/// Disclaimer: currently hiding is not implemented.
+/// The univariate Ligero polynomial commitment scheme based on [[Ligero]][ligero].
+/// The scheme defaults to the naive batching strategy.
+///
+/// Note: The scheme currently does not support hiding.
+///
+/// [ligero]: https://eprint.iacr.org/2022/1608.pdf
 pub struct Ligero<
     F: PrimeField,
     C: Config,
