@@ -223,9 +223,7 @@ where
 pub(crate) type LigeroPCPreparedVerifierKey = ();
 
 impl<Unprepared: PCVerifierKey> PCPreparedVerifierKey<Unprepared> for LigeroPCPreparedVerifierKey {
-    fn prepare(_vk: &Unprepared) -> Self {
-        todo!()
-    }
+    fn prepare(_vk: &Unprepared) -> Self {}
 }
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
@@ -247,28 +245,24 @@ pub struct LigeroPCCommitment<C: Config> {
 
 impl<C: Config> PCCommitment for LigeroPCCommitment<C> {
     fn empty() -> Self {
-        todo!()
+        LigeroPCCommitment::default()
     }
 
     fn has_degree_bound(&self) -> bool {
-        todo!()
+        false
     }
 }
 
 pub(crate) type LigeroPCPreparedCommitment = ();
 
 impl<Unprepared: PCCommitment> PCPreparedCommitment<Unprepared> for LigeroPCPreparedCommitment {
-    fn prepare(_cm: &Unprepared) -> Self {
-        todo!()
-    }
+    fn prepare(_cm: &Unprepared) -> Self {}
 }
 
 pub(crate) type LigeroPCRandomness = ();
 
 impl PCRandomness for LigeroPCRandomness {
-    fn empty() -> Self {
-        
-    }
+    fn empty() -> Self {}
 
     fn rand<R: RngCore>(
         _num_queries: usize,
@@ -276,7 +270,6 @@ impl PCRandomness for LigeroPCRandomness {
         _num_vars: Option<usize>,
         _rng: &mut R,
     ) -> Self {
-        todo!()
     }
 }
 
