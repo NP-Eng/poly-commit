@@ -3,6 +3,8 @@ use ark_ff::{FftField, Field, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use ark_std::marker::PhantomData;
+use ark_std::string::ToString;
+use ark_std::vec::Vec;
 use digest::Digest;
 use merlin::Transcript;
 use rayon::{
