@@ -517,7 +517,7 @@ where
             // matches with what the verifier computed for himself.
             // Note: we sacrifice some code repetition in order not to repeat execution.
             if let (Some(well_formedness), Some(r)) = out {
-                let w_well_formedness = reed_solomon(&well_formedness, vk.rho_inv);
+                let w_well_formedness = reed_solomon(well_formedness, vk.rho_inv);
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     check_inner_product(
                         &r,

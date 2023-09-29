@@ -267,7 +267,7 @@ pub(crate) type LigeroPCRandomness = ();
 
 impl PCRandomness for LigeroPCRandomness {
     fn empty() -> Self {
-        ()
+        
     }
 
     fn rand<R: RngCore>(
