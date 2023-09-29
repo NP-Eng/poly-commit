@@ -12,12 +12,11 @@ use ark_crypto_primitives::{
 use ark_ff::PrimeField;
 use ark_poly::DenseUVPolynomial;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::borrow::Borrow;
 use ark_std::fmt::Debug;
 use ark_std::marker::PhantomData;
-use digest::Digest;
-use std::borrow::Borrow;
-
 use ark_std::rand::RngCore;
+use digest::Digest;
 
 use super::utils::Matrix;
 use super::utils::{
