@@ -20,6 +20,7 @@ use ark_poly_commit::{
     ligero::{Ligero, LigeroPCUniversalParams},
     LabeledPolynomial, PolynomialCommitment,
 };
+use ark_std::rand::Rng;
 use ark_std::test_rng;
 use ark_std::UniformRand;
 use blake2::Blake2s256;
@@ -52,12 +53,12 @@ type _LigeroPcsF<F> = PC<F, MTConfig, Blake2s256, Sponge, DensePolynomial<F>>;
 fn rand_poly<F: PrimeField>(
     degree: usize,
     _: Option<usize>,
-    rng: &mut ChaCha20Rng,
+    rng: &mut impl Rng,
 ) -> DensePolynomial<F> {
     DensePolynomial::rand(degree, rng)
 }
 
-const SAMPLES: usize = 1000;
+const SAMPLES: usize = 100;
 
 fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
     let full_rounds = 8;
@@ -93,6 +94,32 @@ fn commit(c: &mut Criterion) {
     let pp = LigeroPCS::setup(degree, None, rng).unwrap();
     let (ck, _) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
 
+    let labeled_polys = (0..SAMPLES)
+        .map(|_| {
+            LabeledPolynomial::new("test".to_string(), rand_poly(degree, None, rng), None, None)
+        })
+        .collect::<Vec<_>>();
+
+    let labaled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
+
+    c.bench_function("Ligero Commit", |b| {
+        let mut i = 0;
+        b.iter(|| {
+            i = (i + 1) % SAMPLES;
+
+            let (_, _) = LigeroPCS::commit(&ck, [labaled_poly_refs[i]], None).unwrap();
+        })
+    });
+}
+
+fn open(c: &mut Criterion) {
+    // degree is 18 like in Jellyfish Multilinear KZG
+    let degree = 18;
+
+    let rng = &mut test_rng();
+    let pp = LigeroPCS::setup(degree, None, rng).unwrap();
+    let (ck, _) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
+
     let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
     let labeled_poly = LabeledPolynomial::new(
         "test".to_string(),
@@ -101,15 +128,12 @@ fn commit(c: &mut Criterion) {
         None,
     );
 
-    let mut test_sponge = test_sponge::<Fr>();
-
     c.bench_function("Ligero Commit", |b| {
         let mut i = 0;
         b.iter(|| {
             i = (i + 1) % SAMPLES;
 
-            let (commitment, rands) =
-                LigeroPCS::commit(&ck, &[labeled_poly.clone()], None).unwrap();
+            let (_, _) = LigeroPCS::commit(&ck, &[labeled_poly.clone()], None).unwrap();
         })
     });
 }
