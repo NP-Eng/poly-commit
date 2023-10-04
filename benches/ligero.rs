@@ -15,6 +15,7 @@ use ark_poly::{
     domain::general::GeneralEvaluationDomain, univariate::DensePolynomial, DenseUVPolynomial,
     EvaluationDomain, Polynomial,
 };
+use ark_poly_commit::LabeledCommitment;
 use ark_poly_commit::{
     challenge::ChallengeGenerator,
     ligero::{Ligero, LigeroPCUniversalParams},
@@ -100,13 +101,13 @@ fn commit(c: &mut Criterion) {
         })
         .collect::<Vec<_>>();
 
+    // this is a little ugly, but ideally we want to avoid cloning inside the benchmark. Therefore we keep `labeled_polys` in scope, and just commit to references to it.
     let labaled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
 
     c.bench_function("Ligero Commit", |b| {
         let mut i = 0;
         b.iter(|| {
             i = (i + 1) % SAMPLES;
-
             let (_, _) = LigeroPCS::commit(&ck, [labaled_poly_refs[i]], None).unwrap();
         })
     });
@@ -120,20 +121,40 @@ fn open(c: &mut Criterion) {
     let pp = LigeroPCS::setup(degree, None, rng).unwrap();
     let (ck, _) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
 
-    let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-    let labeled_poly = LabeledPolynomial::new(
-        "test".to_string(),
-        rand_poly(degree, None, rand_chacha),
-        None,
-        None,
-    );
+    let labeled_polys = (0..SAMPLES)
+        .map(|_| {
+            LabeledPolynomial::new("test".to_string(), rand_poly(degree, None, rng), None, None)
+        })
+        .collect::<Vec<_>>();
 
-    c.bench_function("Ligero Commit", |b| {
+    // this is a little ugly, but ideally we want to avoid cloning inside the benchmark. Therefore we keep `labeled_polys` in scope, and just commit to references to it.
+    let labaled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
+
+    let commitments: Vec<(Vec<_>, _)> = (0..SAMPLES)
+        .map(|i| {
+            let (c, r) = LigeroPCS::commit(&ck, [labaled_poly_refs[i]], None).unwrap();
+            (c, r)
+        })
+        .collect();
+    let challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
+        ChallengeGenerator::new_univariate(&mut test_sponge());
+
+    let points: Vec<_> = (0..SAMPLES).map(|_| Fr::rand(&mut test_rng())).collect();
+
+    c.bench_function("Ligero Open", |b| {
         let mut i = 0;
         b.iter(|| {
             i = (i + 1) % SAMPLES;
-
-            let (_, _) = LigeroPCS::commit(&ck, &[labeled_poly.clone()], None).unwrap();
+            LigeroPCS::open(
+                &ck,
+                [labaled_poly_refs[i]],
+                &commitments[i].0,
+                &points[i],
+                &mut (challenge_generator.clone()),
+                &commitments[i].1,
+                None,
+            )
+            .unwrap();
         })
     });
 }
@@ -142,8 +163,8 @@ criterion_group! {
     name = ligero_benches;
     config = Criterion::default();
     targets =
-        // sign,
         commit,
+        open,
 }
 
 criterion_main!(ligero_benches);
