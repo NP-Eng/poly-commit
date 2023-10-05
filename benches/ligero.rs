@@ -1,33 +1,22 @@
-use std::time::SystemTime;
-
-use ark_bls12_377::Fq;
 use ark_bls12_377::Fr;
-use ark_bls12_381::Fr as Fr381;
-use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
-use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_crypto_primitives::{
-    crh::{pedersen, sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
+    crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
     merkle_tree::{ByteDigestConverter, Config},
-    sponge::poseidon::PoseidonSponge,
+    sponge::{
+        poseidon::{PoseidonConfig, PoseidonSponge},
+        CryptographicSponge,
+    },
 };
-use ark_ff::{Field, PrimeField};
-use ark_poly::{
-    domain::general::GeneralEvaluationDomain, univariate::DensePolynomial, DenseUVPolynomial,
-    EvaluationDomain, Polynomial,
-};
-use ark_poly_commit::LabeledCommitment;
+use ark_ff::PrimeField;
+use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
 use ark_poly_commit::{
-    challenge::ChallengeGenerator,
-    ligero::{Ligero, LigeroPCUniversalParams},
-    LabeledPolynomial, PolynomialCommitment,
+    challenge::ChallengeGenerator, ligero::Ligero, LabeledPolynomial, PolynomialCommitment,
 };
 use ark_std::rand::Rng;
 use ark_std::test_rng;
 use ark_std::UniformRand;
 use blake2::Blake2s256;
 use criterion::{criterion_group, criterion_main, Criterion};
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
-
 struct MerkleTreeParams;
 type LeafH = Sha256;
 type CompressH = Sha256;
