@@ -29,7 +29,8 @@ mod data_structures;
 use data_structures::*;
 
 pub use data_structures::{
-    LinCodePCCommitterKey, LinCodePCProof, LinCodePCUniversalParams, LinCodePCVerifierKey, Metadata,
+    LinCodePCCommitment, LinCodePCCommitterKey, LinCodePCProof, LinCodePCUniversalParams,
+    LinCodePCVerifierKey, Metadata,
 };
 
 use utils::{calculate_t, get_indices_from_transcript, hash_column};
