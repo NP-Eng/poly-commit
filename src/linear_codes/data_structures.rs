@@ -275,7 +275,7 @@ where
     F: PrimeField,
     C: Config,
 {
-    pub(crate) opening: LinCodePCProofSingle<F, C>,
+    pub opening: LinCodePCProofSingle<F, C>,
     pub(crate) well_formedness: Option<Vec<F>>,
 }
 
