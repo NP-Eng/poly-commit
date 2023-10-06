@@ -252,18 +252,19 @@ impl PCRandomness for LinCodePCRandomness {
 /// Proof of an individual linear code well-formedness check or opening
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub(crate) struct LinCodePCProofSingle<F, C>
+pub struct LinCodePCProofSingle<F, C>
 where
     F: PrimeField,
     C: Config,
 {
     /// For each of the indices in q, `paths` contains the path from the root of the merkle tree to the leaf
-    pub(crate) paths: Vec<Path<C>>,
+    pub paths: Vec<Path<C>>,
 
     /// v, s.t. E(v) = w
-    pub(crate) v: Vec<F>,
+    pub v: Vec<F>,
 
-    pub(crate) columns: Vec<Vec<F>>,
+    /// Columns that are opened
+    pub columns: Vec<Vec<F>>,
 }
 
 /// The Proof type for linear code PCS, which amounts to an array of individual proofs
