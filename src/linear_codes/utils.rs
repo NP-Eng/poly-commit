@@ -19,7 +19,7 @@ use crate::streaming_kzg::ceil_div;
 use crate::Error;
 
 #[derive(Debug)]
-pub(crate) struct Matrix<F: Field> {
+pub struct Matrix<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,
     entries: Vec<Vec<F>>,
@@ -175,6 +175,39 @@ pub(crate) fn get_num_bytes(n: usize) -> usize {
     ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
 }
 
+// TODO: replace by https://github.com/arkworks-rs/crypto-primitives/issues/112.
+#[cfg(test)]
+use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+#[cfg(test)]
+pub(crate) fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
+    use ark_crypto_primitives::sponge::{poseidon::PoseidonConfig, CryptographicSponge};
+    use ark_std::test_rng;
+
+    let full_rounds = 8;
+    let partial_rounds = 31;
+    let alpha = 17;
+
+    let mds = vec![
+        vec![F::one(), F::zero(), F::one()],
+        vec![F::one(), F::one(), F::zero()],
+        vec![F::zero(), F::one(), F::one()],
+    ];
+
+    let mut v = Vec::new();
+    let mut ark_rng = test_rng();
+
+    for _ in 0..(full_rounds + partial_rounds) {
+        let mut res = Vec::new();
+
+        for _ in 0..3 {
+            res.push(F::rand(&mut ark_rng));
+        }
+        v.push(res);
+    }
+    let config = PoseidonConfig::new(full_rounds, partial_rounds, alpha, mds, v, 2, 1);
+    PoseidonSponge::new(&config)
+}
+
 /// Takes as input a struct, and converts them to a series of bytes. All traits
 /// that implement `CanonicalSerialize` can be automatically converted to bytes
 /// in this manner.
@@ -322,4 +355,132 @@ pub(crate) fn calculate_t<F: PrimeField>(
     let nom = rhs - 1.0;
     let denom = (0.5 + 0.5 / rho_inv as f64).log2();
     Ok((nom / denom).ceil() as usize) // This is the `t`
+}
+
+#[cfg(test)]
+mod tests {
+
+    use ark_bls12_377::Fr;
+    use ark_poly::{
+        domain::general::GeneralEvaluationDomain, univariate::DensePolynomial, DenseUVPolynomial,
+        Polynomial,
+    };
+    use ark_std::test_rng;
+    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+
+    use super::*;
+
+    #[test]
+    fn test_matrix_constructor_flat() {
+        let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67, 44, 50]);
+        let mat = Matrix::new_from_flat(2, 3, &entries);
+        assert_eq!(mat.entry(1, 2), Fr::from(50));
+    }
+
+    #[test]
+    fn test_matrix_constructor_flat_square() {
+        let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67]);
+        let mat = Matrix::new_from_flat(2, 2, &entries);
+        assert_eq!(mat.entry(1, 1), Fr::from(67));
+    }
+
+    #[test]
+    #[should_panic(expected = "dimensions are 2 x 3 but entry vector has 5 entries")]
+    fn test_matrix_constructor_flat_panic() {
+        let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67, 44]);
+        Matrix::new_from_flat(2, 3, &entries);
+    }
+
+    #[test]
+    fn test_matrix_constructor_rows() {
+        let rows: Vec<Vec<Fr>> = vec![
+            to_field(vec![10, 100, 4]),
+            to_field(vec![23, 1, 0]),
+            to_field(vec![55, 58, 9]),
+        ];
+        let mat = Matrix::new_from_rows(rows);
+        assert_eq!(mat.entry(2, 0), Fr::from(55));
+    }
+
+    #[test]
+    #[should_panic(expected = "not all rows have the same length")]
+    fn test_matrix_constructor_rows_panic() {
+        let rows: Vec<Vec<Fr>> = vec![
+            to_field(vec![10, 100, 4]),
+            to_field(vec![23, 1, 0]),
+            to_field(vec![55, 58]),
+        ];
+        Matrix::new_from_rows(rows);
+    }
+
+    #[test]
+    fn test_cols() {
+        let rows: Vec<Vec<Fr>> = vec![
+            to_field(vec![4, 76]),
+            to_field(vec![14, 92]),
+            to_field(vec![17, 89]),
+        ];
+
+        let mat = Matrix::new_from_rows(rows);
+
+        assert_eq!(mat.cols()[1], to_field(vec![76, 92, 89]));
+    }
+
+    #[test]
+    fn test_row_mul() {
+        let rows: Vec<Vec<Fr>> = vec![
+            to_field(vec![10, 100, 4]),
+            to_field(vec![23, 1, 0]),
+            to_field(vec![55, 58, 9]),
+        ];
+
+        let mat = Matrix::new_from_rows(rows);
+        let v: Vec<Fr> = to_field(vec![12, 41, 55]);
+        // by giving the result in the integers and then converting to Fr
+        // we ensure the test will still pass even if Fr changes
+        assert_eq!(mat.row_mul(&v), to_field::<Fr>(vec![4088, 4431, 543]));
+    }
+
+    #[test]
+    fn test_encoding() {
+        // we use this polynomial to generate the the values we will ask the fft to interpolate
+
+        let rho_inv = 3;
+        // `i` is the min number of evaluations we need to interpolate a poly of degree `i - 1`
+        for i in 1..10 {
+            let deg = (1 << i) - 1;
+
+            let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+            let mut pol = DensePolynomial::rand(deg, rand_chacha);
+
+            while pol.degree() != deg {
+                pol = DensePolynomial::rand(deg, rand_chacha);
+            }
+
+            let coeffs = &pol.coeffs;
+
+            // size of evals might be larger than deg + 1 (the min. number of evals needed to interpolate): we could still do R-S encoding on smaller evals, but the resulting polynomial will differ, so for this test to work we should pass it in full
+            let m = deg + 1;
+
+            let encoded = reed_solomon(&coeffs, rho_inv);
+
+            let large_domain = GeneralEvaluationDomain::<Fr>::new(m * rho_inv).unwrap();
+
+            // the encoded elements should agree with the evaluations of the polynomial in the larger domain
+            for j in 0..(rho_inv * m) {
+                assert_eq!(pol.evaluate(&large_domain.element(j)), encoded[j]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_num_bytes() {
+        assert_eq!(get_num_bytes(0), 0);
+        assert_eq!(get_num_bytes(1), 1);
+        assert_eq!(get_num_bytes(9), 1);
+        assert_eq!(get_num_bytes(1 << 11), 2);
+        assert_eq!(get_num_bytes(1 << 32 - 1), 4);
+        assert_eq!(get_num_bytes(1 << 32), 5);
+        assert_eq!(get_num_bytes(1 << 32 + 1), 5);
+    }
 }

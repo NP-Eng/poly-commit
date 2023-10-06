@@ -129,7 +129,7 @@ pub mod streaming_kzg;
 /// Scheme based on the Ligero construction in [[Ligero]][ligero].
 ///
 /// [ligero]: https://eprint.iacr.org/2022/1608
-pub mod ligero;
+pub mod linear_codes;
 
 /// `QuerySet` is the set of queries that are to be made to a set of labeled polynomials/equations
 /// `p` that have previously been committed to. Each element of a `QuerySet` is a pair of
