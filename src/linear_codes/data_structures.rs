@@ -191,10 +191,14 @@ impl<Unprepared: PCVerifierKey> PCPreparedVerifierKey<Unprepared> for LinCodePCP
 }
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub(crate) struct Metadata {
-    pub(crate) n_rows: usize,
-    pub(crate) n_cols: usize,
-    pub(crate) n_ext_cols: usize,
+/// Metadata about the PCS
+pub struct Metadata {
+    /// The number of rows of the matrix
+    pub n_rows: usize,
+    /// The number of columns of the matrix
+    pub n_cols: usize,
+    /// The number of columns of the matrix after encoding
+    pub n_ext_cols: usize,
 }
 
 /// The commitment to a polynomial is a root of the merkle tree,
