@@ -81,23 +81,6 @@ where
     fn tensor(point: &P::Point, left_len: usize, right_len: usize) -> (Vec<F>, Vec<F>);
 }
 
-// pub trait ColumnHasher<F, C, H>
-// where
-//     F: PrimeField,
-//     C: Config,
-//     H: CRHScheme,
-// {
-//     fn hash_column(column: &[F], params: H::Parameters) -> C::LeafDigest;
-// }
-
-// pub struct FieldColHasher<F, C, H>
-// where
-//     F: PrimeField,
-//     C: Config,
-//     H: CRHScheme,
-// {
-//     _phantom: PhantomData<(F, C, H)>,
-// }
 
 /// Any linear-code-based commitment scheme.
 pub struct LinearCodePCS<L, F, P, S, C, D, H>
