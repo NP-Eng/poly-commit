@@ -1,9 +1,6 @@
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::MerkleTree;
-use ark_crypto_primitives::{
-    merkle_tree::Config,
-    sponge::{Absorb, CryptographicSponge},
-};
+use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
 use ark_poly::Polynomial;
 use ark_std::borrow::Borrow;
@@ -20,10 +17,10 @@ use crate::{Error, LabeledCommitment, LabeledPolynomial, PCUniversalParams, Poly
 mod utils;
 
 mod multilinear_ligero;
-mod univariate_ligero;
+// mod univariate_ligero;
 
 pub use multilinear_ligero::MultilinearLigero;
-pub use univariate_ligero::UnivariateLigero;
+// pub use univariate_ligero::UnivariateLigero;
 
 mod data_structures;
 use data_structures::*;
@@ -44,7 +41,6 @@ where
     P: Polynomial<F>,
     C: Config,
     D: Digest,
-    Vec<u8>: Borrow<C::Leaf>,
 {
     /// Encode a message, which is interpreted as a vector of coefficients
     /// of a polynomial of degree m - 1.
@@ -85,36 +81,57 @@ where
     fn tensor(point: &P::Point, left_len: usize, right_len: usize) -> (Vec<F>, Vec<F>);
 }
 
+// pub trait ColumnHasher<F, C, H>
+// where
+//     F: PrimeField,
+//     C: Config,
+//     H: CRHScheme,
+// {
+//     fn hash_column(column: &[F], params: H::Parameters) -> C::LeafDigest;
+// }
+
+// pub struct FieldColHasher<F, C, H>
+// where
+//     F: PrimeField,
+//     C: Config,
+//     H: CRHScheme,
+// {
+//     _phantom: PhantomData<(F, C, H)>,
+// }
+
 /// Any linear-code-based commitment scheme.
-pub struct LinearCodePCS<L, F, P, S, C, D>
+pub struct LinearCodePCS<L, F, P, S, C, D, H>
 where
     F: PrimeField,
     C: Config,
     D: Digest,
     S: CryptographicSponge,
     P: Polynomial<F>,
-    Vec<u8>: Borrow<C::Leaf>,
+    H: CRHScheme,
     L: LinearEncode<F, P, C, D>,
 {
-    _phantom: PhantomData<(L, F, P, S, C, D)>,
+    _phantom: PhantomData<(L, F, P, S, C, D, H)>,
 }
 
-impl<L, F, P, S, C, D> PolynomialCommitment<F, P, S> for LinearCodePCS<L, F, P, S, C, D>
+impl<L, F, P, S, C, D, H> PolynomialCommitment<F, P, S> for LinearCodePCS<L, F, P, S, C, D, H>
 where
     L: LinearEncode<F, P, C, D>,
     F: PrimeField,
     P: Polynomial<F>,
     S: CryptographicSponge,
     C: Config + 'static,
-    Vec<u8>: Borrow<C::Leaf>,
-    C::InnerDigest: Absorb,
+    Vec<F>: Borrow<<H as CRHScheme>::Input>,
+    H::Output: Into<C::Leaf>,
+    C::Leaf: Sized + Clone + Default,
+    // Vec<F>: Borrow<C::Leaf>,
     D: Digest,
+    H: CRHScheme,
 {
-    type UniversalParams = LinCodePCUniversalParams<F, C>;
+    type UniversalParams = LinCodePCUniversalParams<F, C, H>;
 
-    type CommitterKey = LinCodePCCommitterKey<F, C>;
+    type CommitterKey = LinCodePCCommitterKey<F, C, H>;
 
-    type VerifierKey = LinCodePCVerifierKey<F, C>;
+    type VerifierKey = LinCodePCVerifierKey<F, C, H>;
 
     type PreparedVerifierKey = LinCodePCPreparedVerifierKey;
 
@@ -142,7 +159,16 @@ where
         let two_to_one_params = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
             .unwrap()
             .clone();
-        let pp = Self::UniversalParams::new(128, 4, true, leaf_hash_params, two_to_one_params);
+        let col_hash_params = <H as CRHScheme>::setup(rng).unwrap();
+
+        let pp = Self::UniversalParams::new(
+            128,
+            4,
+            true,
+            leaf_hash_params,
+            two_to_one_params,
+            col_hash_params,
+        );
         let real_max_degree = pp.max_degree();
         if max_degree > real_max_degree || real_max_degree == 0 {
             return Err(Error::InvalidParameters(FIELD_SIZE_ERROR.to_string()));
@@ -159,20 +185,22 @@ where
         if pp.max_degree() == 0 {
             return Err(Error::InvalidParameters(FIELD_SIZE_ERROR.to_string()));
         }
-        let ck = LinCodePCCommitterKey::<F, C> {
+        let ck = LinCodePCCommitterKey::<F, C, H> {
             _field: PhantomData,
             sec_param: pp.sec_param,
             rho_inv: pp.rho_inv,
             leaf_hash_params: pp.leaf_hash_params.clone(),
             two_to_one_params: pp.two_to_one_params.clone(),
+            col_hash_params: pp.col_hash_params.clone(),
             check_well_formedness: pp.check_well_formedness,
         };
-        let vk = LinCodePCVerifierKey::<F, C> {
+        let vk = LinCodePCVerifierKey::<F, C, H> {
             _field: PhantomData,
             sec_param: pp.sec_param,
             rho_inv: pp.rho_inv,
             leaf_hash_params: pp.leaf_hash_params.clone(),
             two_to_one_params: pp.two_to_one_params.clone(),
+            col_hash_params: pp.col_hash_params.clone(),
             check_well_formedness: pp.check_well_formedness,
         };
         Ok((ck, vk))
@@ -202,11 +230,12 @@ where
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck.rho_inv);
 
             // 2. Create the Merkle tree from the hashes of each column.
-            let col_tree = create_merkle_tree::<F, C, D>(
+            let col_tree = create_merkle_tree::<F, C, H>(
                 &ext_mat,
                 &ck.leaf_hash_params,
                 &ck.two_to_one_params,
-            );
+                &ck.col_hash_params,
+            )?;
 
             // 3. Obtain the MT root and add it to the transcript.
             let root = col_tree.root();
@@ -281,11 +310,12 @@ where
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck.rho_inv);
 
             // 2. Create the Merkle tree from the hashes of each column.
-            let col_tree = create_merkle_tree::<F, C, D>(
+            let col_tree = create_merkle_tree::<F, C, H>(
                 &ext_mat,
                 &ck.leaf_hash_params,
                 &ck.two_to_one_params,
-            );
+                &ck.col_hash_params,
+            )?;
 
             // 3. Generate vector `b = [1, z^m, z^(2m), ..., z^((m-1)m)]`
             // This could potentially fail when n_cols > 1<<64, but `ck` won't allow commiting to such polynomials.
@@ -425,11 +455,11 @@ where
             let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
 
             // 3. Hash the received columns into leaf hashes
-            let col_hashes: Vec<_> = proof_array[i]
+            let col_hashes: Vec<C::Leaf> = proof_array[i]
                 .opening
                 .columns
                 .iter()
-                .map(|c| hash_column::<D, F>(c))
+                .map(|c| hash_column::<F, C, H>(c.clone(), &vk.col_hash_params).unwrap())
                 .collect();
 
             // 4. Verify the paths for each of the leaf hashes - this is only run once,
@@ -502,29 +532,34 @@ where
 }
 
 // TODO maybe this can go to utils
-fn create_merkle_tree<F, C, D>(
+fn create_merkle_tree<F, C, H>(
     ext_mat: &Matrix<F>,
     leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters,
     two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
-) -> MerkleTree<C>
+    col_hash_params: &H::Parameters,
+) -> Result<MerkleTree<C>, Error>
 where
     F: PrimeField,
     C: Config,
-    Vec<u8>: Borrow<C::Leaf>,
-    D: Digest,
+    H: CRHScheme,
+    Vec<F>: Borrow<<H as CRHScheme>::Input>,
+    H::Output: Into<C::Leaf>,
+    C::Leaf: Default + Clone,
 {
-    let mut col_hashes: Vec<Vec<u8>> = Vec::new();
+    let mut col_hashes: Vec<C::Leaf> = Vec::new();
     let ext_mat_cols = ext_mat.cols();
 
-    for col in ext_mat_cols.iter() {
-        col_hashes.push(hash_column::<D, F>(col));
+    for col in ext_mat_cols.into_iter() {
+        let col_digest = hash_column::<F, C, H>(col, &col_hash_params)?;
+        col_hashes.push(col_digest);
     }
 
     // pad the column hashes with zeroes
     let next_pow_of_two = col_hashes.len().next_power_of_two();
-    col_hashes.resize(next_pow_of_two, vec![0; <D as Digest>::output_size()]);
+    col_hashes.resize(next_pow_of_two, <C::Leaf>::default());
 
-    MerkleTree::<C>::new(leaf_hash_params, two_to_one_params, col_hashes).unwrap()
+    MerkleTree::<C>::new(leaf_hash_params, two_to_one_params, col_hashes)
+        .map_err(|_| Error::HashingError)
 }
 
 fn generate_proof<F, C>(
@@ -539,7 +574,6 @@ fn generate_proof<F, C>(
 where
     F: PrimeField,
     C: Config,
-    Vec<u8>: Borrow<C::Leaf>,
 {
     let t = calculate_t::<F>(sec_param, rho_inv, ext_mat.n)?;
 

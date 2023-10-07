@@ -33,6 +33,7 @@ mod tests {
 
     type LeafH = Sha256;
     type CompressH = Sha256;
+    type ColHasher = Sha256;
 
     struct MerkleTreeParams;
 
@@ -56,6 +57,7 @@ mod tests {
         DensePolynomial<Fr>,
         Sponge,
         MTConfig,
+        ColHasher,
         Blake2s256,
     >;
     type LigeroPcsF<F> = LinearCodePCS<
@@ -64,6 +66,7 @@ mod tests {
         DensePolynomial<F>,
         Sponge,
         MTConfig,
+        ColHasher,
         Blake2s256,
     >;
 

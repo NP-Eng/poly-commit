@@ -104,6 +104,9 @@ pub enum Error {
     /// This means the required soundness error bound is inherently impossible.
     /// E.g., the field is not big enough.
     InvalidParameters(String),
+
+    /// Error resulting from hashing in linear code - based PCS.
+    HashingError,
 }
 
 impl core::fmt::Display for Error {
@@ -193,6 +196,7 @@ impl core::fmt::Display for Error {
             Error::InvalidCommitment => write!(f, "Failed to verify the commitment"),
             Error::TranscriptError => write!(f, "Incorrect transcript manipulation"),
             Error::InvalidParameters(err) => write!(f, "{}", err),
+            Error::HashingError => write!(f, "Error resulting from hashing")
         }
     }
 }

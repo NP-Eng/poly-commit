@@ -2,6 +2,7 @@ use crate::{
     PCCommitment, PCCommitterKey, PCPreparedCommitment, PCPreparedVerifierKey, PCRandomness,
     PCUniversalParams, PCVerifierKey,
 };
+use ark_crypto_primitives::crh::CRHScheme;
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, Path, TwoToOneParam};
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -44,10 +45,7 @@ use ark_std::vec::Vec;
 ///     leaf_hash_params, two_to_one_params);
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub struct LinCodePCUniversalParams<F: PrimeField, C: Config>
-where
-    C: Config,
-{
+pub struct LinCodePCUniversalParams<F: PrimeField, C: Config, H: CRHScheme> {
     _field: PhantomData<F>,
     /// The security parameter
     pub(crate) sec_param: usize,
@@ -61,12 +59,15 @@ where
     /// Parameters for hash function of Merke tree combining two nodes into one
     #[derivative(Debug = "ignore")]
     pub(crate) two_to_one_params: TwoToOneParam<C>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) col_hash_params: H::Parameters,
 }
 
-impl<F, C> LinCodePCUniversalParams<F, C>
+impl<F, C, H> LinCodePCUniversalParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     /// Create new UniversalParams
     pub fn new(
@@ -75,6 +76,7 @@ where
         check_well_formedness: bool,
         leaf_hash_params: LeafParam<C>,
         two_to_one_params: TwoToOneParam<C>,
+        col_hash_params: H::Parameters,
     ) -> Self {
         Self {
             _field: PhantomData,
@@ -83,14 +85,16 @@ where
             check_well_formedness,
             leaf_hash_params,
             two_to_one_params,
+            col_hash_params,
         }
     }
 }
 
-impl<F, C> PCUniversalParams for LinCodePCUniversalParams<F, C>
+impl<F, C, H> PCUniversalParams for LinCodePCUniversalParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         if F::TWO_ADICITY < self.rho_inv as u32 {
@@ -106,10 +110,11 @@ where
 /// Linear code commitment structure
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub struct LinCodePCCommitterKey<F, C>
+pub struct LinCodePCCommitterKey<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     pub(crate) _field: PhantomData<F>,
     /// The security parameter
@@ -122,14 +127,18 @@ where
     /// Parameters for hash function of Merke tree combining two nodes into one
     #[derivative(Debug = "ignore")]
     pub(crate) two_to_one_params: TwoToOneParam<C>,
+    /// Parameters for hashing the columns with a CRH Scheme
+    #[derivative(Debug = "ignore")]
+    pub(crate) col_hash_params: H::Parameters,
     /// This is a flag which determines if the random linear combination is done.
     pub(crate) check_well_formedness: bool,
 }
 
-impl<F, C> PCCommitterKey for LinCodePCCommitterKey<F, C>
+impl<F, C, H> PCCommitterKey for LinCodePCCommitterKey<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
@@ -146,10 +155,11 @@ where
 /// The verifier key which holds some scheme parameters
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub struct LinCodePCVerifierKey<F, C>
+pub struct LinCodePCVerifierKey<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     pub(crate) _field: PhantomData<F>,
     /// The security parameter
@@ -162,14 +172,18 @@ where
     /// Parameters for hash function of Merke tree combining two nodes into one
     #[derivative(Debug = "ignore")]
     pub(crate) two_to_one_params: TwoToOneParam<C>,
+    /// Parameters for hashing the columns with a CRH Scheme
+    #[derivative(Debug = "ignore")]
+    pub(crate) col_hash_params: H::Parameters,
     /// This is a flag which determines if the random linear combination is done.
     pub(crate) check_well_formedness: bool,
 }
 
-impl<F, C> PCVerifierKey for LinCodePCVerifierKey<F, C>
+impl<F, C, H> PCVerifierKey for LinCodePCVerifierKey<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
@@ -275,6 +289,7 @@ where
     F: PrimeField,
     C: Config,
 {
+    /// Single opening
     pub opening: LinCodePCProofSingle<F, C>,
     pub(crate) well_formedness: Option<Vec<F>>,
 }

@@ -1,3 +1,6 @@
+use core::borrow::Borrow;
+
+use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
 use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
@@ -5,7 +8,6 @@ use ark_serialize::CanonicalSerialize;
 use ark_std::marker::PhantomData;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
-use digest::Digest;
 use merlin::Transcript;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -301,12 +303,18 @@ impl<F: PrimeField> IOPTranscript<F> {
 }
 
 #[inline]
-pub(crate) fn hash_column<D: Digest, F: PrimeField + CanonicalSerialize>(array: &[F]) -> Vec<u8> {
-    let mut dig = D::new();
-    for elem in array {
-        dig.update(to_bytes!(elem).unwrap());
-    }
-    dig.finalize().to_vec()
+pub(crate) fn hash_column<F, C, H>(array: Vec<F>, params: &H::Parameters) -> Result<C::Leaf, Error>
+where
+    F: PrimeField,
+    C: Config,
+    H: CRHScheme,
+    Vec<F>: Borrow<<H as CRHScheme>::Input>,
+    C::Leaf: Sized,
+    H::Output: Into<C::Leaf>,
+{
+    H::evaluate(params, array)
+        .map_err(|_| Error::HashingError)
+        .map(|x| x.into())
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)` using the current state of `transcript`
