@@ -1,6 +1,3 @@
-use core::borrow::Borrow;
-
-use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
 use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
@@ -300,21 +297,6 @@ impl<F: PrimeField> IOPTranscript<F> {
         self.append_message(label, dest)?;
         Ok(())
     }
-}
-
-#[inline]
-pub(crate) fn hash_column<F, C, H>(array: Vec<F>, params: &H::Parameters) -> Result<C::Leaf, Error>
-where
-    F: PrimeField,
-    C: Config,
-    H: CRHScheme,
-    Vec<F>: Borrow<<H as CRHScheme>::Input>,
-    C::Leaf: Sized,
-    H::Output: Into<C::Leaf>,
-{
-    H::evaluate(params, array)
-        .map_err(|_| Error::HashingError)
-        .map(|x| x.into())
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)` using the current state of `transcript`

@@ -30,7 +30,7 @@ pub use data_structures::{
     LinCodePCUniversalParams, LinCodePCVerifierKey, Metadata,
 };
 
-use utils::{calculate_t, get_indices_from_transcript, hash_column};
+use utils::{calculate_t, get_indices_from_transcript};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
@@ -459,7 +459,14 @@ where
                 .opening
                 .columns
                 .iter()
-                .map(|c| hash_column::<F, C, H>(c.clone(), &vk.col_hash_params).unwrap())
+                .map(|c| {
+                    {
+                        H::evaluate(&vk.col_hash_params, c.clone())
+                            .map_err(|_| Error::HashingError)
+                            .map(Into::into)
+                    }
+                    .unwrap()
+                })
                 .collect();
 
             // 4. Verify the paths for each of the leaf hashes - this is only run once,
@@ -550,7 +557,11 @@ where
     let ext_mat_cols = ext_mat.cols();
 
     for col in ext_mat_cols.into_iter() {
-        let col_digest = hash_column::<F, C, H>(col, &col_hash_params)?;
+        let col_digest = {
+            H::evaluate(col_hash_params, col)
+                .map_err(|_| Error::HashingError)
+                .map(Into::into)
+        }?;
         col_hashes.push(col_digest);
     }
 
