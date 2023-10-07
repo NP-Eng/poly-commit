@@ -14,6 +14,7 @@ use digest::Digest;
 use crate::linear_codes::utils::*;
 use crate::{Error, LabeledCommitment, LabeledPolynomial, PCUniversalParams, PolynomialCommitment};
 
+mod transcript;
 mod utils;
 
 mod multilinear_ligero;
@@ -31,6 +32,8 @@ pub use data_structures::{
 };
 
 use utils::{calculate_t, get_indices_from_transcript};
+
+use self::transcript::IOPTranscript;
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
@@ -80,7 +83,6 @@ where
     /// Tensor the point
     fn tensor(point: &P::Point, left_len: usize, right_len: usize) -> (Vec<F>, Vec<F>);
 }
-
 
 /// Any linear-code-based commitment scheme.
 pub struct LinearCodePCS<L, F, P, S, C, D, H>
