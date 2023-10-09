@@ -26,8 +26,9 @@ digest = "0.10"
 derivative = { version = "2", features = [ "use_core" ] }
 rayon = { version = "1", optional = true }
 merlin = { version = "3.0.0", default-features = false }
-halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib", tag = "v0.3.0-ce" }
-poseidon-native = { git = "https://github.com/scroll-tech/poseidon/", package = "poseidon"}
+halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib", branch = "release-0.4.0-rc" }
+
+poseidon-native = { git = "https://github.com/privacy-scaling-explorations/poseidon", package = "poseidon" }
 
 [dev-dependencies]
 ark-ed-on-bls12-381 = { version = "^0.4.0", default-features = false }
