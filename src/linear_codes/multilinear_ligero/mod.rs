@@ -45,16 +45,12 @@ where
         polynomial.to_evaluations()
     }
 
-    fn point_to_vec(point: <P as Polynomial<F>>::Point) -> Vec<F> {
-        point.into()
-    }
-
     fn tensor(
         point: &<P as Polynomial<F>>::Point,
         left_len: usize,
         _right_len: usize,
     ) -> (Vec<F>, Vec<F>) {
-        let point: Vec<F> = Self::point_to_vec(point.clone());
+        let point: Vec<F> = point.clone().into();
 
         let split = log2(left_len) as usize;
         let left = &point[..split];

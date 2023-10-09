@@ -228,13 +228,16 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
     transcript: &mut IOPTranscript<F>,
 ) -> Result<Vec<usize>, Error> {
     let mut indices = Vec::with_capacity(t);
-    for _ in 0..t {
-        let bits = transcript
-            .get_and_append_byte_challenge(b"i", n)
-            .map_err(|_| Error::TranscriptError)?;
-
+    let bits = transcript
+        .get_and_append_byte_challenge(b"i", n, t)
+        .map_err(|_| Error::TranscriptError)?;
+    for i in 0..t {
         // get the usize from Vec<u8>:
-        let ind = bits.iter().fold(0, |acc, &x| (acc << 1) + x as usize);
+        println!("bits[i]: {:?}", bits[i]);
+        let ind = bits[i]
+            .iter()
+            .rev()
+            .fold(0, |acc, &x| (acc << 1) + x as usize);
         println!("ind: {}", ind);
         indices.push(ind);
     }

@@ -52,10 +52,6 @@ where
     /// Get the representation of the polynomial
     fn poly_repr(polynomial: &P) -> Vec<F>;
 
-    /// How we choose to split the query point into a Vec of Field elements.
-    /// Needed for appending to transcript.
-    fn point_to_vec(point: P::Point) -> Vec<F>;
-
     /// Compute the matrices for the polynomial
     fn compute_matrices(polynomial: &P, rho_inv: usize) -> (Matrix<F>, Matrix<F>) {
         let mut coeffs = Self::poly_repr(polynomial);
@@ -108,7 +104,6 @@ where
     Vec<F>: Borrow<<H as CRHScheme>::Input>,
     H::Output: Into<C::Leaf>,
     C::Leaf: Sized + Clone + Default,
-    // Vec<F>: Borrow<C::Leaf>,
     D: Digest,
     H: CRHScheme,
 {
@@ -332,11 +327,6 @@ where
                 None
             };
 
-            let point_vec = L::point_to_vec(point.clone());
-            transcript
-                .append_field_elements(b"point", &point_vec)
-                .map_err(|_| Error::TranscriptError)?;
-
             proof_array.push(LinCodePCProof {
                 // compute the opening proof and append b.M to the transcript
                 opening: generate_proof(
@@ -350,6 +340,7 @@ where
                 )?,
                 well_formedness,
             });
+            println!("{}", transcript);
         }
 
         Ok(proof_array)
@@ -422,14 +413,7 @@ where
                 (None, None)
             };
 
-            // 1. Seed the transcript with the point and the recieved vector
-            // TODO Consider removing the evaluation point from the transcript.
-            let point_vec = L::point_to_vec(point.clone());
-            for element in point_vec.iter() {
-                transcript
-                    .append_serializable_element(b"point", element)
-                    .map_err(|_| Error::TranscriptError)?;
-            }
+            // 1. Seed the transcript with the recieved vector
             transcript
                 .append_field_elements(b"v", &proof_array[i].opening.v)
                 .map_err(|_| Error::TranscriptError)?;
