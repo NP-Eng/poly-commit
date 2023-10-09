@@ -104,7 +104,7 @@ where
     F: PrimeField,
     P: Polynomial<F>,
     S: CryptographicSponge,
-    C: Config + 'static,
+    C: Config + 'static + Config<InnerDigest = F>,
     Vec<F>: Borrow<<H as CRHScheme>::Input>,
     H::Output: Into<C::Leaf>,
     C::Leaf: Sized + Clone + Default,
@@ -325,7 +325,7 @@ where
                 let v = mat.row_mul(&r);
 
                 transcript
-                    .append_serializable_element(b"v", &v)
+                    .append_field_elements(b"v", &v)
                     .map_err(|_| Error::TranscriptError)?;
                 Some(v)
             } else {
@@ -333,11 +333,9 @@ where
             };
 
             let point_vec = L::point_to_vec(point.clone());
-            for element in point_vec.iter() {
-                transcript
-                    .append_serializable_element(b"point", element)
-                    .map_err(|_| Error::TranscriptError)?;
-            }
+            transcript
+                .append_field_elements(b"point", &point_vec)
+                .map_err(|_| Error::TranscriptError)?;
 
             proof_array.push(LinCodePCProof {
                 // compute the opening proof and append b.M to the transcript
@@ -416,7 +414,7 @@ where
                 }
                 // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M
                 transcript
-                    .append_serializable_element(b"v", well_formedness)
+                    .append_field_elements(b"v", well_formedness)
                     .map_err(|_| Error::TranscriptError)?;
 
                 (Some(well_formedness), Some(r))
@@ -433,7 +431,7 @@ where
                     .map_err(|_| Error::TranscriptError)?;
             }
             transcript
-                .append_serializable_element(b"v", &proof_array[i].opening.v)
+                .append_field_elements(b"v", &proof_array[i].opening.v)
                 .map_err(|_| Error::TranscriptError)?;
 
             // 2. Ask random oracle for the `t` indices where the checks happen
@@ -578,7 +576,7 @@ where
     let v = mat.row_mul(b);
 
     transcript
-        .append_serializable_element(b"v", &v)
+        .append_field_elements(b"v", &v)
         .map_err(|_| Error::TranscriptError)?;
 
     // 2. Generate t column indices to test the linear combination on

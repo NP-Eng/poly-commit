@@ -1,8 +1,9 @@
+use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
 use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
-use ark_std::string::ToString;
 use ark_std::vec::Vec;
+use ark_std::{string::ToString, test_rng};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 #[cfg(feature = "parallel")]
@@ -175,12 +176,7 @@ pub(crate) fn get_num_bytes(n: usize) -> usize {
 #[cfg(test)]
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 
-use super::transcript::IOPTranscript;
-#[cfg(test)]
-pub(crate) fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
-    use ark_crypto_primitives::sponge::{poseidon::PoseidonConfig, CryptographicSponge};
-    use ark_std::test_rng;
-
+pub(crate) fn poseidon_parameters_for_test<F: PrimeField>() -> PoseidonConfig<F> {
     let full_rounds = 8;
     let partial_rounds = 31;
     let alpha = 17;
@@ -191,7 +187,7 @@ pub(crate) fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
         vec![F::zero(), F::one(), F::one()],
     ];
 
-    let mut v = Vec::new();
+    let mut ark = Vec::new();
     let mut ark_rng = test_rng();
 
     for _ in 0..(full_rounds + partial_rounds) {
@@ -200,10 +196,17 @@ pub(crate) fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
         for _ in 0..3 {
             res.push(F::rand(&mut ark_rng));
         }
-        v.push(res);
+        ark.push(res);
     }
-    let config = PoseidonConfig::new(full_rounds, partial_rounds, alpha, mds, v, 2, 1);
-    PoseidonSponge::new(&config)
+    PoseidonConfig::new(full_rounds, partial_rounds, alpha, mds, ark, 2, 1)
+}
+
+use super::transcript::IOPTranscript;
+#[cfg(test)]
+pub(crate) fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
+    use ark_crypto_primitives::sponge::CryptographicSponge;
+
+    PoseidonSponge::new(&poseidon_parameters_for_test())
 }
 
 /// Takes as input a struct, and converts them to a series of bytes. All traits
@@ -224,18 +227,16 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
     t: usize,
     transcript: &mut IOPTranscript<F>,
 ) -> Result<Vec<usize>, Error> {
-    let bytes_to_squeeze = get_num_bytes(n);
     let mut indices = Vec::with_capacity(t);
     for _ in 0..t {
-        let mut bytes: Vec<u8> = vec![0; bytes_to_squeeze];
-        transcript
-            .get_and_append_byte_challenge(b"i", &mut bytes)
+        let bits = transcript
+            .get_and_append_byte_challenge(b"i", n)
             .map_err(|_| Error::TranscriptError)?;
 
         // get the usize from Vec<u8>:
-        let ind = bytes.iter().fold(0, |acc, &x| (acc << 8) + x as usize);
-        // modulo the number of columns in the encoded matrix
-        indices.push(ind % n);
+        let ind = bits.iter().fold(0, |acc, &x| (acc << 1) + x as usize);
+        println!("ind: {}", ind);
+        indices.push(ind);
     }
     Ok(indices)
 }

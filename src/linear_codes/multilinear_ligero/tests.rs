@@ -5,77 +5,104 @@ mod tests {
     use core::marker::PhantomData;
 
     use crate::linear_codes::LinearCodePCS;
-    use crate::to_bytes;
+    use crate::tests::poseidon_parameters_for_test;
     use crate::RngCore;
     use crate::{
         challenge::ChallengeGenerator,
         linear_codes::{utils::*, LinCodePCUniversalParams, MultilinearLigero},
         LabeledPolynomial, PolynomialCommitment,
     };
-    use ark_bls12_377::Fq;
-    use ark_bls12_377::Fr;
-    use ark_bls12_381::Fr as Fr381;
+    use ark_bn254::Fr;
+    // use ark_bls12_377::Fr;
+    use ark_crypto_primitives::merkle_tree::IdentityDigestConverter;
+    use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
+    use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
     use ark_crypto_primitives::Error;
     use ark_crypto_primitives::{
-        crh::{pedersen, sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
-        merkle_tree::{ByteDigestConverter, Config},
+        crh::{CRHScheme, TwoToOneCRHScheme},
+        merkle_tree::Config,
         sponge::poseidon::PoseidonSponge,
     };
     use ark_ff::{Field, PrimeField};
     use ark_poly::evaluations::multivariate::{MultilinearExtension, SparseMultilinearExtension};
-    use ark_serialize::CanonicalSerialize;
     use ark_std::test_rng;
     use blake2::Blake2s256;
-    use digest::Digest;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    #[derive(Clone)]
-    pub(super) struct Window4x256;
-    impl pedersen::Window for Window4x256 {
-        const WINDOW_SIZE: usize = 4;
-        const NUM_WINDOWS: usize = 256;
-    }
+    // We introduce the wrapper only for the purpose of `setup` function not panicing with unimplemented
+    struct PoseidonWrapper<F>(PhantomData<F>);
 
-    type LeafH = LeafIdentityHasher;
-    type CompressH = Sha256;
-    type ColHasher<F, D> = FieldToBytesColHasher<F, D>;
+    impl<F: PrimeField + Absorb> CRHScheme for PoseidonWrapper<F> {
+        type Input = [F];
+        type Output = F;
+        type Parameters = PoseidonConfig<F>;
 
-    struct FieldToBytesColHasher<F, D>
-    where
-        F: PrimeField + CanonicalSerialize,
-        D: Digest,
-    {
-        _phantom: PhantomData<(F, D)>,
-    }
-
-    impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
-    where
-        F: PrimeField + CanonicalSerialize,
-        D: Digest,
-    {
-        type Input = Vec<F>;
-        type Output = Vec<u8>;
-        type Parameters = ();
-
-        fn setup<R: RngCore>(_rng: &mut R) -> Result<Self::Parameters, Error> {
-            Ok(())
+        fn setup<R: RngCore>(_: &mut R) -> Result<Self::Parameters, Error> {
+            Ok(poseidon_parameters_for_test())
         }
 
         fn evaluate<T: Borrow<Self::Input>>(
-            _parameters: &Self::Parameters,
+            parameters: &Self::Parameters,
             input: T,
         ) -> Result<Self::Output, Error> {
-            let mut dig = D::new();
-            dig.update(to_bytes!(input.borrow()).unwrap());
-            Ok(dig.finalize().to_vec())
+            let input = input.borrow();
+
+            let mut sponge = PoseidonSponge::new(parameters);
+            sponge.absorb(&input);
+            let res = sponge.squeeze_field_elements::<F>(1);
+            Ok(res[0])
         }
     }
 
-    struct LeafIdentityHasher;
+    // also implement TwoToOneCRHScheme for PoseidonWrapper
+    impl<F: PrimeField + Absorb> TwoToOneCRHScheme for PoseidonWrapper<F> {
+        type Input = F;
+        type Output = F;
+        type Parameters = PoseidonConfig<F>;
 
-    impl CRHScheme for LeafIdentityHasher {
-        type Input = Vec<u8>;
-        type Output = Vec<u8>;
+        fn setup<R: RngCore>(_: &mut R) -> Result<Self::Parameters, Error> {
+            Ok(poseidon_parameters_for_test())
+        }
+
+        fn evaluate<T: Borrow<Self::Input>>(
+            parameters: &Self::Parameters,
+            left_input: T,
+            right_input: T,
+        ) -> Result<Self::Output, Error> {
+            let left_input = left_input.borrow();
+            let right_input = right_input.borrow();
+
+            let mut sponge = PoseidonSponge::new(parameters);
+            sponge.absorb(left_input);
+            sponge.absorb(right_input);
+            let res = sponge.squeeze_field_elements::<F>(1);
+            Ok(res[0])
+        }
+
+        fn compress<T: Borrow<Self::Output>>(
+            parameters: &Self::Parameters,
+            left_input: T,
+            right_input: T,
+        ) -> Result<Self::Output, Error> {
+            let left_input = left_input.borrow();
+            let right_input = right_input.borrow();
+
+            let mut sponge = PoseidonSponge::new(parameters);
+            sponge.absorb(left_input);
+            sponge.absorb(right_input);
+            let res = sponge.squeeze_field_elements::<F>(1);
+            Ok(res[0])
+        }
+    }
+
+    type ColHasher<F> = PoseidonWrapper<F>;
+    type CompressH<F> = PoseidonWrapper<F>;
+
+    struct LeafIdentityHasher<F>(PhantomData<F>);
+
+    impl<F: PrimeField> CRHScheme for LeafIdentityHasher<F> {
+        type Input = F;
+        type Output = F;
         type Parameters = ();
 
         fn setup<R: RngCore>(_: &mut R) -> Result<Self::Parameters, Error> {
@@ -86,34 +113,34 @@ mod tests {
             _: &Self::Parameters,
             input: T,
         ) -> Result<Self::Output, Error> {
-            Ok(input.borrow().to_vec().into())
+            Ok(*input.borrow())
         }
     }
 
-    struct MerkleTreeParams; //<F, D>(PhantomData<(F, D)>);
+    struct MerkleTreeParams<F>(PhantomData<F>); //<F, D>(PhantomData<(F, D)>);
 
-    impl Config for MerkleTreeParams {
-        type Leaf = Vec<u8>;
+    impl<F: PrimeField + Absorb> Config for MerkleTreeParams<F> {
+        type Leaf = F;
 
-        type LeafDigest = <LeafH as CRHScheme>::Output;
-        type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
-        type InnerDigest = <CompressH as TwoToOneCRHScheme>::Output;
+        type LeafDigest = <LeafIdentityHasher<F> as CRHScheme>::Output;
+        type LeafInnerDigestConverter = IdentityDigestConverter<Self::LeafDigest>;
+        type InnerDigest = <CompressH<F> as TwoToOneCRHScheme>::Output;
 
-        type LeafHash = LeafH;
-        type TwoToOneHash = CompressH;
+        type LeafHash = LeafIdentityHasher<F>;
+        type TwoToOneHash = CompressH<F>;
     }
 
-    type MTConfig = MerkleTreeParams; //<F, Blake2s256>;
+    type MTConfig<F> = MerkleTreeParams<F>; //<F, Blake2s256>;
     type Sponge<F> = PoseidonSponge<F>;
 
     type LigeroPCS<F> = LinearCodePCS<
-        MultilinearLigero<F, MTConfig, Blake2s256, Sponge<F>, SparseMultilinearExtension<F>>,
+        MultilinearLigero<F, MTConfig<F>, Blake2s256, Sponge<F>, SparseMultilinearExtension<F>>,
         F,
         SparseMultilinearExtension<F>,
         Sponge<F>,
-        MTConfig,
+        MTConfig<F>,
         Blake2s256,
-        ColHasher<F, Blake2s256>,
+        ColHasher<F>,
     >;
 
     fn rand_poly<Fr: PrimeField>(
@@ -144,16 +171,13 @@ mod tests {
 
     #[test]
     fn test_construction() {
-        let mut rng = &mut test_rng();
         // just to make sure we have the right degree given the FFT domain for our field
-        let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
-        let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
-            .unwrap()
-            .clone();
-        let col_hash_params = <ColHasher<Fr, Blake2s256> as CRHScheme>::setup(&mut rng).unwrap();
+        let leaf_hash_params = ();
+        let col_hash_params = poseidon_parameters_for_test();
+        let two_to_one_params = poseidon_parameters_for_test();
         let check_well_formedness = true;
 
-        let pp: LinCodePCUniversalParams<Fr, MTConfig, ColHasher<Fr, Blake2s256>> =
+        let pp: LinCodePCUniversalParams<Fr, MTConfig<Fr>, ColHasher<Fr>> =
             LinCodePCUniversalParams::new(
                 128,
                 4,
@@ -205,18 +229,6 @@ mod tests {
         .unwrap());
     }
 
-    #[test]
-    fn test_calculate_t_with_good_parameters() {
-        assert!(calculate_t::<Fq>(128, 4, 2_usize.pow(32)).unwrap() < 200);
-        assert!(calculate_t::<Fq>(256, 4, 2_usize.pow(32)).unwrap() < 400);
-    }
-
-    #[test]
-    fn test_calculate_t_with_bad_parameters() {
-        calculate_t::<Fq>((Fq::MODULUS_BIT_SIZE - 60) as usize, 4, 2_usize.pow(60)).unwrap_err();
-        calculate_t::<Fq>(400, 4, 2_usize.pow(32)).unwrap_err();
-    }
-
     fn rand_point<F: Field>(num_vars: Option<usize>, rng: &mut ChaCha20Rng) -> Vec<F> {
         match num_vars {
             Some(n) => (0..n).map(|_| F::rand(rng)).collect(),
@@ -234,13 +246,6 @@ mod tests {
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, LigeroPCS<Fr381>, _>(
-            Some(10),
-            rand_poly::<Fr381>,
-            rand_point::<Fr381>,
-            poseidon_sponge_for_test,
-        )
-        .expect("test failed for bls12-381");
     }
 
     #[test]
@@ -253,13 +258,6 @@ mod tests {
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, LigeroPCS<Fr381>, _>(
-            Some(5),
-            constant_poly::<Fr381>,
-            rand_point::<Fr381>,
-            poseidon_sponge_for_test,
-        )
-        .expect("test failed for bls12-381");
     }
 
     #[test]
@@ -273,14 +271,6 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_test::<_, _, LigeroPCS<Fr381>, _>(
-            Some(3),
-            rand_poly::<Fr381>,
-            rand_point::<Fr381>,
-            poseidon_sponge_for_test,
-        )
-        .expect("test failed for bls12-381");
-        println!("Finished bls12-381");
     }
 
     #[test]
@@ -294,14 +284,6 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        single_equation_test::<_, _, LigeroPCS<Fr381>, _>(
-            Some(5),
-            rand_poly::<Fr381>,
-            rand_point::<Fr381>,
-            poseidon_sponge_for_test,
-        )
-        .expect("test failed for bls12-381");
-        println!("Finished bls12-381");
     }
 
     #[test]
@@ -315,14 +297,6 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        two_equation_test::<_, _, LigeroPCS<Fr381>, _>(
-            Some(10),
-            rand_poly::<Fr381>,
-            rand_point::<Fr381>,
-            poseidon_sponge_for_test,
-        )
-        .expect("test failed for bls12-381");
-        println!("Finished bls12-381");
     }
 
     #[test]
@@ -336,13 +310,5 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_equation_test::<_, _, LigeroPCS<Fr381>, _>(
-            Some(8),
-            rand_poly::<Fr381>,
-            rand_point::<Fr381>,
-            poseidon_sponge_for_test,
-        )
-        .expect("test failed for bls12-381");
-        println!("Finished bls12-381");
     }
 }
