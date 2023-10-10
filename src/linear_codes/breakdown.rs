@@ -7,35 +7,6 @@ use ark_ff::PrimeField;
 use super::BreakdownPCParams;
 use super::LinCodeInfo;
 
-impl<F, C> BreakdownPCParams<F, C>
-where
-    F: PrimeField,
-    C: Config,
-{
-    /// Create new UniversalParams
-    pub fn new(
-        _sec_param: usize,
-        _alpha: (usize, usize),
-        _beta: (usize, usize),
-        _rho_inv: (usize, usize),
-        _check_well_formedness: bool,
-        _leaf_hash_params: LeafParam<C>,
-        _two_to_one_params: TwoToOneParam<C>,
-    ) -> Self {
-        todo!()
-        // Self {
-        //     _field: PhantomData,
-        //     sec_param,
-        //     alpha,
-        //     beta,
-        //     rho_inv,
-        //     check_well_formedness,
-        //     leaf_hash_params,
-        //     two_to_one_params,
-        // }
-    }
-}
-
 impl<F, C> PCUniversalParams for BreakdownPCParams<F, C>
 where
     F: PrimeField,
@@ -105,6 +76,28 @@ where
     F: PrimeField,
     C: Config,
 {
+    /// Create new UniversalParams
+    pub fn new(
+        _sec_param: usize,
+        _alpha: (usize, usize),
+        _beta: (usize, usize),
+        _rho_inv: (usize, usize),
+        _check_well_formedness: bool,
+        _leaf_hash_params: LeafParam<C>,
+        _two_to_one_params: TwoToOneParam<C>,
+    ) -> Self {
+        todo!()
+        // Self {
+        //     _field: PhantomData,
+        //     sec_param,
+        //     alpha,
+        //     beta,
+        //     rho_inv,
+        //     check_well_formedness,
+        //     leaf_hash_params,
+        //     two_to_one_params,
+        // }
+    }
     /// mu = rho_inv - 1 - rho_inv * alpha
     fn mu(&self) -> f64 {
         let r = self.rho_inv;
