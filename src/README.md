@@ -39,6 +39,7 @@ The construction is described in the following papers.
 
 [sonic]: https://ia.cr/2019/099
 [aurora-light]: https://ia.cr/2019/601
+[hyrax]: https://eprint.iacr.org/2017/1132.pdf
 
 [AuroraLight: Improved Prover Efficiency and SRS Size in a Sonic-Like System][aurora-light]     
 Ariel Gabizon     
@@ -55,6 +56,10 @@ EUROCRYPT 2020
 [Polynomial Commitments][kzg10]     
 Aniket Kate, Gregory M. Zaverucha, Ian Goldberg     
 ASIACRYPT 2010
+
+[Doubly-efficient zkSNARKs without trusted setup][hyrax]
+Riad S. Wahby, Ioanna Tzialla, abhi shelat, Justin Thaler, Michael Walfish
+2018 IEEE Symposium on Security and Privacy
 
 ### Marlin variant of the Papamanthou-Shi-Tamassia multivariate PC
 
