@@ -5,9 +5,7 @@ mod tests {
     use crate::linear_codes::LinearCodePCS;
     use crate::{
         challenge::ChallengeGenerator,
-        linear_codes::{
-            utils::*, LinCodePCUniversalParams, PolynomialCommitment, UnivariateLigero,
-        },
+        linear_codes::{utils::*, LigeroPCParams, PolynomialCommitment, UnivariateLigero},
         LabeledPolynomial,
     };
     use ark_bls12_377::Fq;
@@ -94,7 +92,7 @@ mod tests {
             .clone();
         let check_well_formedness = true;
 
-        let pp: LinCodePCUniversalParams<Fr, MTConfig> = LinCodePCUniversalParams::new(
+        let pp: LigeroPCParams<Fr, MTConfig> = LigeroPCParams::new(
             128,
             4,
             check_well_formedness,
@@ -146,14 +144,19 @@ mod tests {
 
     #[test]
     fn test_calculate_t_with_good_parameters() {
-        assert!(calculate_t::<Fq>(128, 4, 2_usize.pow(32)).unwrap() < 200);
-        assert!(calculate_t::<Fq>(256, 4, 2_usize.pow(32)).unwrap() < 400);
+        assert!(calculate_t::<Fq>(128, (4, 1), 2_usize.pow(32)).unwrap() < 200);
+        assert!(calculate_t::<Fq>(256, (4, 1), 2_usize.pow(32)).unwrap() < 400);
     }
 
     #[test]
     fn test_calculate_t_with_bad_parameters() {
-        calculate_t::<Fq>((Fq::MODULUS_BIT_SIZE - 60) as usize, 4, 2_usize.pow(60)).unwrap_err();
-        calculate_t::<Fq>(400, 4, 2_usize.pow(32)).unwrap_err();
+        calculate_t::<Fq>(
+            (Fq::MODULUS_BIT_SIZE - 60) as usize,
+            (4, 1),
+            2_usize.pow(60),
+        )
+        .unwrap_err();
+        calculate_t::<Fq>(400, (4, 1), 2_usize.pow(32)).unwrap_err();
     }
 
     fn rand_point<F: Field>(_: Option<usize>, rng: &mut ChaCha20Rng) -> F {

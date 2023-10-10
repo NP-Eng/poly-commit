@@ -334,7 +334,7 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
 #[inline]
 pub(crate) fn calculate_t<F: PrimeField>(
     sec_param: usize,
-    rho_inv: usize,
+    rho_inv: (usize, usize),
     codeword_len: usize,
 ) -> Result<usize, Error> {
     // Took from the analysis by BCI+20 and Ligero
@@ -353,7 +353,7 @@ pub(crate) fn calculate_t<F: PrimeField>(
         return Err(Error::InvalidParameters("For the given codeword length and the required security guarantee, the field is not big enough.".to_string()));
     }
     let nom = rhs - 1.0;
-    let denom = (0.5 + 0.5 / rho_inv as f64).log2();
+    let denom = (0.5 + 0.5 * rho_inv.1 as f64 / rho_inv.0 as f64).log2();
     Ok((nom / denom).ceil() as usize) // This is the `t`
 }
 
