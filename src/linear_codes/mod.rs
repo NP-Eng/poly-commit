@@ -28,10 +28,12 @@ mod univariate_ligero;
 pub use multilinear_ligero::MultilinearLigero;
 pub use univariate_ligero::UnivariateLigero;
 
+mod breakdown;
 mod data_structures;
+mod ligero;
 use data_structures::*;
 
-pub use data_structures::{LigeroPCParams, LinCodePCProof};
+pub use data_structures::{BreakdownPCParams, LigeroPCParams, LinCodePCProof};
 
 use utils::{calculate_t, get_indices_from_transcript, hash_column};
 
