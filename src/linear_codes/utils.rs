@@ -233,12 +233,10 @@ pub(crate) fn get_indices_from_transcript<F: PrimeField>(
         .map_err(|_| Error::TranscriptError)?;
     for i in 0..t {
         // get the usize from Vec<u8>:
-        println!("bits[i]: {:?}", bits[i]);
         let ind = bits[i]
             .iter()
             .rev()
             .fold(0, |acc, &x| (acc << 1) + x as usize);
-        println!("ind: {}", ind);
         indices.push(ind);
     }
     Ok(indices)

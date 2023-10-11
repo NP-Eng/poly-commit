@@ -340,7 +340,6 @@ where
                 )?,
                 well_formedness,
             });
-            println!("{}", transcript);
         }
 
         Ok(proof_array)
