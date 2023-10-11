@@ -4,7 +4,7 @@ use ark_ec::AffineRepr;
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use ark_std::rand::RngCore;
 
-use crate::{PCUniversalParams, PCCommitterKey, PCPreparedVerifierKey, PCPreparedCommitment, PCRandomness};
+use crate::{PCUniversalParams, PCCommitterKey, PCPreparedVerifierKey, PCPreparedCommitment, PCRandomness, PCCommitment, PCVerifierKey};
 
 /// TODO should the length be contained in any of these structures?
 
@@ -18,6 +18,10 @@ pub struct HyraxUniversalParams<G: AffineRepr> {
 
     /// A generator of the group.
     pub h: G,
+
+    /// Maximum number of variables a polynomial can be committed to with this
+    /// key
+    pub num_vars: usize,
 }
 
 impl<G: AffineRepr> PCUniversalParams for HyraxUniversalParams<G> {
@@ -44,6 +48,10 @@ pub struct HyraxCommitterKey<G: AffineRepr> {
 
     /// A generator of the group.
     pub h: G,
+
+    /// Maximum number of variables a polynomial can be committed to with this
+    /// key
+    pub num_vars: usize,
 }
 
 /// The verifier key, which coincides with the committer key
@@ -60,6 +68,16 @@ impl<G: AffineRepr> PCCommitterKey for HyraxCommitterKey<G> {
     }
 }
 
+impl<G: AffineRepr> PCVerifierKey for HyraxVerifierKey<G> {
+    fn max_degree(&self) -> usize {
+        1
+    }
+
+    fn supported_degree(&self) -> usize {
+        1
+    }
+}
+
 /// Nothing to do to prepare this prover-verifier key.
 pub type HyraxPreparedVerifierKey<G> = HyraxVerifierKey<G>;
 
@@ -70,10 +88,26 @@ impl<G: AffineRepr> PCPreparedVerifierKey<HyraxVerifierKey<G>> for HyraxPrepared
     }
 }
 
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct HyraxCommitment<G: AffineRepr> {
     /// A list of multi-commits to each row of the matrix containing the
     /// polynomial.
     pub row_coms: Vec<G>,
+}
+
+impl<G: AffineRepr> PCCommitment for HyraxCommitment<G> {
+    #[inline]
+    fn empty() -> Self {
+        HyraxCommitment {
+            row_coms: Vec::new(),
+        }
+    }
+
+    // The implicit degree bound is 1, since only multilinear polynomials are
+    // supported
+    fn has_degree_bound(&self) -> bool {
+        false
+    }
 }
 
 pub type HyraxPreparedCommitment<E> = HyraxCommitment<E>;
@@ -85,22 +119,22 @@ impl<G: AffineRepr> PCPreparedCommitment<HyraxCommitment<G>> for HyraxPreparedCo
     }
 }
 
-pub(crate) type HyraxRandomness = ();
+pub(crate) type HyraxRandomness<G> = Vec<G>;
 
-/// This object is not used in the Hyrax PCS (instead, the Pedersen
-/// commitment module generates the necessary randomness).
-impl PCRandomness for HyraxRandomness {
+/// A vector of scalars, each of which multiplies the distinguished group
+/// element in the Pederson commitment key for a different commitment
+impl<G: AffineRepr> PCRandomness for HyraxRandomness<G> {
     fn empty() -> Self {
         unimplemented!()
     }
 
     fn rand<R: RngCore>(
-        _num_queries: usize,
+        num_queries: usize,
         _has_degree_bound: bool,
         _num_vars: Option<usize>,
-        _rng: &mut R,
+        rng: &mut R,
     ) -> Self {
-        unimplemented!()
+        (0..num_queries).map(|_| G::ScalarField::rand(rng)).collect()
     }
 }
 

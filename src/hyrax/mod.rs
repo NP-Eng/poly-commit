@@ -1,15 +1,16 @@
 
 mod data_structures;
-use blake2::Blake2s256;
+mod utils;
 pub use data_structures::*;
 
 use core::marker::PhantomData;
-use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
-use ark_ec::{CurveGroup, AffineRepr};
-use ark_poly::{DenseMultilinearExtension, univariate::DensePolynomial};
+use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, CryptographicSponge};
+use ark_ec::{CurveGroup, AffineRepr, VariableBaseMSM};
+use ark_poly::{DenseMultilinearExtension, Polynomial};
 use ark_std::rand::RngCore;
+use blake2::Blake2s256;
 
-use crate::{PolynomialCommitment, Error, ipa_pc::{InnerProductArgPC, UniversalParams}};
+use crate::{PolynomialCommitment, Error, LabeledPolynomial, LabeledCommitment, hyrax::utils::flat_to_matrix_column_major, challenge::ChallengeGenerator};
 
 /// Hyrax polynomial committment scheme:
 /// A polynomial commitment scheme based on the hardness of the
@@ -32,15 +33,34 @@ pub struct HyraxPC<
 
 
 // TODO ********************************************************
+
 impl<G: AffineRepr> HyraxPC<G> {
+    fn pedersen_commit(
+        com_key: &HyraxCommitterKey<G>,
+        scalars: &[G::ScalarField],
+    ) -> (G, G::ScalarField) {
+        // This block is taken from the function `cm_commit` in the IPA
+        // module from this crate
+        let scalars_bigint = ark_std::cfg_iter!(scalars)
+            .map(|s| s.into_bigint())
+            .collect::<Vec<_>>();
+        let mut com = <G::Group as VariableBaseMSM>::msm_bigint(com_key, &scalars_bigint);
+
+        let r = G::ScalarField::rand();
+        com += &com_key.h.mul(r);
+
+        (com, r)
+    }
 } 
 
+type MLE<G: AffineRepr> = DenseMultilinearExtension<G::ScalarField>;
 
 // TODO ********************************************************
 
 impl<G:AffineRepr> PolynomialCommitment<
     G::ScalarField,
     DenseMultilinearExtension<G::ScalarField>,
+    // Dummy sponge - required by the trait, not used in this implementation
     PoseidonSponge<G::ScalarField>,
 > for HyraxPC<G> {
     type UniversalParams = HyraxUniversalParams<G>;
@@ -49,16 +69,16 @@ impl<G:AffineRepr> PolynomialCommitment<
     type PreparedVerifierKey = HyraxPreparedVerifierKey<G>;
     type Commitment = HyraxCommitment<G>;
     type PreparedCommitment = HyraxPreparedCommitment<G>;
-    type Randomness = HyraxRandomness;
+    type Randomness = HyraxRandomness<G>;
     type Proof = HyraxProof<G>;
     type BatchProof = Vec<Self::Proof>;
     type Error = Error;
 
     /// Outputs mock universal parameters for the Hyrax polynomial commitment
     /// scheme. It does *not* return random keys across calls and should never
-    /// be used in settings where security is required - it is only used for
+    /// be used in settings where security is required - it is only useful for
     /// testing. Furthermore, the point at infinity could possibly be part of
-    /// which sould never happen in an actual key.
+    /// the output, which sould not happen in an actual key.
     fn setup<R: RngCore>(
         max_degree: usize,
         num_vars: Option<usize>,
@@ -104,7 +124,7 @@ impl<G:AffineRepr> PolynomialCommitment<
 
         let h = points.pop().unwrap();
 
-        Ok(HyraxUniversalParams { com_key: points, h })
+        Ok(HyraxUniversalParams { com_key: points, h, num_vars: n })
     }
 
     fn trim(
@@ -122,19 +142,19 @@ impl<G:AffineRepr> PolynomialCommitment<
             "Hyrax only supports multilinear polynomials: \
             enforced_degree_bounds should be `None`"); 
         
-        let HyraxUniversalParams { com_key, h } = pp;
+        let HyraxUniversalParams { com_key, h, num_vars } = pp;
 
-        let ck = HyraxCommitterKey { com_key, h };
+        let ck = HyraxCommitterKey { com_key, h, num_vars };
 
         let vk: HyraxVerifierKey = ck.clone();
 
         Ok((ck, vk))
     }
 
-    /// Outputs a commitment to `polynomial`.
+    /// Outputs a list of commitments to the passed polynomials
     fn commit<'a>(
         ck: &Self::CommitterKey,
-        polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
+        polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, MLE<G>>>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<
         (
@@ -144,79 +164,68 @@ impl<G:AffineRepr> PolynomialCommitment<
         Self::Error,
     >
     where
-        P: 'a,
+        MLE<G>: 'a,
     {
-        let rng = &mut crate::optional_rng::OptionalRng(rng);
-        let mut comms = Vec::new();
+        let mut coms = Vec::new();
         let mut rands = Vec::new();
 
-        let commit_time = start_timer!(|| "Committing to polynomials");
-        for labeled_polynomial in polynomials {
-            Self::check_degrees_and_bounds(ck.supported_degree(), labeled_polynomial)?;
+        for l_poly in polynomials {
 
-            let polynomial: &P = labeled_polynomial.polynomial();
-            let label = labeled_polynomial.label();
-            let hiding_bound = labeled_polynomial.hiding_bound();
-            let degree_bound = labeled_polynomial.degree_bound();
+            let mut com_rands = Vec::new();
 
-            let commit_time = start_timer!(|| format!(
-                "Polynomial {} of degree {}, degree bound {:?}, and hiding bound {:?}",
-                label,
-                polynomial.degree(),
-                degree_bound,
-                hiding_bound,
-            ));
+            let label = l_poly.label();
+            let poly = l_poly.polynomial();
 
-            let randomness = if let Some(h) = hiding_bound {
-                Randomness::rand(h, degree_bound.is_some(), None, rng)
-            } else {
-                Randomness::empty()
-            };
+            assert_eq!(l_poly.degree_bound().unwrap_or(1), 1,
+                "Hyrax only supports ML polynomials: the degree bound should \
+                be Some(1) or None"
+            );
 
-            let comm = Self::cm_commit(
-                &ck.comm_key[..(polynomial.degree() + 1)],
-                &polynomial.coeffs(),
-                Some(ck.s),
-                Some(randomness.rand),
-            )
-            .into();
+            assert!(l_poly.hiding_bound().is_none(),
+                "Hiding bounds are not part of the Hyrax PCS");
 
-            let shifted_comm = degree_bound.map(|d| {
-                Self::cm_commit(
-                    &ck.comm_key[(ck.supported_degree() - d)..],
-                    &polynomial.coeffs(),
-                    Some(ck.s),
-                    randomness.shifted_rand,
-                )
-                .into()
+            let n = poly.num_vars();
+            let dim = 1 << n / 2;
+
+            assert!(
+                n <= ck.num_vars,
+                "Attempted to commit to a polynomial with {n} variables, but
+                this key only supports up to {} variables",
+                ck.num_vars
+            );
+
+            let m = flat_to_matrix_column_major(poly.to_evaluations(), dim, dim);
+
+            let row_coms = m.map(|row| {
+                let (c, r) = Self::pedersen_commit(ck, &row);
+                com_rands.push(r);
+                c
             });
 
-            let commitment = Commitment { comm, shifted_comm };
-            let labeled_comm = LabeledCommitment::new(label.to_string(), commitment, degree_bound);
+            let com = HyraxCommitment { row_coms };
+            let l_comm = LabeledCommitment::new(label.to_string(), com, 1);
 
-            comms.push(labeled_comm);
-            rands.push(randomness);
-
-            end_timer!(commit_time);
+            coms.push(l_comm);
+            rands.push(com_rands);
         }
 
-        end_timer!(commit_time);
-        Ok((comms, rands))
+        Ok((coms, rands))
     }
 
     fn open<'a>(
         ck: &Self::CommitterKey,
-        labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
+        labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, MLE<G>>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        point: &'a P::Point,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        point: &'a <DenseMultilinearExtension<G::ScalarField> as Polynomial<G::ScalarField>>::Point,
+        // Not used and not generic on the cryptographic sponge S
+        _opening_challenges: &mut ChallengeGenerator<G::ScalarField, PoseidonSponge<G::ScalarField>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
     where
         Self::Commitment: 'a,
         Self::Randomness: 'a,
-        P: 'a,
+        MLE<G>: 'a,
     {
         let mut combined_polynomial = P::zero();
         let mut combined_rand = G::ScalarField::zero();
