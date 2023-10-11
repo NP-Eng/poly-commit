@@ -1,9 +1,8 @@
-use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
 use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
+use ark_std::string::ToString;
 use ark_std::vec::Vec;
-use ark_std::{string::ToString, test_rng};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 #[cfg(feature = "parallel")]
@@ -167,16 +166,14 @@ pub(crate) fn to_field<F: Field>(v: Vec<u64>) -> Vec<F> {
     v.iter().map(|x| F::from(*x)).collect::<Vec<F>>()
 }
 
-#[inline]
-pub(crate) fn get_num_bytes(n: usize) -> usize {
-    ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
-}
-
 // TODO: replace by https://github.com/arkworks-rs/crypto-primitives/issues/112.
 #[cfg(test)]
-use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+use ark_crypto_primitives::sponge::poseidon::{PoseidonConfig, PoseidonSponge};
 
+#[cfg(test)]
 pub(crate) fn poseidon_parameters_for_test<F: PrimeField>() -> PoseidonConfig<F> {
+    use ark_std::test_rng;
+
     let full_rounds = 8;
     let partial_rounds = 31;
     let alpha = 17;
@@ -382,16 +379,5 @@ mod tests {
                 assert_eq!(pol.evaluate(&large_domain.element(j)), encoded[j]);
             }
         }
-    }
-
-    #[test]
-    fn test_get_num_bytes() {
-        assert_eq!(get_num_bytes(0), 0);
-        assert_eq!(get_num_bytes(1), 1);
-        assert_eq!(get_num_bytes(9), 1);
-        assert_eq!(get_num_bytes(1 << 11), 2);
-        assert_eq!(get_num_bytes(1 << 32 - 1), 4);
-        assert_eq!(get_num_bytes(1 << 32), 5);
-        assert_eq!(get_num_bytes(1 << 32 + 1), 5);
     }
 }

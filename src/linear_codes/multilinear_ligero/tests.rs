@@ -13,7 +13,6 @@ mod tests {
         LabeledPolynomial, PolynomialCommitment,
     };
     use ark_bn254::Fr;
-    // use ark_bls12_377::Fr;
     use ark_crypto_primitives::merkle_tree::IdentityDigestConverter;
     use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
     use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
@@ -26,7 +25,6 @@ mod tests {
     use ark_ff::{Field, PrimeField};
     use ark_poly::evaluations::multivariate::{MultilinearExtension, SparseMultilinearExtension};
     use ark_std::test_rng;
-    use blake2::Blake2s256;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
     // We introduce the wrapper only for the purpose of `setup` function not panicing with unimplemented
@@ -130,16 +128,15 @@ mod tests {
         type TwoToOneHash = CompressH<F>;
     }
 
-    type MTConfig<F> = MerkleTreeParams<F>; //<F, Blake2s256>;
+    type MTConfig<F> = MerkleTreeParams<F>; 
     type Sponge<F> = PoseidonSponge<F>;
 
     type LigeroPCS<F> = LinearCodePCS<
-        MultilinearLigero<F, MTConfig<F>, Blake2s256, Sponge<F>, SparseMultilinearExtension<F>>,
+        MultilinearLigero<F, MTConfig<F>, Sponge<F>, SparseMultilinearExtension<F>>,
         F,
         SparseMultilinearExtension<F>,
         Sponge<F>,
         MTConfig<F>,
-        Blake2s256,
         ColHasher<F>,
     >;
 

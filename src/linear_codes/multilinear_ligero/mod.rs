@@ -5,8 +5,6 @@ use ark_std::log2;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
 
-use digest::Digest;
-
 use super::utils::reed_solomon;
 use super::LinearEncode;
 
@@ -21,18 +19,16 @@ mod tests;
 pub struct MultilinearLigero<
     F: PrimeField,
     C: Config,
-    D: Digest,
     S: CryptographicSponge,
     P: MultilinearExtension<F>,
 > {
-    _phantom: PhantomData<(F, C, D, S, P)>,
+    _phantom: PhantomData<(F, C, S, P)>,
 }
 
-impl<F, C, D, S, P> LinearEncode<F, P, C, D> for MultilinearLigero<F, C, D, S, P>
+impl<F, C, S, P> LinearEncode<F, P, C> for MultilinearLigero<F, C, S, P>
 where
     F: PrimeField,
     C: Config,
-    D: Digest,
     S: CryptographicSponge,
     P: MultilinearExtension<F>,
     <P as Polynomial<F>>::Point: Into<Vec<F>>,
