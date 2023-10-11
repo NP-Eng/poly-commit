@@ -31,7 +31,7 @@ where
     C: Config,
     S: CryptographicSponge,
     P: MultilinearExtension<F>,
-    <P as Polynomial<F>>::Point: Into<Vec<F>>,
+    P::Point: Into<Vec<F>>,
 {
     fn encode(msg: &[F], rho_inv: usize) -> Vec<F> {
         reed_solomon(msg, rho_inv)

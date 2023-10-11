@@ -16,10 +16,10 @@ mod transcript;
 mod utils;
 
 mod multilinear_ligero;
-// mod univariate_ligero;
+mod univariate_ligero;
 
 pub use multilinear_ligero::MultilinearLigero;
-// pub use univariate_ligero::UnivariateLigero;
+pub use univariate_ligero::UnivariateLigero;
 
 mod data_structures;
 use data_structures::*;

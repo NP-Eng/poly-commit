@@ -52,7 +52,6 @@ mod tests {
         }
     }
 
-    // also implement TwoToOneCRHScheme for PoseidonWrapper
     impl<F: PrimeField + Absorb> TwoToOneCRHScheme for PoseidonWrapper<F> {
         type Input = F;
         type Output = F;
@@ -115,7 +114,7 @@ mod tests {
         }
     }
 
-    struct MerkleTreeParams<F>(PhantomData<F>); //<F, D>(PhantomData<(F, D)>);
+    struct MerkleTreeParams<F>(PhantomData<F>);
 
     impl<F: PrimeField + Absorb> Config for MerkleTreeParams<F> {
         type Leaf = F;
