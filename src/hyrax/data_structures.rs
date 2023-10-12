@@ -1,8 +1,9 @@
 
 
 use ark_ec::AffineRepr;
+use ark_ff::PrimeField;
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
-use ark_std::{rand::RngCore, UniformRand};
+use ark_std::rand::RngCore;
 
 
 
@@ -86,7 +87,14 @@ impl<G: AffineRepr> PCPreparedVerifierKey<HyraxVerifierKey<G>> for HyraxPrepared
     }
 }
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Default(bound = ""),
+    // TODO remove or re-introduce
+    // Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+)]
 pub struct HyraxCommitment<G: AffineRepr> {
     /// A list of multi-commits to each row of the matrix containing the
     /// polynomial.
@@ -117,11 +125,11 @@ impl<G: AffineRepr> PCPreparedCommitment<HyraxCommitment<G>> for HyraxPreparedCo
     }
 }
 
-pub(crate) type HyraxRandomness<G: AffineRepr> = Vec<G::ScalarField>;
+pub(crate) type HyraxRandomness<F: PrimeField> = Vec<F>;
 
 /// A vector of scalars, each of which multiplies the distinguished group
 /// element in the Pederson commitment key for a different commitment
-impl<G: AffineRepr> PCRandomness for HyraxRandomness<G> {
+impl<F: PrimeField> PCRandomness for HyraxRandomness<F> {
     fn empty() -> Self {
         unimplemented!()
     }
@@ -132,10 +140,19 @@ impl<G: AffineRepr> PCRandomness for HyraxRandomness<G> {
         _num_vars: Option<usize>,
         rng: &mut R,
     ) -> Self {
-        (0..num_queries).map(|_| G::ScalarField::rand(rng)).collect()
+        (0..num_queries).map(|_| F::rand(rng)).collect()
     }
 }
 
+
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Default(bound = ""),
+    // TODO remove or re-introduce
+    // Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+)]
 pub struct HyraxProof<G: AffineRepr> {
     pub com_eval: G,
     pub com_d: G,

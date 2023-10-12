@@ -7,11 +7,10 @@ use ark_ff::Field;
 /// TODO maybe merge with Matrix from linear_codes::utils?
 pub(crate) fn flat_to_matrix_column_major<T>(flat: &[T], n: usize, m: usize) -> Vec<Vec<T>> {
     assert_eq!(flat.len(), n * m, "n * m should coincide with the length of flat");
-    let mut res = vec![vec![0; m]; n];
+    let mut res = Vec::new();
+
     for row in 0..n {
-        for col in 0..m {
-            res[row][col] = flat[col * n + row];
-        }
+        res.push((0..m).map(|col| flat[col * n + row]).collect())
     }
     res
 }
@@ -26,16 +25,17 @@ pub(crate) fn naive_chi<F: Field>(bits: &[u8], point: &[F]) -> F {
     let zero = F::one(); // TODO This doesn't seem super efficient either?
 
     bits.iter().zip(point.iter()).map(|(b, x)| {
-        let bf = bit_to_field(b);
+        let bf: F = bit_to_field(*b);
         (one - bf) * (one - x) + bf * x
     }).product()
 }
 
+// TODO this should probably go away
 fn bit_to_field<F: Field>(bit: u8) -> F {
-    if bit {F::one} else {F::zero()}
+    if bit == 0 {F::zero()} else {F::one()}
 }
 
 // TODO this   is also not generl enough perhaps
 pub(crate) fn usize_to_bits(x: usize, l: usize) -> Vec<u8> {
-    (0..l).rev().map (|n| (x >> n) & 1).collect()
+    (0..l).rev().map (|n| ((x >> n) & 1) as u8).collect()
 }

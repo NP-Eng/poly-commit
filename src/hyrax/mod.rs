@@ -2,18 +2,23 @@
 mod data_structures;
 mod utils;
 pub use data_structures::*;
+use digest::Digest;
 
 use core::marker::PhantomData;
-use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, CryptographicSponge};
+use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::{CurveGroup, AffineRepr, VariableBaseMSM};
-use ark_poly::{DenseMultilinearExtension, Polynomial};
-use ark_std::rand::RngCore;
+use ark_poly::{DenseMultilinearExtension, MultilinearExtension, Polynomial};
+use ark_std::{rand::RngCore, UniformRand};
+use ark_ff::PrimeField;
 
-use crate::linear_codes::utils::{Matrix, inner_product, vector_sum, scalar_by_vector};
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
-use blake2::Blake2s256;
+use crate::linear_codes::utils::{Matrix, inner_product, vector_sum, scalar_by_vector, IOPTranscript};
 
 use crate::{PolynomialCommitment, Error, LabeledPolynomial, LabeledCommitment, hyrax::utils::{flat_to_matrix_column_major, usize_to_bits, naive_chi}, challenge::ChallengeGenerator};
+
+pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
 
 /// Hyrax polynomial committment scheme:
 /// A polynomial commitment scheme based on the hardness of the
@@ -51,26 +56,36 @@ pub struct HyraxPC<
 
 // TODO add "trusting" version of utils linear-algebra functions which do not check dimensions?
 
+// TODO check if it makes sense to implement batch_check, batch_open, open_combinations or check_combinations
+
 // TODO ********************************************************
+
+// TODO document
 
 impl<G: AffineRepr> HyraxPC<G> {
     fn pedersen_commit(
-        com_key: &HyraxCommitterKey<G>,
+        key: &HyraxCommitterKey<G>,
         scalars: &[G::ScalarField],
         r: Option<G::ScalarField>,
+        rng: Option<&mut dyn RngCore>,
     ) -> (G, G::ScalarField) {
-        // TODO does this trim the key suitably?
-        // This block is taken from the function `cm_commit` in the IPA
-        // module from this crate
-        let scalars_bigint = ark_std::cfg_iter!(scalars)
+        
+        let r = r.unwrap_or(G::ScalarField::rand(rng.unwrap()));
+
+        let mut scalars_ext = Vec::from(scalars);
+        scalars_ext.push(r);
+
+        let mut points_ext = key.com_key[0..scalars.len()].to_vec();
+        points_ext.push(key.h);
+
+        let scalars_bigint = scalars_ext.iter()
             .map(|s| s.into_bigint())
             .collect::<Vec<_>>();
-        let mut com = <G::Group as VariableBaseMSM>::msm_bigint(com_key, &scalars_bigint);
+        
+        let mut com = <G::Group as VariableBaseMSM>::msm_bigint(&points_ext, &scalars_bigint);
 
-        let r = r.unwrap_or(G::ScalarField::rand());
-        com += &com_key.h.mul(r);
-
-        (com, r)
+        // TODO better way than with into? Difference AffineRep and idem::Group?
+        (com.into(), r)
     }
 } 
 
@@ -90,7 +105,7 @@ impl<G: AffineRepr> PolynomialCommitment<
     type PreparedVerifierKey = HyraxPreparedVerifierKey<G>;
     type Commitment = HyraxCommitment<G>;
     type PreparedCommitment = HyraxPreparedCommitment<G>;
-    type Randomness = HyraxRandomness<G>;
+    type Randomness = HyraxRandomness<G::ScalarField>;
     type Proof = Vec<HyraxProof<G>>;
     type BatchProof = Vec<Self::Proof>;
     type Error = Error;
@@ -105,8 +120,6 @@ impl<G: AffineRepr> PolynomialCommitment<
         num_vars: Option<usize>,
         rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
-
-        G::BaseField;
         
         let n = num_vars.expect("Hyrax requires num_vars to be specified");
         
@@ -120,32 +133,34 @@ impl<G: AffineRepr> PolynomialCommitment<
 
         // The following block of code is largely taking from the IPA module
         // in this crate.
-        let points: Vec<_> = ark_std::cfg_into_iter!(0..dim + 1)
-        .map(|i| {
-            let i = i as u64;
-            let mut hash =
-                Blake2s256::digest(["Hyrax protocol", &i.to_le_bytes()].concat().as_slice());
-            let mut p = G::from_random_bytes(&hash);
-            let mut j = 0u64;
-            while p.is_none() {
-                // PROTOCOL NAME, i, j
-                let mut bytes = "Hyrax protocol".to_vec();
-                bytes.extend(i.to_le_bytes());
-                bytes.extend(j.to_le_bytes());
-                hash = Blake2s256::digest(bytes.as_slice());
-                p = G::from_random_bytes(&hash);
-                j += 1;
-            }
-            let point = p.unwrap();
-            point.mul_by_cofactor_to_group()
-        })
-        .collect();
+        let points: Vec<_> = ark_std::cfg_into_iter!(0u64..dim + 1)
+            .map(|i| {
+                let mut hash =
+                    Blake2s256::digest([PROTOCOL_NAME, &i.to_le_bytes()].concat().as_slice());
+                let mut p = G::from_random_bytes(&hash);
+                let mut j = 0u64;
+                while p.is_none() {
+                    // PROTOCOL NAME, i, j
+                    let mut bytes = b"Hyrax-protocol".to_vec();
+                    bytes.extend(i.to_le_bytes());
+                    bytes.extend(j.to_le_bytes());
+                    hash = Blake2s256::digest(bytes.as_slice());
+                    p = G::from_random_bytes(&hash);
+                    j += 1;
+                }
+                let point = p.unwrap();
+                point.mul_by_cofactor_to_group()
+            })
+            .collect();
 
         G::Group::normalize_batch(&points);
 
-        let h = points.pop().unwrap();
+        let h: G = points.pop().unwrap().into();
 
-        Ok(HyraxUniversalParams { com_key: points, h, num_vars: n })
+        // TODO remove maybe
+        let points_g: Vec<G> = points.into_iter().map(|p| p.into()).collect();
+
+        Ok(HyraxUniversalParams { com_key: points_g, h, num_vars: n })
     }
 
     fn trim(
@@ -155,7 +170,7 @@ impl<G: AffineRepr> PolynomialCommitment<
         enforced_degree_bounds: Option<&[usize]>,
     ) -> Result<(Self::CommitterKey, Self::VerifierKey), Self::Error> {
         
-        assert!(supported_degree == 1 && supported_hiding_bound = 1, 
+        assert!(supported_degree == 1 && supported_hiding_bound == 1, 
             "Hyrax only supports multilinear polynomials: \
             the passed degrees should be 1");
 
@@ -163,11 +178,11 @@ impl<G: AffineRepr> PolynomialCommitment<
             "Hyrax only supports multilinear polynomials: \
             enforced_degree_bounds should be `None`"); 
         
-        let HyraxUniversalParams { com_key, h, num_vars } = pp;
+        let HyraxUniversalParams { com_key, h, num_vars } = pp.clone();
 
         let ck = HyraxCommitterKey { com_key, h, num_vars };
 
-        let vk: HyraxVerifierKey = ck.clone();
+        let vk: HyraxVerifierKey<G> = ck.clone();
 
         Ok((ck, vk))
     }
@@ -215,16 +230,16 @@ impl<G: AffineRepr> PolynomialCommitment<
                 ck.num_vars
             );
 
-            let m = flat_to_matrix_column_major(poly.to_evaluations(), dim, dim);
+            let m = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
 
-            let row_coms = m.map(|row| {
-                let (c, r) = Self::pedersen_commit(ck, &row, None);
+            let row_coms = m.iter().map(|row| {
+                let (c, r) = Self::pedersen_commit(ck, &row, None, rng);
                 com_rands.push(r);
                 c
-            });
+            }).collect();
 
             let com = HyraxCommitment { row_coms };
-            let l_comm = LabeledCommitment::new(label.to_string(), com, 1);
+            let l_comm = LabeledCommitment::new(label.to_string(), com, Some(1));
 
             coms.push(l_comm);
             rands.push(com_rands);
@@ -259,12 +274,12 @@ impl<G: AffineRepr> PolynomialCommitment<
 
         let dim = 1 << n / 2;
 
-        let point_lower = point[n / 2..];
-        let point_upper = point[..n / 2];
+        let point_lower = &point[n / 2..];
+        let point_upper = &point[..n / 2];
 
         // TODO this way to compute the bits is very inefficient
-        let l = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_lower));
-        let r = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_upper));
+        let l: Vec<G::ScalarField> = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_lower)).collect();
+        let r: Vec<G::ScalarField> = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_upper)).collect();
 
         let proofs = Vec::new();
 
@@ -285,40 +300,59 @@ impl<G: AffineRepr> PolynomialCommitment<
             assert_eq!(poly.num_vars(), n, "The committed polynomial has {} variables, but \
                 the point has {n} variables", poly.num_vars());
 
-            let t_aux = flat_to_matrix_column_major(poly.to_evaluations(), dim, dim);
+            // Initialising the transcript
+            let mut transcript: IOPTranscript<G::ScalarField> = IOPTranscript::new(b"transcript");
+
+            // Absorbing public parameters
+            transcript.append_serializable_element(b"public parameters", ck)?;
+            
+            // Absorbing the commitment to the polynomial
+            transcript.append_serializable_element(b"commitment", &com.row_coms)?;
+            
+            // Absorbing the point
+            transcript.append_serializable_element(b"point", point)?;
+            
+            // Commiting to the matrix formed by the polynomial coefficients
+            let t_aux = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
             let t = Matrix::new_from_rows(t_aux);
 
             let lt = t.row_mul(&l);
 
-            let r_lt = l.iter().zip(r.iter()).map(|(l, r)| l * r).sum();
+            let r_lt = l.into_iter().zip(r.iter()).map(|(l, r)| l * r).sum::<G::ScalarField>();
 
             // TODO change to multi-exponentiation OR directly compute as the commitment to LT?
-            let t_prime = com.com_key.iter().zip(l.iter()).map(|(c, s)| c.mul(l)).sum();
+            let t_prime: G = com.row_coms.iter().zip(l.iter()).map(|(e, s)| e.mul(s)).sum::<G::Group>().into();
 
-            let eval = inner_product(&lt, r);
+            let eval = inner_product(&lt, &r);
 
             // Singleton commit
-            let (com_eval, r_eval) = Self::pedersen_commit(ck, &[eval], None);
+            let (com_eval, r_eval) = Self::pedersen_commit(ck, &[eval], None, rng);
 
             // ******** Dot product argument ********
             // Appendix A.2 in the reference article
 
-            let rng = rng.expect("Opening polynomials requires randomness");
+            let rng_inner = rng.expect("Opening polynomials requires randomness");
 
-            let mut d: Vec<G::ScalarField> = (0..dim).map(|_| G::BaseField::rand(rng)).collect();
+            let mut d: Vec<G::ScalarField> = (0..dim).map(|_| G::ScalarField::rand(rng_inner)).collect();
 
             let b = inner_product(&r, &d);
 
             // Multi-commit
-            let (com_d, r_d) = Self::pedersen_commit(ck, &d, None);
+            let (com_d, r_d) = Self::pedersen_commit(ck, &d, None, rng);
 
             // Singleton commit
-            let (com_b, r_b) = Self::pedersen_commit(ck, &[b], None);
+            let (com_b, r_b) = Self::pedersen_commit(ck, &[b], None, rng);
+
+            // Absorbing the commitment to the evaluation
+            transcript.append_serializable_element(b"com_eval", &com_eval)?;
+
+            // Absorbing the two auxiliary commitments
+            transcript.append_serializable_element(b"com_d", &com_d)?;
+            transcript.append_serializable_element(b"com_b", &com_b)?;
 
             // Receive the random challenge c from the verifier, i.e. squeeze
             // it from the transcript.
-            // TODO
-            let c = G::BaseField::rand(rng);
+            let c = transcript.get_and_append_challenge(b"c").unwrap();
 
             let z = vector_sum(&d, &scalar_by_vector(c, &lt));
             let z_d = c * r_lt + r_d;
@@ -330,7 +364,7 @@ impl<G: AffineRepr> PolynomialCommitment<
             // From the prover's perspective, opening amounts to adding r_eval to
             // the proof.
 
-            {proofs.push(HyraxProof {com_eval, com_d, com_b, z, z_d, z_b, r_eval});            
+            proofs.push(HyraxProof {com_eval, com_d, com_b, z, z_d, z_b, r_eval});            
         }
 
         Ok(proofs)
@@ -339,10 +373,11 @@ impl<G: AffineRepr> PolynomialCommitment<
     fn check<'a>(
         vk: &Self::VerifierKey,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        point: &'a P::Point,
+        point: &'a <DenseMultilinearExtension<G::ScalarField> as Polynomial<G::ScalarField>>::Point,
         values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
-        _opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        // Not used and not generic on the cryptographic sponge S
+        _opening_challenges: &mut ChallengeGenerator<G::ScalarField, PoseidonSponge<G::ScalarField>>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
@@ -356,12 +391,12 @@ impl<G: AffineRepr> PolynomialCommitment<
 
         let dim = 1 << n / 2;
 
-        let point_lower = point[n / 2..];
-        let point_upper = point[..n / 2];
+        let point_lower = &point[n / 2..];
+        let point_upper = &point[..n / 2];
 
         // TODO this way to compute the bits is very inefficient
-        let l = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_lower));
-        let r = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_upper));
+        let l: Vec<G::ScalarField> = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_lower)).collect();
+        let r: Vec<G::ScalarField> = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_upper)).collect();
 
         for (com, (claim, h_proof)) in
             commitments.into_iter()
@@ -369,7 +404,7 @@ impl<G: AffineRepr> PolynomialCommitment<
                     .zip(proof.into_iter()))
         {
 
-            let row_coms = com.row_coms;
+            let row_coms = com.commitment().row_coms;
 
             // extract each field from h_proof
             let HyraxProof {com_eval, com_d, com_b, z, z_d, z_b, r_eval} = h_proof;
@@ -379,312 +414,52 @@ impl<G: AffineRepr> PolynomialCommitment<
                 it has {} instead", 1 << n / 2, row_coms.len());
 
             // TODO change to multi-exponentiation OR directly compute as the commitment to LT?
-            let t_prime = row_coms.iter().zip(l.iter()).map(|(c, s)| c.mul(l)).sum();
+            let t_prime: G = row_coms.iter().zip(l.iter()).map(|(e, s)| e.mul(s)).sum::<G::Group>().into();
+
+            // Construct transcript and squeeze the challenge c from it
+
+            let mut transcript: IOPTranscript<G::ScalarField> = IOPTranscript::new(b"transcript");
+
+            // Absorbing public parameters
+            transcript.append_serializable_element(b"public parameters", vk)?;
+            
+            // Absorbing the commitment to the polynomial
+            transcript.append_serializable_element(b"commitment", &row_coms)?;
+            
+            // Absorbing the point
+            transcript.append_serializable_element(b"point", point)?;
+            
+            // Absorbing the commitment to the evaluation
+            transcript.append_serializable_element(b"com_eval", com_eval)?;
+
+            // Absorbing the two auxiliary commitments
+            transcript.append_serializable_element(b"com_d", com_d)?;
+            transcript.append_serializable_element(b"com_b", com_b)?;
 
             // Receive the random challenge c from the verifier, i.e. squeeze
             // it from the transcript.
-            // TODO
-            let c = G::BaseField::rand(rng);
+            let c = transcript.get_and_append_challenge(b"c").unwrap();
 
             // First check
-            let (com_z_zd, _) = Self::pedersen_commit(vk, &z, z_d);
-            if com_z_zd != c * t_prime + com_d {
+            let com_z_zd = Self::pedersen_commit(vk, &z, Some(*z_d), None).0;
+            if com_z_zd != (t_prime.mul(c) + com_d).into() {
                 return Ok(false)
             }
 
             // Second check
-            let (com_dp, _) = Self::pedersen_commit(vk, &inner_product(&r, &z), z_b);
-            if com_dp != c * com_eval + com_b {
+            let com_dp = Self::pedersen_commit(vk, &[inner_product(&r, &z)], Some(*z_b), None).0;
+            // TODO clarify why into() is needed
+            if com_dp != (com_eval.mul(c) + com_b).into() {
                 return Ok(false)
             }
 
             // Third check: opening
-            if com_eval != Self::pedersen_commit(vk, &[claim], r_eval) {
+            let exp = Self::pedersen_commit(vk, &[claim], Some(*r_eval), None).0;
+            if *com_eval != exp {
                 return Ok(false)
             }
         }
 
         Ok(true)
-    }
-
-    fn batch_check<'a, R: RngCore>(
-        vk: &Self::VerifierKey,
-        commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        query_set: &QuerySet<P::Point>,
-        values: &Evaluations<G::ScalarField, P::Point>,
-        proof: &Self::BatchProof,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
-        rng: &mut R,
-    ) -> Result<bool, Self::Error>
-    where
-        Self::Commitment: 'a,
-    {
-        let commitments: BTreeMap<_, _> = commitments.into_iter().map(|c| (c.label(), c)).collect();
-        let mut query_to_labels_map = BTreeMap::new();
-
-        for (label, (point_label, point)) in query_set.iter() {
-            let labels = query_to_labels_map
-                .entry(point_label)
-                .or_insert((point, BTreeSet::new()));
-            labels.1.insert(label);
-        }
-
-        assert_eq!(proof.len(), query_to_labels_map.len());
-
-        let mut randomizer = G::ScalarField::one();
-
-        let mut combined_check_poly = P::zero();
-        let mut combined_final_key = G::Group::zero();
-
-        for ((_point_label, (point, labels)), p) in query_to_labels_map.into_iter().zip(proof) {
-            let lc_time =
-                start_timer!(|| format!("Randomly combining {} commitments", labels.len()));
-            let mut comms: Vec<&'_ LabeledCommitment<_>> = Vec::new();
-            let mut vals = Vec::new();
-            for label in labels.into_iter() {
-                let commitment = commitments.get(label).ok_or(Error::MissingPolynomial {
-                    label: label.to_string(),
-                })?;
-
-                let v_i = values
-                    .get(&(label.clone(), *point))
-                    .ok_or(Error::MissingEvaluation {
-                        label: label.to_string(),
-                    })?;
-
-                comms.push(commitment);
-                vals.push(*v_i);
-            }
-
-            let check_poly = Self::succinct_check(
-                vk,
-                comms.into_iter(),
-                *point,
-                vals.into_iter(),
-                p,
-                opening_challenges,
-            );
-
-            if check_poly.is_none() {
-                return Ok(false);
-            }
-
-            let check_poly = P::from_coefficients_vec(check_poly.unwrap().compute_coeffs());
-            combined_check_poly += (randomizer, &check_poly);
-            combined_final_key += &p.final_comm_key.mul(randomizer);
-
-            randomizer = u128::rand(rng).into();
-            end_timer!(lc_time);
-        }
-
-        let proof_time = start_timer!(|| "Checking batched proof");
-        let final_key = Self::cm_commit(
-            vk.comm_key.as_slice(),
-            combined_check_poly.coeffs(),
-            None,
-            None,
-        );
-        if !(final_key - &combined_final_key).is_zero() {
-            return Ok(false);
-        }
-
-        end_timer!(proof_time);
-
-        Ok(true)
-    }
-
-    fn open_combinations<'a>(
-        ck: &Self::CommitterKey,
-        linear_combinations: impl IntoIterator<Item = &'a LinearCombination<G::ScalarField>>,
-        polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
-        commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        query_set: &QuerySet<P::Point>,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
-        rands: impl IntoIterator<Item = &'a Self::Randomness>,
-        rng: Option<&mut dyn RngCore>,
-    ) -> Result<BatchLCProof<G::ScalarField, Self::BatchProof>, Self::Error>
-    where
-        Self::Randomness: 'a,
-        Self::Commitment: 'a,
-        P: 'a,
-    {
-        let label_poly_map = polynomials
-            .into_iter()
-            .zip(rands)
-            .zip(commitments)
-            .map(|((p, r), c)| (p.label(), (p, r, c)))
-            .collect::<BTreeMap<_, _>>();
-
-        let mut lc_polynomials = Vec::new();
-        let mut lc_randomness = Vec::new();
-        let mut lc_commitments = Vec::new();
-        let mut lc_info = Vec::new();
-
-        for lc in linear_combinations {
-            let lc_label = lc.label().clone();
-            let mut poly = P::zero();
-            let mut degree_bound = None;
-            let mut hiding_bound = None;
-
-            let mut combined_comm = G::Group::zero();
-            let mut combined_shifted_comm: Option<G::Group> = None;
-
-            let mut combined_rand = G::ScalarField::zero();
-            let mut combined_shifted_rand: Option<G::ScalarField> = None;
-
-            let num_polys = lc.len();
-            for (coeff, label) in lc.iter().filter(|(_, l)| !l.is_one()) {
-                let label: &String = label.try_into().expect("cannot be one!");
-                let &(cur_poly, cur_rand, cur_comm) =
-                    label_poly_map.get(label).ok_or(Error::MissingPolynomial {
-                        label: label.to_string(),
-                    })?;
-
-                if num_polys == 1 && cur_poly.degree_bound().is_some() {
-                    assert!(
-                        coeff.is_one(),
-                        "Coefficient must be one for degree-bounded equations"
-                    );
-                    degree_bound = cur_poly.degree_bound();
-                } else if cur_poly.degree_bound().is_some() {
-                    eprintln!("Degree bound when number of equations is non-zero");
-                    return Err(Self::Error::EquationHasDegreeBounds(lc_label));
-                }
-
-                // Some(_) > None, always.
-                hiding_bound = core::cmp::max(hiding_bound, cur_poly.hiding_bound());
-                poly += (*coeff, cur_poly.polynomial());
-
-                combined_rand += &(cur_rand.rand * coeff);
-                combined_shifted_rand = Self::combine_shifted_rand(
-                    combined_shifted_rand,
-                    cur_rand.shifted_rand,
-                    *coeff,
-                );
-
-                let commitment = cur_comm.commitment();
-                combined_comm += &commitment.comm.mul(*coeff);
-                combined_shifted_comm = Self::combine_shifted_comm(
-                    combined_shifted_comm,
-                    commitment.shifted_comm,
-                    *coeff,
-                );
-            }
-
-            let lc_poly =
-                LabeledPolynomial::new(lc_label.clone(), poly, degree_bound, hiding_bound);
-            lc_polynomials.push(lc_poly);
-            lc_randomness.push(Randomness {
-                rand: combined_rand,
-                shifted_rand: combined_shifted_rand,
-            });
-
-            lc_commitments.push(combined_comm);
-            if let Some(combined_shifted_comm) = combined_shifted_comm {
-                lc_commitments.push(combined_shifted_comm);
-            }
-
-            lc_info.push((lc_label, degree_bound));
-        }
-
-        let lc_commitments = Self::construct_labeled_commitments(&lc_info, &lc_commitments);
-
-        let proof = Self::batch_open(
-            ck,
-            lc_polynomials.iter(),
-            lc_commitments.iter(),
-            &query_set,
-            opening_challenges,
-            lc_randomness.iter(),
-            rng,
-        )?;
-        Ok(BatchLCProof { proof, evals: None })
-    }
-
-    /// Checks that `values` are the true evaluations at `query_set` of the polynomials
-    /// committed in `labeled_commitments`.
-    fn check_combinations<'a, R: RngCore>(
-        vk: &Self::VerifierKey,
-        linear_combinations: impl IntoIterator<Item = &'a LinearCombination<G::ScalarField>>,
-        commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        eqn_query_set: &QuerySet<P::Point>,
-        eqn_evaluations: &Evaluations<P::Point, G::ScalarField>,
-        proof: &BatchLCProof<G::ScalarField, Self::BatchProof>,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
-        rng: &mut R,
-    ) -> Result<bool, Self::Error>
-    where
-        Self::Commitment: 'a,
-    {
-        let BatchLCProof { proof, .. } = proof;
-        let label_comm_map = commitments
-            .into_iter()
-            .map(|c| (c.label(), c))
-            .collect::<BTreeMap<_, _>>();
-
-        let mut lc_commitments = Vec::new();
-        let mut lc_info = Vec::new();
-        let mut evaluations = eqn_evaluations.clone();
-        for lc in linear_combinations {
-            let lc_label = lc.label().clone();
-            let num_polys = lc.len();
-
-            let mut degree_bound = None;
-            let mut combined_comm = G::Group::zero();
-            let mut combined_shifted_comm: Option<G::Group> = None;
-
-            for (coeff, label) in lc.iter() {
-                if label.is_one() {
-                    for (&(ref label, _), ref mut eval) in evaluations.iter_mut() {
-                        if label == &lc_label {
-                            **eval -= coeff;
-                        }
-                    }
-                } else {
-                    let label: &String = label.try_into().unwrap();
-                    let &cur_comm = label_comm_map.get(label).ok_or(Error::MissingPolynomial {
-                        label: label.to_string(),
-                    })?;
-
-                    if num_polys == 1 && cur_comm.degree_bound().is_some() {
-                        assert!(
-                            coeff.is_one(),
-                            "Coefficient must be one for degree-bounded equations"
-                        );
-                        degree_bound = cur_comm.degree_bound();
-                    } else if cur_comm.degree_bound().is_some() {
-                        return Err(Self::Error::EquationHasDegreeBounds(lc_label));
-                    }
-
-                    let commitment = cur_comm.commitment();
-                    combined_comm += &commitment.comm.mul(*coeff);
-                    combined_shifted_comm = Self::combine_shifted_comm(
-                        combined_shifted_comm,
-                        commitment.shifted_comm,
-                        *coeff,
-                    );
-                }
-            }
-
-            lc_commitments.push(combined_comm);
-
-            if let Some(combined_shifted_comm) = combined_shifted_comm {
-                lc_commitments.push(combined_shifted_comm);
-            }
-
-            lc_info.push((lc_label, degree_bound));
-        }
-
-        let lc_commitments = Self::construct_labeled_commitments(&lc_info, &lc_commitments);
-
-        Self::batch_check(
-            vk,
-            &lc_commitments,
-            &eqn_query_set,
-            &evaluations,
-            proof,
-            opening_challenges,
-            rng,
-        )
     }
 }
