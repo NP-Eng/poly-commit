@@ -50,6 +50,8 @@ where
     pub(crate) rho_inv: (usize, usize),
     /// Size of the base case to encode with RS
     pub(crate) base_len: usize,
+    /// Length of input
+    pub(crate) n: usize,
     /// This is a flag which determines if the random linear combination is done.
     pub(crate) check_well_formedness: bool,
     /// Parameters for hash function of Merkle tree leaves

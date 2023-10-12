@@ -2,6 +2,7 @@ use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
+use ark_std::vec::Vec;
 // use ark_std::marker::PhantomData;
 
 use super::BreakdownPCParams;
@@ -115,13 +116,104 @@ where
         let den = b.1 * a.1 * c.1;
         nom as f64 / den as f64
     }
-    /// Entropy function
-    fn ent(x: f64) -> f64 {
-        assert!(0f64 <= x && x <= 1f64);
-        if x == 0f64 || x == 1f64 {
-            0f64
+    /// cn_const
+    fn cn_const(&self) -> (f64, f64) {
+        let a = div(self.alpha);
+        let b = div(self.beta);
+        let arg = 1.28 * b / a;
+        let nom = ent(b) + a * ent(arg);
+        let den = -b * arg.log2();
+        (nom, den)
+    }
+    /// cn
+    fn cn(&self, n: usize) -> usize {
+        use ark_std::cmp::{max, min};
+        let b = self.beta;
+        let c = self.cn_const();
+        min(
+            max(ceil_mul(n, (32 * b.0, 25 * b.1)), 4 + ceil_mul(n, b)),
+            ((110f64 / (n as f64) + c.0) / c.1).ceil() as usize,
+        )
+    }
+    /// dn_const
+    fn dn_const(&self) -> (f64, f64) {
+        let a = div(self.alpha);
+        let b = div(self.beta);
+        let r = div(self.rho_inv);
+        let m = self.mu();
+        let n = self.nu();
+        let nm = n / m;
+        let nom = r * a * ent(b / r) + m * ent(nm);
+        let den = -a * b * nm.log2();
+        (nom, den)
+    }
+    /// dn
+    fn dn(&self, n: usize) -> usize {
+        let b = self.beta;
+        let r = self.rho_inv;
+        let d = self.dn_const();
+        let v1 = {
+            ceil_mul(n, (2 * b.0, b.1)) + // 2 * beta * n 
+            ((ceil_mul(n, r) - n + 110) // n * (r - 1 + 110/n)
+            as f64 / F::MODULUS_BIT_SIZE as f64).ceil() as usize
+        };
+        let v2 = ((110f64 / (n as f64) + d.0) / d.1).ceil() as usize;
+        if v1 < v2 {
+            v1
         } else {
-            -x * x.log2() - (1.0 - x) * (1.0 - x).log2()
+            v2
         }
     }
+    fn mat_size(&self) -> (Vec<(usize, usize, usize)>, Vec<(usize, usize, usize)>) {
+        assert!(self.n > self.base_len); // TODO move this to new function
+        let mut a_dims: Vec<(usize, usize, usize)> = Vec::default();
+        let a = self.alpha;
+        let r = self.rho_inv;
+
+        let mut n = self.n;
+        while n > self.base_len {
+            let m = ceil_mul(n, a);
+            let cn = self.cn(n);
+            let cn = if cn < m { cn } else { m }; // can't generate more nonzero entries than there are columns
+            a_dims.push((n, m, cn));
+            n = m;
+        }
+
+        let b_dims = a_dims
+            .iter()
+            .map(|&(an, am, _)| {
+                let n = ceil_mul(am, r);
+                let m = ceil_mul(an, r) - an - n;
+                let dn = self.dn(n);
+                let dn = if dn < m { dn } else { m }; // can't generate more nonzero entries than there are columns
+                (n, m, dn)
+            })
+            .collect::<Vec<_>>();
+        (a_dims, b_dims)
+    }
+
+    fn codeword_len(&self) -> usize {
+        let (a_dims, b_dims) = self.mat_size();
+        b_dims.iter().map(|(_, m, _)| m).sum::<usize>() + // Output v of the recursive encoding
+        a_dims.iter().map(|(n, _, _)| n).sum::<usize>() + // Input x to the recursive encoding
+        b_dims.last().unwrap().0 // Output z of the last step of recursion
+    }
+}
+
+/// Entropy function
+fn ent(x: f64) -> f64 {
+    assert!(0f64 <= x && x <= 1f64);
+    if x == 0f64 || x == 1f64 {
+        0f64
+    } else {
+        -x * x.log2() - (1.0 - x) * (1.0 - x).log2()
+    }
+}
+#[inline]
+fn div(a: (usize, usize)) -> f64 {
+    a.0 as f64 / a.1 as f64
+}
+#[inline]
+fn ceil_mul(a: usize, b: (usize, usize)) -> usize {
+    (a * b.0 + b.1 - 1) / b.1
 }

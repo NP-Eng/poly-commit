@@ -61,12 +61,12 @@ where
 }
 
 /// A trait for linear encoding a messsage.
-pub trait LinearEncode<F, P, C, D>
+pub trait LinearEncode<F, C, D, P>
 where
     F: PrimeField,
-    P: Polynomial<F>,
     C: Config,
     D: Digest,
+    P: Polynomial<F>,
     Vec<u8>: Borrow<C::Leaf>,
 {
     /// For schemes like Breakdown and Ligero, PCCommiiterKey and
@@ -91,24 +91,7 @@ where
     fn point_to_vec(point: P::Point) -> Vec<F>;
 
     /// Compute the matrices for the polynomial
-    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
-        let mut coeffs = Self::poly_repr(polynomial);
-
-        // 1. Computing parameters and initial matrix
-        let (n_rows, n_cols) = compute_dimensions::<F>(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
-
-        // padding the coefficient vector with zeroes
-        // TODO is this the most efficient/safest way to do it?
-        coeffs.resize(n_rows * n_cols, F::zero());
-
-        let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
-
-        // 2. Apply Reed-Solomon encoding row-wise
-        let ext_mat =
-            Matrix::new_from_rows(mat.rows().iter().map(|r| Self::encode(r, param)).collect());
-
-        (mat, ext_mat)
-    }
+    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>);
 
     /// Tensor the point
     fn tensor(point: &P::Point, left_len: usize, right_len: usize) -> (Vec<F>, Vec<F>);
@@ -123,14 +106,14 @@ where
     S: CryptographicSponge,
     P: Polynomial<F>,
     Vec<u8>: Borrow<C::Leaf>,
-    L: LinearEncode<F, P, C, D>,
+    L: LinearEncode<F, C, D, P>,
 {
     _phantom: PhantomData<(L, F, P, S, C, D)>,
 }
 
 impl<L, F, P, S, C, D> PolynomialCommitment<F, P, S> for LinearCodePCS<L, F, P, S, C, D>
 where
-    L: LinearEncode<F, P, C, D>,
+    L: LinearEncode<F, C, D, P>,
     F: PrimeField,
     P: Polynomial<F>,
     S: CryptographicSponge,
