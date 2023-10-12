@@ -17,6 +17,7 @@ ark-ec = { version = "^0.4.0", default-features = false }
 ark-poly = {version = "^0.4.0", default-features = false }
 ark-crypto-primitives = { version = "^0.4.0", default-features = false, features = ["sponge","merkle_tree" ] }
 ark-std = { version = "^0.4.0", default-features = false }
+blake2 = { version = "0.10", default-features = false }
 
 ark-relations = { version = "^0.4.0", default-features = false, optional = true }
 ark-r1cs-std = { version = "^0.4.0", default-features = false, optional = true }
@@ -31,7 +32,6 @@ merlin = { version = "3.0.0", default-features = false }
 ark-ed-on-bls12-381 = { version = "^0.4.0", default-features = false }
 ark-bls12-381 = { version = "^0.4.0", default-features = false, features = [ "curve" ] }
 ark-bls12-377 = { version = "^0.4.0", default-features = false, features = [ "curve" ] }
-blake2 = { version = "0.10", default-features = false }
 rand_chacha = { version = "0.3.0", default-features = false }
 
 [profile.release]

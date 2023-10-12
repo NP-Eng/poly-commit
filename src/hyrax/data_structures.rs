@@ -1,13 +1,12 @@
-
-
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 
-
-
-use crate::{PCUniversalParams, PCCommitterKey, PCPreparedVerifierKey, PCPreparedCommitment, PCRandomness, PCCommitment, PCVerifierKey};
+use crate::{
+    PCCommitment, PCCommitterKey, PCPreparedCommitment, PCPreparedVerifierKey, PCRandomness,
+    PCUniversalParams, PCVerifierKey,
+};
 
 /// TODO should the length be contained in any of these structures?
 
@@ -87,6 +86,8 @@ impl<G: AffineRepr> PCPreparedVerifierKey<HyraxVerifierKey<G>> for HyraxPrepared
     }
 }
 
+/// Hyrax commitment to a polynomial consisting of one multi-commit per row of
+/// the coefficient matrix
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(
     Default(bound = ""),
@@ -116,6 +117,7 @@ impl<G: AffineRepr> PCCommitment for HyraxCommitment<G> {
     }
 }
 
+/// No preparation is needed for Hyrax commitments
 pub type HyraxPreparedCommitment<E> = HyraxCommitment<E>;
 
 impl<G: AffineRepr> PCPreparedCommitment<HyraxCommitment<G>> for HyraxPreparedCommitment<G> {
@@ -125,7 +127,7 @@ impl<G: AffineRepr> PCPreparedCommitment<HyraxCommitment<G>> for HyraxPreparedCo
     }
 }
 
-pub(crate) type HyraxRandomness<F: PrimeField> = Vec<F>;
+pub(crate) type HyraxRandomness<F> = Vec<F>;
 
 /// A vector of scalars, each of which multiplies the distinguished group
 /// element in the Pederson commitment key for a different commitment
@@ -144,7 +146,8 @@ impl<F: PrimeField> PCRandomness for HyraxRandomness<F> {
     }
 }
 
-
+/// Proof of a Hyrax opening, containing various commitments
+/// and auxiliary values generated randomly during the opening
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(
     Default(bound = ""),
@@ -154,14 +157,20 @@ impl<F: PrimeField> PCRandomness for HyraxRandomness<F> {
     Debug(bound = ""),
 )]
 pub struct HyraxProof<G: AffineRepr> {
+    /// Commitment to the evaluation of the polynomial at the requested point
     pub com_eval: G,
+    /// Commitment to auxiliary random vector d
     pub com_d: G,
+    /// Commitment to auxiliary random scalar b
     pub com_b: G,
+    /// Auxiliary random vector
     pub z: Vec<G::ScalarField>,
+    /// Auxiliary random scalar
     pub z_d: G::ScalarField,
+    /// Auxiliary random scalar
     pub z_b: G::ScalarField,
-    // The seed r_eval is not part of a Hyrax PCS proof as described in the
-    // reference article. Cf. the "Modification note" at the beginning of
-    // mod.rs
+    /// The seed r_eval is not part of a Hyrax PCS proof as described in the
+    /// reference article. Cf. the "Modification note" at the beginning of
+    /// mod.rs
     pub r_eval: G::ScalarField,
 }
