@@ -18,7 +18,7 @@ use ark_std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-mod utils;
+pub(crate) mod utils;
 
 mod multilinear_ligero;
 mod univariate_ligero;
