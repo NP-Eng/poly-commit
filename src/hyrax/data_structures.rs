@@ -2,7 +2,9 @@
 
 use ark_ec::AffineRepr;
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
-use ark_std::rand::RngCore;
+use ark_std::{rand::RngCore, UniformRand};
+
+
 
 use crate::{PCUniversalParams, PCCommitterKey, PCPreparedVerifierKey, PCPreparedCommitment, PCRandomness, PCCommitment, PCVerifierKey};
 
@@ -15,10 +17,8 @@ use crate::{PCUniversalParams, PCCommitterKey, PCPreparedVerifierKey, PCPrepared
 pub struct HyraxUniversalParams<G: AffineRepr> {
     /// A list of generators of the group.
     pub com_key: Vec<G>,
-
     /// A generator of the group.
     pub h: G,
-
     /// Maximum number of variables a polynomial can be committed to with this
     /// key
     pub num_vars: usize,
@@ -45,10 +45,8 @@ impl<G: AffineRepr> PCUniversalParams for HyraxUniversalParams<G> {
 pub struct HyraxCommitterKey<G: AffineRepr> {
     /// A list of generators of the group.
     pub com_key: Vec<G>,
-
     /// A generator of the group.
     pub h: G,
-
     /// Maximum number of variables a polynomial can be committed to with this
     /// key
     pub num_vars: usize,
@@ -103,10 +101,10 @@ impl<G: AffineRepr> PCCommitment for HyraxCommitment<G> {
         }
     }
 
-    // The implicit degree bound is 1, since only multilinear polynomials are
+    // The degree bound is always 1, since only multilinear polynomials are
     // supported
     fn has_degree_bound(&self) -> bool {
-        false
+        true
     }
 }
 
@@ -119,7 +117,7 @@ impl<G: AffineRepr> PCPreparedCommitment<HyraxCommitment<G>> for HyraxPreparedCo
     }
 }
 
-pub(crate) type HyraxRandomness<G> = Vec<G>;
+pub(crate) type HyraxRandomness<G: AffineRepr> = Vec<G::ScalarField>;
 
 /// A vector of scalars, each of which multiplies the distinguished group
 /// element in the Pederson commitment key for a different commitment
@@ -139,7 +137,11 @@ impl<G: AffineRepr> PCRandomness for HyraxRandomness<G> {
 }
 
 pub struct HyraxProof<G: AffineRepr> {
-    com_eval: G,
-    com_d: G,
-    com_b: G,
+    pub com_eval: G,
+    pub com_d: G,
+    pub com_b: G,
+    // The seed r_eval is not part of a Hyrax PCS proof as described in the
+    // reference article. Cf. the "Modification note" at the beginning of
+    // mod.rs
+    pub r_eval: G::ScalarField,
 }

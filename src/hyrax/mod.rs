@@ -8,19 +8,32 @@ use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, CryptographicSpong
 use ark_ec::{CurveGroup, AffineRepr, VariableBaseMSM};
 use ark_poly::{DenseMultilinearExtension, Polynomial};
 use ark_std::rand::RngCore;
+
+use crate::linear_codes::utils::{Matrix, inner_product, vector_sum, scalar_by_vector};
+
 use blake2::Blake2s256;
 
-use crate::{PolynomialCommitment, Error, LabeledPolynomial, LabeledCommitment, hyrax::utils::flat_to_matrix_column_major, challenge::ChallengeGenerator};
+use crate::{PolynomialCommitment, Error, LabeledPolynomial, LabeledCommitment, hyrax::utils::{flat_to_matrix_column_major, usize_to_bits, naive_chi}, challenge::ChallengeGenerator};
 
 /// Hyrax polynomial committment scheme:
 /// A polynomial commitment scheme based on the hardness of the
 /// discrete logarithm problem in prime-order groups. This is a
 /// Fiat-Shamired version of the PCS described in the Hyrax paper
-/// [[WTsTW17]][hyrax], with the difference that, unlike in the
-/// cited reference, the evaluation of the polynomial at the point
-/// of interest is indeed revealed to the verifier at the end.
+/// [[WTsTW17]][hyrax].
 ///
 /// [hyrax]: https://eprint.iacr.org/2017/1132.pdf
+/// 
+/// * Modification note *
+/// 
+/// In the PCS contained in the cited article, the verifier never learns the
+/// actual evaluation of the polynomial at the requested point, but is instead
+/// convinced that a previously received Pedersen commitment is indeed a
+/// commitment to said evaluation - this is what the SNARK proposed therein
+/// necessitates. However, the Arkworks framework requies the verifier to
+/// actually learn that value, which is why we have added the opening of
+/// the commitment at the end of the protocol. This might not result in an
+/// optimal non-hiding PCS, but we feel it is the most faithful adaptation of
+/// original PCS that can be implemented with the current restrictions.
 pub struct HyraxPC<
     // The curve used for Pedersen commitments (only EC groups are
     // supported as of now).
@@ -31,6 +44,12 @@ pub struct HyraxPC<
     _curve: PhantomData<G>,
 }
 
+// TODO so far everything is done with asserts instead of the Error
+// types defined by the library. Is this okay?
+
+// TODO use ark_std::cfg_iter! instead of iter() as it is now?
+
+// TODO add "trusting" version of utils linear-algebra functions which do not check dimensions?
 
 // TODO ********************************************************
 
@@ -39,6 +58,7 @@ impl<G: AffineRepr> HyraxPC<G> {
         com_key: &HyraxCommitterKey<G>,
         scalars: &[G::ScalarField],
     ) -> (G, G::ScalarField) {
+        // TODO does this trim the key suitably?
         // This block is taken from the function `cm_commit` in the IPA
         // module from this crate
         let scalars_bigint = ark_std::cfg_iter!(scalars)
@@ -46,6 +66,8 @@ impl<G: AffineRepr> HyraxPC<G> {
             .collect::<Vec<_>>();
         let mut com = <G::Group as VariableBaseMSM>::msm_bigint(com_key, &scalars_bigint);
 
+        // TODO I think this rand should receive the generator passed by the user, which
+        // could be given to this function as an optional argument
         let r = G::ScalarField::rand();
         com += &com_key.h.mul(r);
 
@@ -57,7 +79,7 @@ type MLE<G: AffineRepr> = DenseMultilinearExtension<G::ScalarField>;
 
 // TODO ********************************************************
 
-impl<G:AffineRepr> PolynomialCommitment<
+impl<G: AffineRepr> PolynomialCommitment<
     G::ScalarField,
     DenseMultilinearExtension<G::ScalarField>,
     // Dummy sponge - required by the trait, not used in this implementation
@@ -70,7 +92,7 @@ impl<G:AffineRepr> PolynomialCommitment<
     type Commitment = HyraxCommitment<G>;
     type PreparedCommitment = HyraxPreparedCommitment<G>;
     type Randomness = HyraxRandomness<G>;
-    type Proof = HyraxProof<G>;
+    type Proof = Vec<HyraxProof<G>>;
     type BatchProof = Vec<Self::Proof>;
     type Error = Error;
 
@@ -227,240 +249,92 @@ impl<G:AffineRepr> PolynomialCommitment<
         Self::Randomness: 'a,
         MLE<G>: 'a,
     {
-        let mut combined_polynomial = P::zero();
-        let mut combined_rand = G::ScalarField::zero();
-        let mut combined_commitment_proj = G::Group::zero();
+        // TODO is it safe to open several polynomials at once?
+        // TODO is there a more efficient way to open several polynomials at once?
+        //      can one e.g. share zs, ds..?
 
-        let mut has_hiding = false;
+        let n = point.len();
 
-        let polys_iter = labeled_polynomials.into_iter();
-        let rands_iter = rands.into_iter();
-        let comms_iter = commitments.into_iter();
+        assert_eq!(n % 2, 0, "Only points with an even number of variables \
+            are supported in this implementation");
 
-        let combine_time = start_timer!(|| "Combining polynomials, randomness, and commitments.");
+        let dim = 1 << n / 2;
 
-        let mut cur_challenge = opening_challenges.try_next_challenge_of_size(CHALLENGE_SIZE);
+        let point_lower = point[n / 2..];
+        let point_upper = point[..n / 2];
 
-        for (labeled_polynomial, (labeled_commitment, randomness)) in
-            polys_iter.zip(comms_iter.zip(rands_iter))
+        // TODO this way to compute the bits is very inefficient
+        let l = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_lower));
+        let r = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_upper));
+
+        let proofs = Vec::new();
+
+        for (l_poly, (l_com, randomness)) in
+            labeled_polynomials.into_iter()
+                .zip(commitments.into_iter()
+                    .zip(rands.into_iter()))
         {
-            let label = labeled_polynomial.label();
-            assert_eq!(labeled_polynomial.label(), labeled_commitment.label());
-            Self::check_degrees_and_bounds(ck.supported_degree(), labeled_polynomial)?;
 
-            let polynomial = labeled_polynomial.polynomial();
-            let degree_bound = labeled_polynomial.degree_bound();
-            let hiding_bound = labeled_polynomial.hiding_bound();
-            let commitment = labeled_commitment.commitment();
+            // TODO check if the poly was actually necessary
+            let label = l_poly.label();
+            assert_eq!(label, l_com.label(), "Mismatching labels: {label} and {}", l_com.label());
 
-            combined_polynomial += (cur_challenge, polynomial);
-            combined_commitment_proj += &commitment.comm.mul(cur_challenge);
+            let poly = l_poly.polynomial();
+            let com = l_com.commitment();
 
-            if hiding_bound.is_some() {
-                has_hiding = true;
-                combined_rand += &(cur_challenge * &randomness.rand);
-            }
+            // TODO chech num of vars matches n
+            assert_eq!(poly.num_vars(), n, "The committed polynomial has {} variables, but \
+                the point has {n} variables", poly.num_vars());
 
-            cur_challenge = opening_challenges.try_next_challenge_of_size(CHALLENGE_SIZE);
+            let t_aux = flat_to_matrix_column_major(poly.to_evaluations(), dim, dim);
+            let t = Matrix::new_from_rows(t_aux);
 
-            let has_degree_bound = degree_bound.is_some();
+            let lt = t.row_mul(&l);
 
-            assert_eq!(
-                has_degree_bound,
-                commitment.shifted_comm.is_some(),
-                "shifted_comm mismatch for {}",
-                label
-            );
+            let r_lt = l.iter().zip(r.iter()).map(|(l, r)| l * r).sum();
 
-            assert_eq!(
-                degree_bound,
-                labeled_commitment.degree_bound(),
-                "labeled_comm degree bound mismatch for {}",
-                label
-            );
-            if let Some(degree_bound) = degree_bound {
-                let shifted_polynomial = Self::shift_polynomial(ck, polynomial, degree_bound);
-                combined_polynomial += (cur_challenge, &shifted_polynomial);
-                combined_commitment_proj += &commitment.shifted_comm.unwrap().mul(cur_challenge);
+            // TODO change to multi-exponentiation OR directly compute as the commitment to LT?
+            let t_prime = com.com_key.iter().zip(l.iter()).map(|(c, s)| c.mul(l)).sum();
 
-                if hiding_bound.is_some() {
-                    let shifted_rand = randomness.shifted_rand;
-                    assert!(
-                        shifted_rand.is_some(),
-                        "shifted_rand.is_none() for {}",
-                        label
-                    );
-                    combined_rand += &(cur_challenge * &shifted_rand.unwrap());
-                }
-            }
+            let eval = inner_product(&lt, r);
 
-            cur_challenge = opening_challenges.try_next_challenge_of_size(CHALLENGE_SIZE);
+            // Singleton commit
+            let (com_eval, r_eval) = Self::pedersen_commit(ck, &[eval]);
+
+            // ******** Dot product argument ********
+            // Appendix A.2 in the reference article
+
+            let rng = rng.expect("Opening polynomials requires randomness");
+
+            let mut d: Vec<G::ScalarField> = (0..dim).map(|_| G::BaseField::rand(rng)).collect();
+
+            let b = inner_product(&r, &d);
+
+            // Multi-commit
+            let (com_d, r_d) = Self::pedersen_commit(ck, &d);
+
+            // Singleton commit
+            let (com_b, r_b) = Self::pedersen_commit(ck, &[b]);
+
+            // Receive the random challenge c from the verifier, i.e. squeeze
+            // it from the transcript.
+            // TODO
+            let c = G::BaseField::rand(rng);
+
+            let z = vector_sum(&d, &scalar_by_vector(c, &lt));
+            let z_d = c * r_lt + r_d;
+            let z_b = c * r_eval + r_b;
+
+            // ******** Opening ********
+            // This is *not* part of the Hyrax PCS as described in the reference
+            // article. Cf. the "Modification note" at the beginning of this file.
+            // From the prover's perspective, opening amounts to adding r_eval to
+            // the proof.
+
+            {proofs.push(HyraxProof {com_eval, com_d, com_b, r_eval});            
         }
 
-        end_timer!(combine_time);
-
-        let combined_v = combined_polynomial.evaluate(point);
-
-        // Pad the coefficients to the appropriate vector size
-        let d = ck.supported_degree();
-
-        // `log_d` is ceil(log2 (d + 1)), which is the number of steps to compute all of the challenges
-        let log_d = ark_std::log2(d + 1) as usize;
-
-        let mut combined_commitment;
-        let mut hiding_commitment = None;
-
-        if has_hiding {
-            let mut rng = rng.expect("hiding commitments require randomness");
-            let hiding_time = start_timer!(|| "Applying hiding.");
-            let mut hiding_polynomial = P::rand(d, &mut rng);
-            hiding_polynomial -= &P::from_coefficients_slice(&[hiding_polynomial.evaluate(point)]);
-            let hiding_rand = G::ScalarField::rand(&mut rng);
-            let hiding_commitment_proj = Self::cm_commit(
-                ck.comm_key.as_slice(),
-                hiding_polynomial.coeffs(),
-                Some(ck.s),
-                Some(hiding_rand),
-            );
-
-            let mut batch =
-                G::Group::normalize_batch(&[combined_commitment_proj, hiding_commitment_proj]);
-            hiding_commitment = Some(batch.pop().unwrap());
-            combined_commitment = batch.pop().unwrap();
-
-            let mut byte_vec = Vec::new();
-            combined_commitment
-                .serialize_uncompressed(&mut byte_vec)
-                .unwrap();
-            point.serialize_uncompressed(&mut byte_vec).unwrap();
-            combined_v.serialize_uncompressed(&mut byte_vec).unwrap();
-            hiding_commitment
-                .unwrap()
-                .serialize_uncompressed(&mut byte_vec)
-                .unwrap();
-            let bytes = byte_vec.as_slice();
-            let hiding_challenge = Self::compute_random_oracle_challenge(bytes);
-            combined_polynomial += (hiding_challenge, &hiding_polynomial);
-            combined_rand += &(hiding_challenge * &hiding_rand);
-            combined_commitment_proj +=
-                &(hiding_commitment.unwrap().mul(hiding_challenge) - &ck.s.mul(combined_rand));
-
-            end_timer!(hiding_time);
-        }
-
-        let combined_rand = if has_hiding {
-            Some(combined_rand)
-        } else {
-            None
-        };
-
-        let proof_time =
-            start_timer!(|| format!("Generating proof for degree {} combined polynomial", d + 1));
-
-        combined_commitment = combined_commitment_proj.into_affine();
-
-        // ith challenge
-        let mut byte_vec = Vec::new();
-        combined_commitment
-            .serialize_uncompressed(&mut byte_vec)
-            .unwrap();
-        point.serialize_uncompressed(&mut byte_vec).unwrap();
-        combined_v.serialize_uncompressed(&mut byte_vec).unwrap();
-        let bytes = byte_vec.as_slice();
-        let mut round_challenge = Self::compute_random_oracle_challenge(bytes);
-
-        let h_prime = ck.h.mul(round_challenge).into_affine();
-
-        // Pads the coefficients with zeroes to get the number of coeff to be d+1
-        let mut coeffs = combined_polynomial.coeffs().to_vec();
-        if coeffs.len() < d + 1 {
-            for _ in coeffs.len()..(d + 1) {
-                coeffs.push(G::ScalarField::zero());
-            }
-        }
-        let mut coeffs = coeffs.as_mut_slice();
-
-        // Powers of z
-        let mut z: Vec<G::ScalarField> = Vec::with_capacity(d + 1);
-        let mut cur_z: G::ScalarField = G::ScalarField::one();
-        for _ in 0..(d + 1) {
-            z.push(cur_z);
-            cur_z *= point;
-        }
-        let mut z = z.as_mut_slice();
-
-        // This will be used for transforming the key in each step
-        let mut key_proj: Vec<G::Group> = ck.comm_key.iter().map(|x| (*x).into()).collect();
-        let mut key_proj = key_proj.as_mut_slice();
-
-        let mut temp;
-
-        // Key for MSM
-        // We initialize this to capacity 0 initially because we want to use the key slice first
-        let mut comm_key = &ck.comm_key;
-
-        let mut l_vec = Vec::with_capacity(log_d);
-        let mut r_vec = Vec::with_capacity(log_d);
-
-        let mut n = d + 1;
-        while n > 1 {
-            let (coeffs_l, coeffs_r) = coeffs.split_at_mut(n / 2);
-            let (z_l, z_r) = z.split_at_mut(n / 2);
-            let (key_l, key_r) = comm_key.split_at(n / 2);
-            let (key_proj_l, _) = key_proj.split_at_mut(n / 2);
-
-            let l = Self::cm_commit(key_l, coeffs_r, None, None)
-                + &h_prime.mul(Self::inner_product(coeffs_r, z_l));
-
-            let r = Self::cm_commit(key_r, coeffs_l, None, None)
-                + &h_prime.mul(Self::inner_product(coeffs_l, z_r));
-
-            let lr = G::Group::normalize_batch(&[l, r]);
-            l_vec.push(lr[0]);
-            r_vec.push(lr[1]);
-
-            let mut byte_vec = Vec::new();
-            round_challenge
-                .serialize_uncompressed(&mut byte_vec)
-                .unwrap();
-            lr[0].serialize_uncompressed(&mut byte_vec).unwrap();
-            lr[1].serialize_uncompressed(&mut byte_vec).unwrap();
-            let bytes = byte_vec.as_slice();
-            round_challenge = Self::compute_random_oracle_challenge(bytes);
-            let round_challenge_inv = round_challenge.inverse().unwrap();
-
-            ark_std::cfg_iter_mut!(coeffs_l)
-                .zip(coeffs_r)
-                .for_each(|(c_l, c_r)| *c_l += &(round_challenge_inv * &*c_r));
-
-            ark_std::cfg_iter_mut!(z_l)
-                .zip(z_r)
-                .for_each(|(z_l, z_r)| *z_l += &(round_challenge * &*z_r));
-
-            ark_std::cfg_iter_mut!(key_proj_l)
-                .zip(key_r)
-                .for_each(|(k_l, k_r)| *k_l += &(k_r.mul(round_challenge)));
-
-            coeffs = coeffs_l;
-            z = z_l;
-
-            key_proj = key_proj_l;
-            temp = G::Group::normalize_batch(key_proj);
-            comm_key = &temp;
-
-            n /= 2;
-        }
-
-        end_timer!(proof_time);
-
-        Ok(Proof {
-            l_vec,
-            r_vec,
-            final_comm_key: comm_key[0],
-            c: coeffs[0],
-            hiding_comm: hiding_commitment,
-            rand: combined_rand,
-        })
+        Ok(proofs)
     }
 
     fn check<'a>(
@@ -475,129 +349,7 @@ impl<G:AffineRepr> PolynomialCommitment<
     where
         Self::Commitment: 'a,
     {
-        let check_time = start_timer!(|| "Checking evaluations");
-        let d = vk.supported_degree();
-
-        // `log_d` is ceil(log2 (d + 1)), which is the number of steps to compute all of the challenges
-        let log_d = ark_std::log2(d + 1) as usize;
-
-        if proof.l_vec.len() != proof.r_vec.len() || proof.l_vec.len() != log_d {
-            return Err(Error::IncorrectInputLength(
-                format!(
-                    "Expected proof vectors to be {:}. Instead, l_vec size is {:} and r_vec size is {:}",
-                    log_d,
-                    proof.l_vec.len(),
-                    proof.r_vec.len()
-                )
-            ));
-        }
-
-        let check_poly =
-            Self::succinct_check(vk, commitments, *point, values, proof, opening_challenges);
-
-        if check_poly.is_none() {
-            return Ok(false);
-        }
-
-        let check_poly_coeffs = check_poly.unwrap().compute_coeffs();
-        let final_key = Self::cm_commit(
-            vk.comm_key.as_slice(),
-            check_poly_coeffs.as_slice(),
-            None,
-            None,
-        );
-        if !(final_key - &proof.final_comm_key.into()).is_zero() {
-            return Ok(false);
-        }
-
-        end_timer!(check_time);
-        Ok(true)
-    }
-
-    fn batch_check<'a, R: RngCore>(
-        vk: &Self::VerifierKey,
-        commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        query_set: &QuerySet<P::Point>,
-        values: &Evaluations<G::ScalarField, P::Point>,
-        proof: &Self::BatchProof,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
-        rng: &mut R,
-    ) -> Result<bool, Self::Error>
-    where
-        Self::Commitment: 'a,
-    {
-        let commitments: BTreeMap<_, _> = commitments.into_iter().map(|c| (c.label(), c)).collect();
-        let mut query_to_labels_map = BTreeMap::new();
-
-        for (label, (point_label, point)) in query_set.iter() {
-            let labels = query_to_labels_map
-                .entry(point_label)
-                .or_insert((point, BTreeSet::new()));
-            labels.1.insert(label);
-        }
-
-        assert_eq!(proof.len(), query_to_labels_map.len());
-
-        let mut randomizer = G::ScalarField::one();
-
-        let mut combined_check_poly = P::zero();
-        let mut combined_final_key = G::Group::zero();
-
-        for ((_point_label, (point, labels)), p) in query_to_labels_map.into_iter().zip(proof) {
-            let lc_time =
-                start_timer!(|| format!("Randomly combining {} commitments", labels.len()));
-            let mut comms: Vec<&'_ LabeledCommitment<_>> = Vec::new();
-            let mut vals = Vec::new();
-            for label in labels.into_iter() {
-                let commitment = commitments.get(label).ok_or(Error::MissingPolynomial {
-                    label: label.to_string(),
-                })?;
-
-                let v_i = values
-                    .get(&(label.clone(), *point))
-                    .ok_or(Error::MissingEvaluation {
-                        label: label.to_string(),
-                    })?;
-
-                comms.push(commitment);
-                vals.push(*v_i);
-            }
-
-            let check_poly = Self::succinct_check(
-                vk,
-                comms.into_iter(),
-                *point,
-                vals.into_iter(),
-                p,
-                opening_challenges,
-            );
-
-            if check_poly.is_none() {
-                return Ok(false);
-            }
-
-            let check_poly = P::from_coefficients_vec(check_poly.unwrap().compute_coeffs());
-            combined_check_poly += (randomizer, &check_poly);
-            combined_final_key += &p.final_comm_key.mul(randomizer);
-
-            randomizer = u128::rand(rng).into();
-            end_timer!(lc_time);
-        }
-
-        let proof_time = start_timer!(|| "Checking batched proof");
-        let final_key = Self::cm_commit(
-            vk.comm_key.as_slice(),
-            combined_check_poly.coeffs(),
-            None,
-            None,
-        );
-        if !(final_key - &combined_final_key).is_zero() {
-            return Ok(false);
-        }
-
-        end_timer!(proof_time);
-
-        Ok(true)
+        unimplemented!()
     }
 
     fn open_combinations<'a>(
