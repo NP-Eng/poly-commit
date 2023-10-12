@@ -140,6 +140,9 @@ pub struct HyraxProof<G: AffineRepr> {
     pub com_eval: G,
     pub com_d: G,
     pub com_b: G,
+    pub z: Vec<G::ScalarField>,
+    pub z_d: G::ScalarField,
+    pub z_b: G::ScalarField,
     // The seed r_eval is not part of a Hyrax PCS proof as described in the
     // reference article. Cf. the "Modification note" at the beginning of
     // mod.rs

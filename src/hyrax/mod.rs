@@ -57,6 +57,7 @@ impl<G: AffineRepr> HyraxPC<G> {
     fn pedersen_commit(
         com_key: &HyraxCommitterKey<G>,
         scalars: &[G::ScalarField],
+        r: Option<G::ScalarField>,
     ) -> (G, G::ScalarField) {
         // TODO does this trim the key suitably?
         // This block is taken from the function `cm_commit` in the IPA
@@ -66,9 +67,7 @@ impl<G: AffineRepr> HyraxPC<G> {
             .collect::<Vec<_>>();
         let mut com = <G::Group as VariableBaseMSM>::msm_bigint(com_key, &scalars_bigint);
 
-        // TODO I think this rand should receive the generator passed by the user, which
-        // could be given to this function as an optional argument
-        let r = G::ScalarField::rand();
+        let r = r.unwrap_or(G::ScalarField::rand());
         com += &com_key.h.mul(r);
 
         (com, r)
@@ -219,7 +218,7 @@ impl<G: AffineRepr> PolynomialCommitment<
             let m = flat_to_matrix_column_major(poly.to_evaluations(), dim, dim);
 
             let row_coms = m.map(|row| {
-                let (c, r) = Self::pedersen_commit(ck, &row);
+                let (c, r) = Self::pedersen_commit(ck, &row, None);
                 com_rands.push(r);
                 c
             });
@@ -299,7 +298,7 @@ impl<G: AffineRepr> PolynomialCommitment<
             let eval = inner_product(&lt, r);
 
             // Singleton commit
-            let (com_eval, r_eval) = Self::pedersen_commit(ck, &[eval]);
+            let (com_eval, r_eval) = Self::pedersen_commit(ck, &[eval], None);
 
             // ******** Dot product argument ********
             // Appendix A.2 in the reference article
@@ -311,10 +310,10 @@ impl<G: AffineRepr> PolynomialCommitment<
             let b = inner_product(&r, &d);
 
             // Multi-commit
-            let (com_d, r_d) = Self::pedersen_commit(ck, &d);
+            let (com_d, r_d) = Self::pedersen_commit(ck, &d, None);
 
             // Singleton commit
-            let (com_b, r_b) = Self::pedersen_commit(ck, &[b]);
+            let (com_b, r_b) = Self::pedersen_commit(ck, &[b], None);
 
             // Receive the random challenge c from the verifier, i.e. squeeze
             // it from the transcript.
@@ -331,7 +330,7 @@ impl<G: AffineRepr> PolynomialCommitment<
             // From the prover's perspective, opening amounts to adding r_eval to
             // the proof.
 
-            {proofs.push(HyraxProof {com_eval, com_d, com_b, r_eval});            
+            {proofs.push(HyraxProof {com_eval, com_d, com_b, z, z_d, z_b, r_eval});            
         }
 
         Ok(proofs)
@@ -343,13 +342,155 @@ impl<G: AffineRepr> PolynomialCommitment<
         point: &'a P::Point,
         values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        _opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
         Self::Commitment: 'a,
     {
-        unimplemented!()
+
+        let n = point.len();
+
+        assert_eq!(n % 2, 0, "Only points with an even number of variables \
+            are supported in this implementation");
+
+        let dim = 1 << n / 2;
+
+        let point_lower = point[n / 2..];
+        let point_upper = point[..n / 2];
+
+        // TODO this way to compute the bits is very inefficient
+        let l = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_lower));
+        let r = (0..dim).map(|idx| naive_chi(&usize_to_bits(idx, n / 2), &point_upper));
+
+        for (com, (claim, h_proof)) in
+            commitments.into_iter()
+                .zip(values.into_iter()
+                    .zip(proof.into_iter()))
+        {
+
+            let row_coms = com.row_coms;
+
+            // extract each field from h_proof
+            let HyraxProof {com_eval, com_d, com_b, z, z_d, z_b, r_eval} = h_proof;
+
+            // TODO chech num of vars matches n
+            assert_eq!(row_coms.len(), 1 << n / 2, "The commitment should have 2^(n/2) = has {} entries, but \
+                it has {} instead", 1 << n / 2, row_coms.len());
+
+            // TODO change to multi-exponentiation OR directly compute as the commitment to LT?
+            let t_prime = row_coms.iter().zip(l.iter()).map(|(c, s)| c.mul(l)).sum();
+
+            // Receive the random challenge c from the verifier, i.e. squeeze
+            // it from the transcript.
+            // TODO
+            let c = G::BaseField::rand(rng);
+
+            // First check
+            let (com_z_zd, _) = Self::pedersen_commit(vk, &z, z_d);
+            if com_z_zd != c * t_prime + com_d {
+                return Ok(false)
+            }
+
+            // Second check
+            let (com_dp, _) = Self::pedersen_commit(vk, &inner_product(&r, &z), z_b);
+            if com_dp != c * com_eval + com_b {
+                return Ok(false)
+            }
+
+            // Third check: opening
+            if com_eval != Self::pedersen_commit(vk, &[claim], r_eval) {
+                return Ok(false)
+            }
+        }
+
+        Ok(true)
+    }
+
+    fn batch_check<'a, R: RngCore>(
+        vk: &Self::VerifierKey,
+        commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
+        query_set: &QuerySet<P::Point>,
+        values: &Evaluations<G::ScalarField, P::Point>,
+        proof: &Self::BatchProof,
+        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        rng: &mut R,
+    ) -> Result<bool, Self::Error>
+    where
+        Self::Commitment: 'a,
+    {
+        let commitments: BTreeMap<_, _> = commitments.into_iter().map(|c| (c.label(), c)).collect();
+        let mut query_to_labels_map = BTreeMap::new();
+
+        for (label, (point_label, point)) in query_set.iter() {
+            let labels = query_to_labels_map
+                .entry(point_label)
+                .or_insert((point, BTreeSet::new()));
+            labels.1.insert(label);
+        }
+
+        assert_eq!(proof.len(), query_to_labels_map.len());
+
+        let mut randomizer = G::ScalarField::one();
+
+        let mut combined_check_poly = P::zero();
+        let mut combined_final_key = G::Group::zero();
+
+        for ((_point_label, (point, labels)), p) in query_to_labels_map.into_iter().zip(proof) {
+            let lc_time =
+                start_timer!(|| format!("Randomly combining {} commitments", labels.len()));
+            let mut comms: Vec<&'_ LabeledCommitment<_>> = Vec::new();
+            let mut vals = Vec::new();
+            for label in labels.into_iter() {
+                let commitment = commitments.get(label).ok_or(Error::MissingPolynomial {
+                    label: label.to_string(),
+                })?;
+
+                let v_i = values
+                    .get(&(label.clone(), *point))
+                    .ok_or(Error::MissingEvaluation {
+                        label: label.to_string(),
+                    })?;
+
+                comms.push(commitment);
+                vals.push(*v_i);
+            }
+
+            let check_poly = Self::succinct_check(
+                vk,
+                comms.into_iter(),
+                *point,
+                vals.into_iter(),
+                p,
+                opening_challenges,
+            );
+
+            if check_poly.is_none() {
+                return Ok(false);
+            }
+
+            let check_poly = P::from_coefficients_vec(check_poly.unwrap().compute_coeffs());
+            combined_check_poly += (randomizer, &check_poly);
+            combined_final_key += &p.final_comm_key.mul(randomizer);
+
+            randomizer = u128::rand(rng).into();
+            end_timer!(lc_time);
+        }
+
+        let proof_time = start_timer!(|| "Checking batched proof");
+        let final_key = Self::cm_commit(
+            vk.comm_key.as_slice(),
+            combined_check_poly.coeffs(),
+            None,
+            None,
+        );
+        if !(final_key - &combined_final_key).is_zero() {
+            return Ok(false);
+        }
+
+        end_timer!(proof_time);
+
+        Ok(true)
     }
 
     fn open_combinations<'a>(
