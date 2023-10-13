@@ -68,11 +68,7 @@ pub struct HyraxPC<
 
 // TODO use ark_std::cfg_iter! instead of iter() as it is now?
 
-// TODO add "trusting" version of utils linear-algebra functions which do not check dimensions?
-
 // TODO check if it makes sense to implement batch_check, batch_open, open_combinations or check_combinations
-
-// TODO ********************************************************
 
 // TODO document
 
@@ -80,6 +76,14 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
 where
     <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
+    /// Pedersen commitment to a vector of scalars as described in appendix A.1
+    /// of the reference article.
+    /// The caller must either directly pass hiding exponent `r` inside Some,
+    /// or provide an rng so that `r` can be sampled.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if both `r` and `rng` are None.
     fn pedersen_commit(
         key: &HyraxCommitterKey<G>,
         scalars: &[G::ScalarField],
@@ -116,8 +120,6 @@ where
     }
 }
 
-// TODO ********************************************************
-
 impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     PolynomialCommitment<
         G::ScalarField,
@@ -144,6 +146,10 @@ where
     /// be used in settings where security is required - it is only useful for
     /// testing. Furthermore, the point at infinity could possibly be part of
     /// the output, which sould not happen in an actual key.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if `num_vars` is None or contains an odd value.
     fn setup<R: RngCore>(
         max_degree: usize,
         num_vars: Option<usize>,
@@ -197,6 +203,12 @@ where
         })
     }
 
+    /// Trims a key into a prover key and a verifier key. This should only
+    /// amount to discarding some of the points in said key if the prover
+    /// and verifier only wish to commit to polynomials with fewer variables
+    /// than the key can support. Since the number of variables is not
+    /// considered in the prototype, this function currently simply clones the
+    /// key
     fn trim(
         pp: &Self::UniversalParams,
         supported_degree: usize,
@@ -216,22 +228,15 @@ where
         //     enforced_degree_bounds should be `None`"
         // );
 
-        let HyraxUniversalParams {
-            com_key,
-            h,
-        } = pp.clone();
-
-        let ck = HyraxCommitterKey {
-            com_key,
-            h,
-        };
-
-        let vk: HyraxVerifierKey<G> = ck.clone();
-
-        Ok((ck, vk))
+        Ok((pp.clone(), pp.clone()))
     }
 
-    /// Outputs a list of commitments to the passed polynomials
+    /// Produces a list of commitments to the passed polynomials
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if `rng` is None, since Hyrax requires randomness in order to
+    /// commit to a polynomial
     fn commit<'a>(
         ck: &Self::CommitterKey,
         polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
@@ -308,6 +313,24 @@ where
         Ok((coms, rands))
     }
 
+    /// Opens a list of polynomial commitments at a desired point. This
+    /// requires the list of original polynomials (`labeled_polynomials`) as
+    /// well as the random values using by the Pedersen multi-commits during
+    /// the commitment phase (`randomness`).
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if
+    /// - `rng` is None, since Hyrax requires randomness in order to
+    /// open the commitment to a polynomial.
+    /// - The point doesn't have an even number of variables.
+    /// - The labels of a commitment doesn't match that of the corresponding
+    /// polynomial.
+    /// - The number of variables of a polynomial doesn't match that of the
+    /// point.
+    /// 
+    /// # Disregarded arguments
+    /// - `opening_challenges`
     fn open<'a>(
         ck: &Self::CommitterKey,
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
@@ -399,7 +422,6 @@ where
             transcript.append_serializable_element(b"point", &point)?;
 
             // Commiting to the matrix formed by the polynomial coefficients
-            // TODO correct endianness
             let t_aux = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
             let t = Matrix::new_from_rows(t_aux);
 
@@ -465,6 +487,17 @@ where
         Ok(proofs)
     }
 
+    /// Verifies a list of opening proofs and confirms the evaluation of the
+    /// committed polynomials at the desired point.
+    /// 
+    /// # Panics
+    /// - If the point doesn't have an even number of variables.
+    /// - If the length of a commitment does not correspond to the length of the
+    /// point (specifically, commitment length should be 2^(point-length/2)).
+    /// 
+    /// # Disregarded arguments
+    /// - `opening_challenges`
+    /// - `rng`
     fn check<'a>(
         vk: &Self::VerifierKey,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,

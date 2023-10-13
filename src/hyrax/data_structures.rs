@@ -8,10 +8,7 @@ use crate::{
     PCUniversalParams, PCVerifierKey,
 };
 
-/// TODO should the length be contained in any of these structures?
-
 /// `UniversalParams` amount to a Pederson commitment key
-/// TODO do we want this derivative business?
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
 pub struct HyraxUniversalParams<G: AffineRepr> {
@@ -70,8 +67,6 @@ impl<G: AffineRepr> PCPreparedVerifierKey<HyraxVerifierKey<G>> for HyraxPrepared
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(
     Default(bound = ""),
-    // TODO remove or re-introduce
-    // Hash(bound = ""),
     Clone(bound = ""),
     Debug(bound = ""),
 )]
@@ -130,8 +125,6 @@ impl<F: PrimeField> PCRandomness for HyraxRandomness<F> {
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(
     Default(bound = ""),
-    // TODO remove or re-introduce
-    // Hash(bound = ""),
     Clone(bound = ""),
     Debug(bound = ""),
 )]
