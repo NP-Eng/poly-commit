@@ -78,7 +78,12 @@ impl<G: AffineRepr> HyraxPC<G> {
         r: Option<G::ScalarField>,
         rng: Option<&mut dyn RngCore>,
     ) -> (G, G::ScalarField) {
-        let r = r.unwrap_or(G::ScalarField::rand(rng.unwrap()));
+        
+        // Cannot use unwrap_or, since its argument is always evaluated
+        let r = match r {
+            Some(v) => v,
+            None => G::ScalarField::rand(rng.expect("Either r or rng must be provided")),
+        };
 
         let mut scalars_ext = Vec::from(scalars);
         scalars_ext.push(r);
@@ -254,6 +259,13 @@ impl<G: AffineRepr>
             let n = poly.num_vars();
             let dim = 1 << n / 2;
 
+            assert_eq!(
+                n % 2,
+                0,
+                "Only points with an even number of variables \
+                are supported in this implementation"
+            );
+
             assert!(
                 n <= ck.num_vars,
                 "Attempted to commit to a polynomial with {n} variables, but
@@ -315,8 +327,12 @@ impl<G: AffineRepr>
 
         let dim = 1 << n / 2;
 
-        let point_lower = &point[n / 2..];
-        let point_upper = &point[..n / 2];
+        // Reversing the point is necessary because the MLE interface returns
+        // evaluations in little-endian order
+        let point_rev: Vec<G::ScalarField> = point.iter().rev().cloned().collect();
+        
+        let point_lower = &point_rev[n / 2..];
+        let point_upper = &point_rev[..n / 2];
 
         // TODO this way to compute the bits is very inefficient
         let l: Vec<G::ScalarField> = (0..dim)
@@ -368,6 +384,7 @@ impl<G: AffineRepr>
             transcript.append_serializable_element(b"point", point)?;
 
             // Commiting to the matrix formed by the polynomial coefficients
+            // TODO correct endianness
             let t_aux = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
             let t = Matrix::new_from_rows(t_aux);
 
@@ -380,6 +397,9 @@ impl<G: AffineRepr>
                 .sum::<G::ScalarField>();
 
             let eval = inner_product(&lt, &r);
+
+            // TODO remove
+            println!("Open eval: {:?}", eval);
 
             // Singleton commit
             let (com_eval, r_eval) = Self::pedersen_commit(ck, &[eval], None, Some(rng_inner));
@@ -460,8 +480,12 @@ impl<G: AffineRepr>
 
         let dim = 1 << n / 2;
 
-        let point_lower = &point[n / 2..];
-        let point_upper = &point[..n / 2];
+        // Reversing the point is necessary because the MLE interface returns
+        // evaluations in little-endian order
+        let point_rev: Vec<G::ScalarField> = point.iter().rev().cloned().collect();
+        
+        let point_lower = &point_rev[n / 2..];
+        let point_upper = &point_rev[..n / 2];
 
         // TODO this way to compute the bits is very inefficient
         let l: Vec<G::ScalarField> = (0..dim)
@@ -533,6 +557,9 @@ impl<G: AffineRepr>
             // First check
             let com_z_zd = Self::pedersen_commit(vk, &z, Some(*z_d), None).0;
             if com_z_zd != (t_prime.mul(c) + com_d).into() {
+                // TODO remove
+                println!("First check failed");
+
                 return Ok(false);
             }
 
@@ -540,12 +567,22 @@ impl<G: AffineRepr>
             let com_dp = Self::pedersen_commit(vk, &[inner_product(&r, &z)], Some(*z_b), None).0;
             // TODO clarify why into() is needed
             if com_dp != (com_eval.mul(c) + com_b).into() {
+                // TODO remove
+                println!("Second check failed");
+
                 return Ok(false);
             }
 
             // Third check: opening
             let exp = Self::pedersen_commit(vk, &[claim], Some(*r_eval), None).0;
+
+            // TODO remove
+            println!("Claim: {:?}", claim);
+
             if *com_eval != exp {
+                // TODO remove
+                println!("Third check failed");
+
                 return Ok(false);
             }
         }

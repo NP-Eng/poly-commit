@@ -15,6 +15,7 @@ mod tests {
     use crate::linear_codes::utils::test_sponge;
     use crate::{LabeledPolynomial, PolynomialCommitment};
 
+    // TODO remove
     #[inline]
     fn rand_dense_multilinear<F: PrimeField>(
         num_vars: usize,
@@ -23,6 +24,7 @@ mod tests {
         DenseMultilinearExtension::rand(num_vars, rng)
     }
 
+    // TODO remove
     #[inline]
     fn rand_point<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng) -> Vec<F> {
         (0..num_vars).map(|_| F::rand(rng)).collect()
@@ -38,7 +40,7 @@ mod tests {
 
         let chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
 
-        let pp = Hyrax::setup(1, Some(8), chacha).unwrap();
+        let pp = Hyrax::setup(1, Some(n), chacha).unwrap();
 
         let (ck, vk) = Hyrax::trim(&pp, 1, 1, None).unwrap();
 
