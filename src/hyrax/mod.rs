@@ -17,17 +17,17 @@ use digest::Digest;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+use crate::hyrax::utils::tensor_prime;
 use crate::linear_codes::utils::{
     inner_product, scalar_by_vector, vector_sum, IOPTranscript, Matrix,
 };
 
 use crate::{
-    challenge::ChallengeGenerator,
-    hyrax::utils::{flat_to_matrix_column_major, naive_chi, usize_to_bits},
-    Error, LabeledCommitment, LabeledPolynomial, PolynomialCommitment,
+    challenge::ChallengeGenerator, hyrax::utils::flat_to_matrix_column_major, Error,
+    LabeledCommitment, LabeledPolynomial, PolynomialCommitment,
 };
 
-/// String of bits used to seed the randomness during the setup function.
+/// String of bytes used to seed the randomness during the setup function.
 /// Note that the latter should never be used in production environments.
 pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
 
@@ -80,9 +80,9 @@ where
     /// of the reference article.
     /// The caller must either directly pass hiding exponent `r` inside Some,
     /// or provide an rng so that `r` can be sampled.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if both `r` and `rng` are None.
     fn pedersen_commit(
         key: &HyraxCommitterKey<G>,
@@ -146,12 +146,12 @@ where
     /// be used in settings where security is required - it is only useful for
     /// testing. Furthermore, the point at infinity could possibly be part of
     /// the output, which sould not happen in an actual key.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if `num_vars` is None or contains an odd value.
     fn setup<R: RngCore>(
-        max_degree: usize,
+        _max_degree: usize,
         num_vars: Option<usize>,
         _rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
@@ -197,10 +197,7 @@ where
 
         let h: G = points.pop().unwrap();
 
-        Ok(HyraxUniversalParams {
-            com_key: points,
-            h,
-        })
+        Ok(HyraxUniversalParams { com_key: points, h })
     }
 
     /// Trims a key into a prover key and a verifier key. This should only
@@ -232,9 +229,9 @@ where
     }
 
     /// Produces a list of commitments to the passed polynomials
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if `rng` is None, since Hyrax requires randomness in order to
     /// commit to a polynomial
     fn commit<'a>(
@@ -317,9 +314,9 @@ where
     /// requires the list of original polynomials (`labeled_polynomials`) as
     /// well as the random values using by the Pedersen multi-commits during
     /// the commitment phase (`randomness`).
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if
     /// - `rng` is None, since Hyrax requires randomness in order to
     /// open the commitment to a polynomial.
@@ -328,7 +325,7 @@ where
     /// polynomial.
     /// - The number of variables of a polynomial doesn't match that of the
     /// point.
-    /// 
+    ///
     /// # Disregarded arguments
     /// - `opening_challenges`
     fn open<'a>(
@@ -372,13 +369,8 @@ where
         let point_lower = &point_rev[n / 2..];
         let point_upper = &point_rev[..n / 2];
 
-        // TODO this way to compute the bits is very inefficient
-        let l: Vec<G::ScalarField> = (0..dim)
-            .map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_lower))
-            .collect();
-        let r: Vec<G::ScalarField> = (0..dim)
-            .map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_upper))
-            .collect();
+        let l = tensor_prime(point_lower);
+        let r = tensor_prime(point_upper);
 
         let mut proofs = Vec::new();
 
@@ -388,7 +380,6 @@ where
             .into_iter()
             .zip(commitments.into_iter().zip(rands.into_iter()))
         {
-            // TODO check if the poly was actually necessary
             let label = l_poly.label();
             assert_eq!(
                 label,
@@ -400,7 +391,6 @@ where
             let poly = l_poly.polynomial();
             let com = l_com.commitment();
 
-            // TODO chech num of vars matches n
             assert_eq!(
                 poly.num_vars(),
                 n,
@@ -489,12 +479,12 @@ where
 
     /// Verifies a list of opening proofs and confirms the evaluation of the
     /// committed polynomials at the desired point.
-    /// 
+    ///
     /// # Panics
     /// - If the point doesn't have an even number of variables.
     /// - If the length of a commitment does not correspond to the length of the
     /// point (specifically, commitment length should be 2^(point-length/2)).
-    /// 
+    ///
     /// # Disregarded arguments
     /// - `opening_challenges`
     /// - `rng`
@@ -524,8 +514,6 @@ where
             are supported in this implementation"
         );
 
-        let dim = 1 << n / 2;
-
         // Reversing the point is necessary because the MLE interface returns
         // evaluations in little-endian order
         let point_rev: Vec<G::ScalarField> = point.iter().rev().cloned().collect();
@@ -533,13 +521,8 @@ where
         let point_lower = &point_rev[n / 2..];
         let point_upper = &point_rev[..n / 2];
 
-        // TODO this way to compute the bits is very inefficient
-        let l: Vec<G::ScalarField> = (0..dim)
-            .map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_lower))
-            .collect();
-        let r: Vec<G::ScalarField> = (0..dim)
-            .map(|idx| naive_chi(&usize_to_bits(idx, n / 2), point_upper))
-            .collect();
+        let l = tensor_prime(point_lower);
+        let r = tensor_prime(point_upper);
 
         for (com, (claim, h_proof)) in commitments
             .into_iter()
@@ -558,7 +541,6 @@ where
                 r_eval,
             } = h_proof;
 
-            // TODO chech num of vars matches n
             assert_eq!(
                 row_coms.len(),
                 1 << n / 2,

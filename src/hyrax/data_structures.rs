@@ -65,11 +65,7 @@ impl<G: AffineRepr> PCPreparedVerifierKey<HyraxVerifierKey<G>> for HyraxPrepared
 /// Hyrax commitment to a polynomial consisting of one multi-commit per row of
 /// the coefficient matrix
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
-#[derivative(
-    Default(bound = ""),
-    Clone(bound = ""),
-    Debug(bound = ""),
-)]
+#[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
 pub struct HyraxCommitment<G: AffineRepr> {
     /// A list of multi-commits to each row of the matrix containing the
     /// polynomial.
@@ -123,11 +119,7 @@ impl<F: PrimeField> PCRandomness for HyraxRandomness<F> {
 /// Proof of a Hyrax opening, containing various commitments
 /// and auxiliary values generated randomly during the opening
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
-#[derivative(
-    Default(bound = ""),
-    Clone(bound = ""),
-    Debug(bound = ""),
-)]
+#[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
 pub struct HyraxProof<G: AffineRepr> {
     /// Commitment to the evaluation of the polynomial at the requested point
     pub com_eval: G,
