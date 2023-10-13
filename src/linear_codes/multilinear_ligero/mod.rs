@@ -47,7 +47,8 @@ where
 {
     type LinCodePCParams = LigeroPCParams<F, C>;
 
-    fn setup(
+    fn setup<R>(
+        _rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
     ) -> Self::LinCodePCParams {

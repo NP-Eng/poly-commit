@@ -74,7 +74,8 @@ where
     type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeInfo<C>;
 
     /// Does a default setup for the PCS.
-    fn setup(
+    fn setup<R: RngCore>(
+        rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
     ) -> Self::LinCodePCParams;
@@ -154,7 +155,7 @@ where
         let two_to_one_params = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
             .unwrap()
             .clone();
-        let pp = L::setup(leaf_hash_params, two_to_one_params);
+        let pp = L::setup::<R>(rng, leaf_hash_params, two_to_one_params);
         let real_max_degree = <Self::UniversalParams as PCUniversalParams>::max_degree(&pp);
         if max_degree > real_max_degree || real_max_degree == 0 {
             return Err(Error::InvalidParameters(FIELD_SIZE_ERROR.to_string()));
