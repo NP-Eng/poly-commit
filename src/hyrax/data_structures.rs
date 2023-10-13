@@ -19,9 +19,6 @@ pub struct HyraxUniversalParams<G: AffineRepr> {
     pub com_key: Vec<G>,
     /// A generator of the group.
     pub h: G,
-    /// Maximum number of variables a polynomial can be committed to with this
-    /// key
-    pub num_vars: usize,
 }
 
 impl<G: AffineRepr> PCUniversalParams for HyraxUniversalParams<G> {
@@ -31,26 +28,8 @@ impl<G: AffineRepr> PCUniversalParams for HyraxUniversalParams<G> {
     }
 }
 
-/// The committer key is used to commit to scalars, and by extension, to commit
-/// to polynomials and open those commitments
-#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
-#[derivative(
-    Default(bound = ""),
-    // TODO remove or re-introduce
-    // Hash(bound = ""),
-    Clone(bound = ""),
-    Debug(bound = "")
-)]
-// Cannot simply alias HyraxUniversalParams because of the derivation
-pub struct HyraxCommitterKey<G: AffineRepr> {
-    /// A list of generators of the group.
-    pub com_key: Vec<G>,
-    /// A generator of the group.
-    pub h: G,
-    /// Maximum number of variables a polynomial can be committed to with this
-    /// key
-    pub num_vars: usize,
-}
+/// The committer key, which coincides with the universal parameters
+pub type HyraxCommitterKey<G> = HyraxUniversalParams<G>;
 
 /// The verifier key, which coincides with the committer key
 pub type HyraxVerifierKey<G> = HyraxCommitterKey<G>;

@@ -194,7 +194,6 @@ where
         Ok(HyraxUniversalParams {
             com_key: points,
             h,
-            num_vars: n,
         })
     }
 
@@ -220,13 +219,11 @@ where
         let HyraxUniversalParams {
             com_key,
             h,
-            num_vars,
         } = pp.clone();
 
         let ck = HyraxCommitterKey {
             com_key,
             h,
-            num_vars,
         };
 
         let vk: HyraxVerifierKey<G> = ck.clone();
@@ -284,10 +281,10 @@ where
             );
 
             assert!(
-                n <= ck.num_vars,
+                n <= ck.com_key.len(),
                 "Attempted to commit to a polynomial with {n} variables, but
                 this key only supports up to {} variables",
-                ck.num_vars
+                ck.com_key.len()
             );
 
             let m = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
