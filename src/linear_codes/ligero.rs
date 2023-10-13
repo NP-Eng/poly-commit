@@ -1,11 +1,11 @@
+use super::LigeroPCParams;
+use super::LinCodeInfo;
 use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
+
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
-
-use super::LigeroPCParams;
-use super::LinCodeInfo;
 
 impl<F, C> LigeroPCParams<F, C>
 where

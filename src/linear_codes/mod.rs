@@ -1,3 +1,10 @@
+use crate::linear_codes::utils::*;
+use crate::utils::ceil_div;
+use crate::{
+    Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
+    PolynomialCommitment,
+};
+
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::MerkleTree;
 use ark_crypto_primitives::{
@@ -5,21 +12,15 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::PrimeField;
-use ark_poly::Polynomial;
+use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, Polynomial};
 use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
-
 use digest::Digest;
-
-use crate::linear_codes::utils::*;
-use crate::utils::inner_product;
-use crate::{
-    Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
-    PolynomialCommitment,
-};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 mod utils;
 
@@ -93,7 +94,20 @@ where
 
     /// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
     /// The return pair (n, m) corresponds to the dimensions n x m.
-    fn compute_dimensions(n: usize) -> (usize, usize);
+    fn compute_dimensions(n: usize) -> (usize, usize) {
+        assert_eq!(
+            (n as f64) as usize,
+            n,
+            "n cannot be converted to f64: aborting"
+        );
+
+        let aux = (n as f64).sqrt().ceil() as usize;
+        let n_cols = GeneralEvaluationDomain::<F>::new(aux)
+            .expect("Field F does not admit FFT with m elements")
+            .size();
+
+        (ceil_div(n, n_cols), n_cols)
+    }
 
     /// Compute the matrices for the polynomial
     fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {

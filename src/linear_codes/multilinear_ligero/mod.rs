@@ -1,22 +1,17 @@
+use super::{utils::reed_solomon, LigeroPCParams, LinCodeInfo, LinearEncode};
+
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
     merkle_tree::Config,
     sponge::CryptographicSponge,
 };
 use ark_ff::PrimeField;
-use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, MultilinearExtension, Polynomial};
+use ark_poly::{MultilinearExtension, Polynomial};
 use ark_std::borrow::Borrow;
 use ark_std::log2;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
-#[cfg(not(feature = "std"))]
-use num_traits::Float;
-
 use digest::Digest;
-
-use crate::utils::ceil_div;
-
-use super::{utils::reed_solomon, LigeroPCParams, LinCodeInfo, LinearEncode};
 
 mod tests;
 
@@ -79,21 +74,6 @@ where
         let left = &point[..split];
         let right = &point[split..];
         (tensor_inner(left), tensor_inner(right))
-    }
-
-    fn compute_dimensions(n: usize) -> (usize, usize) {
-        assert_eq!(
-            (n as f64) as usize,
-            n,
-            "n cannot be converted to f64: aborting"
-        );
-
-        let aux = (n as f64).sqrt().ceil() as usize;
-        let n_cols = GeneralEvaluationDomain::<F>::new(aux)
-            .expect("Field F does not admit FFT with m elements")
-            .size();
-
-        (ceil_div(n, n_cols), n_cols)
     }
 }
 

@@ -1,5 +1,6 @@
-use ark_ff::{FftField, Field, PrimeField};
+use crate::{utils::ceil_div, Error};
 
+use ark_ff::{FftField, Field, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use ark_std::marker::PhantomData;
@@ -9,10 +10,10 @@ use digest::Digest;
 use merlin::Transcript;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
-
-use crate::{
-    utils::{get_num_bytes, inner_product},
-    Error,
+#[cfg(feature = "parallel")]
+use rayon::{
+    iter::{IntoParallelRefIterator, ParallelIterator},
+    prelude::IndexedParallelIterator,
 };
 
 #[derive(Debug)]
@@ -140,6 +141,19 @@ pub(crate) fn reed_solomon<F: FftField>(
 #[cfg(test)]
 pub(crate) fn to_field<F: Field>(v: Vec<u64>) -> Vec<F> {
     v.iter().map(|x| F::from(*x)).collect::<Vec<F>>()
+}
+
+#[inline]
+pub(crate) fn get_num_bytes(n: usize) -> usize {
+    ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
+}
+
+#[inline]
+pub(crate) fn inner_product<F: Field>(v1: &[F], v2: &[F]) -> F {
+    ark_std::cfg_iter!(v1)
+        .zip(v2)
+        .map(|(li, ri)| *li * ri)
+        .sum()
 }
 
 // TODO: replace by https://github.com/arkworks-rs/crypto-primitives/issues/112.
