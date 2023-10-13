@@ -1,7 +1,8 @@
-use core::usize;
-
-use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
-use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
+use ark_crypto_primitives::{
+    crh::{CRHScheme, TwoToOneCRHScheme},
+    merkle_tree::Config,
+    sponge::CryptographicSponge,
+};
 use ark_ff::PrimeField;
 use ark_poly::{MultilinearExtension, Polynomial};
 use ark_std::borrow::Borrow;
@@ -11,8 +12,10 @@ use ark_std::vec::Vec;
 
 use digest::Digest;
 
-use super::utils::reed_solomon;
-use super::{LigeroPCParams, LinCodeInfo, LinearEncode};
+use super::{
+    utils::{compute_dimensions, reed_solomon, Matrix},
+    LigeroPCParams, LinCodeInfo, LinearEncode,
+};
 
 mod tests;
 
@@ -32,7 +35,7 @@ pub struct MultilinearLigero<
     _phantom: PhantomData<(F, C, D, S, P)>,
 }
 
-impl<F, C, D, S, P> LinearEncode<F, P, C, D> for MultilinearLigero<F, C, D, S, P>
+impl<F, C, D, S, P> LinearEncode<F, C, D, P> for MultilinearLigero<F, C, D, S, P>
 where
     F: PrimeField,
     C: Config,
@@ -44,7 +47,8 @@ where
 {
     type LinCodePCParams = LigeroPCParams<F, C>;
 
-    fn setup(
+    fn setup<R>(
+        _rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
     ) -> Self::LinCodePCParams {
@@ -74,6 +78,25 @@ where
         let left = &point[..split];
         let right = &point[split..];
         (tensor_inner(left), tensor_inner(right))
+    }
+
+    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
+        let mut coeffs = Self::poly_repr(polynomial);
+
+        // 1. Computing parameters and initial matrix
+        let (n_rows, n_cols) = compute_dimensions::<F>(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+
+        // padding the coefficient vector with zeroes
+        // TODO is this the most efficient/safest way to do it?
+        coeffs.resize(n_rows * n_cols, F::zero());
+
+        let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
+
+        // 2. Apply Reed-Solomon encoding row-wise
+        let ext_mat =
+            Matrix::new_from_rows(mat.rows().iter().map(|r| Self::encode(r, param)).collect());
+
+        (mat, ext_mat)
     }
 }
 
