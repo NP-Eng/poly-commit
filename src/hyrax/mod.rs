@@ -398,9 +398,6 @@ impl<G: AffineRepr>
 
             let eval = inner_product(&lt, &r);
 
-            // TODO remove
-            println!("Open eval: {:?}", eval);
-
             // Singleton commit
             let (com_eval, r_eval) = Self::pedersen_commit(ck, &[eval], None, Some(rng_inner));
 
@@ -557,9 +554,6 @@ impl<G: AffineRepr>
             // First check
             let com_z_zd = Self::pedersen_commit(vk, &z, Some(*z_d), None).0;
             if com_z_zd != (t_prime.mul(c) + com_d).into() {
-                // TODO remove
-                println!("First check failed");
-
                 return Ok(false);
             }
 
@@ -567,22 +561,13 @@ impl<G: AffineRepr>
             let com_dp = Self::pedersen_commit(vk, &[inner_product(&r, &z)], Some(*z_b), None).0;
             // TODO clarify why into() is needed
             if com_dp != (com_eval.mul(c) + com_b).into() {
-                // TODO remove
-                println!("Second check failed");
-
                 return Ok(false);
             }
 
             // Third check: opening
             let exp = Self::pedersen_commit(vk, &[claim], Some(*r_eval), None).0;
 
-            // TODO remove
-            println!("Claim: {:?}", claim);
-
             if *com_eval != exp {
-                // TODO remove
-                println!("Third check failed");
-
                 return Ok(false);
             }
         }
