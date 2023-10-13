@@ -1,16 +1,17 @@
 //! An impementation of a time-efficient version of Kate et al's polynomial commitment,
 //! with optimization from [\[BDFG20\]](https://eprint.iacr.org/2020/081.pdf).
-use super::vanishing_polynomial;
-use crate::streaming_kzg::{
-    linear_combination, msm, powers, Commitment, EvaluationProof, VerifierKey,
-};
-
 use ark_ec::pairing::Pairing;
 use ark_ec::scalar_mul::fixed_base::FixedBase;
 use ark_ec::CurveGroup;
 use ark_ff::{PrimeField, Zero};
 use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
 use ark_std::{borrow::Borrow, ops::Div, ops::Mul, rand::RngCore, vec::Vec, UniformRand};
+
+use crate::streaming_kzg::{
+    linear_combination, msm, powers, Commitment, EvaluationProof, VerifierKey,
+};
+
+use super::vanishing_polynomial;
 
 /// The SRS for the polynomial commitment scheme for a max
 ///
