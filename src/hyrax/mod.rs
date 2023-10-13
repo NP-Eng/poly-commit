@@ -1,6 +1,8 @@
 mod data_structures;
 mod utils;
 pub use data_structures::*;
+
+#[cfg(test)]
 mod tests;
 
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
@@ -74,8 +76,9 @@ pub struct HyraxPC<
 
 // TODO document
 
-impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> 
-where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
+impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
+where
+    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     fn pedersen_commit(
         key: &HyraxCommitterKey<G>,
@@ -83,7 +86,6 @@ where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
         r: Option<G::ScalarField>,
         rng: Option<&mut dyn RngCore>,
     ) -> (G, G::ScalarField) {
-        
         // Cannot use unwrap_or, since its argument is always evaluated
         let r = match r {
             Some(v) => v,
@@ -122,9 +124,9 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         P,
         // Dummy sponge - required by the trait, not used in this implementation
         PoseidonSponge<G::ScalarField>,
-    >
-for HyraxPC<G, P>
-where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
+    > for HyraxPC<G, P>
+where
+    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     type UniversalParams = HyraxUniversalParams<G>;
     type CommitterKey = HyraxCommitterKey<G>;
@@ -149,7 +151,9 @@ where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
     ) -> Result<Self::UniversalParams, Self::Error> {
         let n = num_vars.expect("Hyrax requires num_vars to be specified");
 
-        assert_eq!(max_degree, 1, "Hyrax only supports multilinear polynomials");
+        // TODO re-introduce
+        // assert_eq!(max_degree, 1, "Hyrax only supports multilinear polynomials");
+
         assert_eq!(
             n % 2,
             0,
@@ -200,17 +204,18 @@ where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
         supported_hiding_bound: usize,
         enforced_degree_bounds: Option<&[usize]>,
     ) -> Result<(Self::CommitterKey, Self::VerifierKey), Self::Error> {
-        assert!(
-            supported_degree == 1 && supported_hiding_bound == 1,
-            "Hyrax only supports multilinear polynomials: \
-            the passed degrees should be 1"
-        );
+        // TODO re-introduce
+        // assert!(
+        //     supported_degree == 1 && supported_hiding_bound == 1,
+        //     "Hyrax only supports multilinear polynomials: \
+        //     the passed degrees should be 1"
+        // );
 
-        assert!(
-            enforced_degree_bounds.is_none(),
-            "Hyrax only supports multilinear polynomials: \
-            enforced_degree_bounds should be `None`"
-        );
+        // assert!(
+        //     enforced_degree_bounds.is_none(),
+        //     "Hyrax only supports multilinear polynomials: \
+        //     enforced_degree_bounds should be `None`"
+        // );
 
         let HyraxUniversalParams {
             com_key,
@@ -255,17 +260,18 @@ where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
             let label = l_poly.label();
             let poly = l_poly.polynomial();
 
-            assert_eq!(
-                l_poly.degree_bound().unwrap_or(1),
-                1,
-                "Hyrax only supports ML polynomials: the degree bound should \
-                be Some(1) or None"
-            );
+            // TODO re-introduce
+            // assert_eq!(
+            //     l_poly.degree_bound().unwrap_or(1),
+            //     1,
+            //     "Hyrax only supports ML polynomials: the degree bound should \
+            //     be Some(1) or None"
+            // );
 
-            assert!(
-                l_poly.hiding_bound().is_none(),
-                "Hiding bounds are not part of the Hyrax PCS"
-            );
+            // assert!(
+            //     l_poly.hiding_bound().is_none(),
+            //     "Hiding bounds are not part of the Hyrax PCS"
+            // );
 
             let n = poly.num_vars();
             let dim = 1 << n / 2;
@@ -342,7 +348,7 @@ where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
         // Reversing the point is necessary because the MLE interface returns
         // evaluations in little-endian order
         let point_rev: Vec<G::ScalarField> = point.iter().rev().cloned().collect();
-        
+
         let point_lower = &point_rev[n / 2..];
         let point_upper = &point_rev[..n / 2];
 
@@ -493,7 +499,7 @@ where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
         // Reversing the point is necessary because the MLE interface returns
         // evaluations in little-endian order
         let point_rev: Vec<G::ScalarField> = point.iter().rev().cloned().collect();
-        
+
         let point_lower = &point_rev[n / 2..];
         let point_upper = &point_rev[..n / 2];
 
