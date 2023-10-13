@@ -6,7 +6,7 @@ mod tests;
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension, Polynomial};
+use ark_poly::{MultilinearExtension, Polynomial};
 use ark_std::{rand::RngCore, UniformRand};
 use blake2::Blake2s256;
 use core::marker::PhantomData;
@@ -52,10 +52,13 @@ pub struct HyraxPC<
     // The curve used for Pedersen commitments (only EC groups are
     // supported as of now).
     G: AffineRepr,
+    // A polynomial type representing multilinear polynomials
+    P: MultilinearExtension<G::ScalarField>,
     // TODO make generic or fix one type and remove this
     // S: CryptographicSponge,
 > {
     _curve: PhantomData<G>,
+    _poly: PhantomData<P>,
 }
 
 // TODO so far everything is done with asserts instead of the Error
@@ -71,7 +74,9 @@ pub struct HyraxPC<
 
 // TODO document
 
-impl<G: AffineRepr> HyraxPC<G> {
+impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> 
+where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
+{
     fn pedersen_commit(
         key: &HyraxCommitterKey<G>,
         scalars: &[G::ScalarField],
@@ -101,19 +106,25 @@ impl<G: AffineRepr> HyraxPC<G> {
         // TODO better way than with into? Difference AffineRep and idem::Group?
         (com.into(), r)
     }
-}
 
-type MLE<G: AffineRepr> = DenseMultilinearExtension<G::ScalarField>;
+    #[inline]
+    // Auxiliary one-liner to avoid cluttering the code with type specifications
+    fn to_vec(point: <P as Polynomial<G::ScalarField>>::Point) -> Vec<G::ScalarField> {
+        point.into()
+    }
+}
 
 // TODO ********************************************************
 
-impl<G: AffineRepr>
+impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     PolynomialCommitment<
         G::ScalarField,
-        DenseMultilinearExtension<G::ScalarField>,
+        P,
         // Dummy sponge - required by the trait, not used in this implementation
         PoseidonSponge<G::ScalarField>,
-    > for HyraxPC<G>
+    >
+for HyraxPC<G, P>
+where <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     type UniversalParams = HyraxUniversalParams<G>;
     type CommitterKey = HyraxCommitterKey<G>;
@@ -221,7 +232,7 @@ impl<G: AffineRepr>
     /// Outputs a list of commitments to the passed polynomials
     fn commit<'a>(
         ck: &Self::CommitterKey,
-        polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, MLE<G>>>,
+        polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<
         (
@@ -231,7 +242,7 @@ impl<G: AffineRepr>
         Self::Error,
     >
     where
-        MLE<G>: 'a,
+        P: 'a,
     {
         let mut coms = Vec::new();
         let mut rands = Vec::new();
@@ -296,9 +307,9 @@ impl<G: AffineRepr>
 
     fn open<'a>(
         ck: &Self::CommitterKey,
-        labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, MLE<G>>>,
+        labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        point: &'a <DenseMultilinearExtension<G::ScalarField> as Polynomial<G::ScalarField>>::Point,
+        point: &'a P::Point,
         // Not used and not generic on the cryptographic sponge S
         _opening_challenges: &mut ChallengeGenerator<
             G::ScalarField,
@@ -310,12 +321,13 @@ impl<G: AffineRepr>
     where
         Self::Commitment: 'a,
         Self::Randomness: 'a,
-        MLE<G>: 'a,
+        P: 'a,
     {
         // TODO is it safe to open several polynomials at once?
         // TODO is there a more efficient way to open several polynomials at once?
         //      can one e.g. share zs, ds..?
 
+        let point = Self::to_vec(point.clone());
         let n = point.len();
 
         assert_eq!(
@@ -381,7 +393,7 @@ impl<G: AffineRepr>
             transcript.append_serializable_element(b"commitment", &com.row_coms)?;
 
             // Absorbing the point
-            transcript.append_serializable_element(b"point", point)?;
+            transcript.append_serializable_element(b"point", &point)?;
 
             // Commiting to the matrix formed by the polynomial coefficients
             // TODO correct endianness
@@ -453,7 +465,7 @@ impl<G: AffineRepr>
     fn check<'a>(
         vk: &Self::VerifierKey,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
-        point: &'a <DenseMultilinearExtension<G::ScalarField> as Polynomial<G::ScalarField>>::Point,
+        point: &'a P::Point,
         values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
         // Not used and not generic on the cryptographic sponge S
@@ -466,6 +478,7 @@ impl<G: AffineRepr>
     where
         Self::Commitment: 'a,
     {
+        let point = Self::to_vec(point.clone());
         let n = point.len();
 
         assert_eq!(
@@ -538,7 +551,7 @@ impl<G: AffineRepr>
             transcript.append_serializable_element(b"commitment", row_coms)?;
 
             // Absorbing the point
-            transcript.append_serializable_element(b"point", point)?;
+            transcript.append_serializable_element(b"point", &point)?;
 
             // Absorbing the commitment to the evaluation
             transcript.append_serializable_element(b"com_eval", com_eval)?;

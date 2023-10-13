@@ -15,6 +15,13 @@ mod tests {
     use crate::linear_codes::utils::test_sponge;
     use crate::{LabeledPolynomial, PolynomialCommitment};
 
+    // ****************** types ******************
+    
+    type Fr = <EdwardsAffine as AffineRepr>::ScalarField;
+    type Hyrax = HyraxPC<EdwardsAffine, DenseMultilinearExtension<Fr>>;
+    
+    // ******** auxiliary test functions ********
+
     // TODO remove
     #[inline]
     fn rand_dense_multilinear<F: PrimeField>(
@@ -34,9 +41,6 @@ mod tests {
     fn test_hyrax_construction() {
         // Desired number of variables (must be even!)
         let n = 8;
-
-        type Hyrax = HyraxPC<EdwardsAffine>;
-        type Fr = <EdwardsAffine as AffineRepr>::ScalarField;
 
         let chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
 
