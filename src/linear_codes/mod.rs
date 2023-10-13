@@ -1,3 +1,10 @@
+use crate::linear_codes::utils::*;
+use crate::utils::ceil_div;
+use crate::{
+    Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
+    PolynomialCommitment,
+};
+
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::MerkleTree;
 use ark_crypto_primitives::{
@@ -5,20 +12,15 @@ use ark_crypto_primitives::{
     sponge::{Absorb, CryptographicSponge},
 };
 use ark_ff::PrimeField;
-use ark_poly::Polynomial;
+use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, Polynomial};
 use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
-
 use digest::Digest;
-
-use crate::linear_codes::utils::*;
-use crate::{
-    Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
-    PolynomialCommitment,
-};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 mod utils;
 
@@ -29,6 +31,7 @@ pub use multilinear_ligero::MultilinearLigero;
 pub use univariate_ligero::UnivariateLigero;
 
 mod data_structures;
+mod ligero;
 use data_structures::*;
 
 pub use data_structures::{LigeroPCParams, LinCodePCProof};
@@ -59,12 +62,12 @@ where
 }
 
 /// A trait for linear encoding a messsage.
-pub trait LinearEncode<F, P, C, D>
+pub trait LinearEncode<F, C, D, P>
 where
     F: PrimeField,
-    P: Polynomial<F>,
     C: Config,
     D: Digest,
+    P: Polynomial<F>,
     Vec<u8>: Borrow<C::Leaf>,
 {
     /// For schemes like Breakdown and Ligero, PCCommiiterKey and
@@ -72,7 +75,8 @@ where
     type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeInfo<C>;
 
     /// Does a default setup for the PCS.
-    fn setup(
+    fn setup<R: RngCore>(
+        rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
     ) -> Self::LinCodePCParams;
@@ -88,12 +92,29 @@ where
     /// Needed for appending to transcript.
     fn point_to_vec(point: P::Point) -> Vec<F>;
 
+    /// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
+    /// The return pair (n, m) corresponds to the dimensions n x m.
+    fn compute_dimensions(n: usize) -> (usize, usize) {
+        assert_eq!(
+            (n as f64) as usize,
+            n,
+            "n cannot be converted to f64: aborting"
+        );
+
+        let aux = (n as f64).sqrt().ceil() as usize;
+        let n_cols = GeneralEvaluationDomain::<F>::new(aux)
+            .expect("Field F does not admit FFT with m elements")
+            .size();
+
+        (ceil_div(n, n_cols), n_cols)
+    }
+
     /// Compute the matrices for the polynomial
     fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
         let mut coeffs = Self::poly_repr(polynomial);
 
         // 1. Computing parameters and initial matrix
-        let (n_rows, n_cols) = compute_dimensions::<F>(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+        let (n_rows, n_cols) = Self::compute_dimensions(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
 
         // padding the coefficient vector with zeroes
         // TODO is this the most efficient/safest way to do it?
@@ -121,14 +142,14 @@ where
     S: CryptographicSponge,
     P: Polynomial<F>,
     Vec<u8>: Borrow<C::Leaf>,
-    L: LinearEncode<F, P, C, D>,
+    L: LinearEncode<F, C, D, P>,
 {
     _phantom: PhantomData<(L, F, P, S, C, D)>,
 }
 
 impl<L, F, P, S, C, D> PolynomialCommitment<F, P, S> for LinearCodePCS<L, F, P, S, C, D>
 where
-    L: LinearEncode<F, P, C, D>,
+    L: LinearEncode<F, C, D, P>,
     F: PrimeField,
     P: Polynomial<F>,
     S: CryptographicSponge,
@@ -169,7 +190,7 @@ where
         let two_to_one_params = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
             .unwrap()
             .clone();
-        let pp = L::setup(leaf_hash_params, two_to_one_params);
+        let pp = L::setup::<R>(rng, leaf_hash_params, two_to_one_params);
         let real_max_degree = <Self::UniversalParams as PCUniversalParams>::max_degree(&pp);
         if max_degree > real_max_degree || real_max_degree == 0 {
             return Err(Error::InvalidParameters(FIELD_SIZE_ERROR.to_string()));

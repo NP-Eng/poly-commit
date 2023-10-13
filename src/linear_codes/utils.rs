@@ -1,5 +1,6 @@
-use ark_ff::{FftField, Field, PrimeField};
+use crate::{utils::ceil_div, Error};
 
+use ark_ff::{FftField, Field, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use ark_std::marker::PhantomData;
@@ -14,9 +15,6 @@ use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},
     prelude::IndexedParallelIterator,
 };
-
-use crate::streaming_kzg::ceil_div;
-use crate::Error;
 
 #[derive(Debug)]
 pub struct Matrix<F: Field> {
@@ -119,23 +117,6 @@ impl<F: Field> Matrix<F> {
     }
 }
 
-/// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
-/// The return pair (n, m) corresponds to the dimensions n x m.
-pub(crate) fn compute_dimensions<F: FftField>(n: usize) -> (usize, usize) {
-    assert_eq!(
-        (n as f64) as usize,
-        n,
-        "n cannot be converted to f64: aborting"
-    );
-
-    let aux = (n as f64).sqrt().ceil() as usize;
-    let n_cols = GeneralEvaluationDomain::<F>::new(aux)
-        .expect("Field F does not admit FFT with m elements")
-        .size();
-
-    (ceil_div(n, n_cols), n_cols)
-}
-
 /// Apply reed-solomon encoding to msg.
 /// Assumes msg.len() is equal to the order of an FFT domain in F.
 /// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * RHO_INV.
@@ -157,14 +138,6 @@ pub(crate) fn reed_solomon<F: FftField>(
 }
 
 #[inline]
-pub(crate) fn inner_product<F: Field>(v1: &[F], v2: &[F]) -> F {
-    ark_std::cfg_iter!(v1)
-        .zip(v2)
-        .map(|(li, ri)| *li * ri)
-        .sum()
-}
-
-#[inline]
 #[cfg(test)]
 pub(crate) fn to_field<F: Field>(v: Vec<u64>) -> Vec<F> {
     v.iter().map(|x| F::from(*x)).collect::<Vec<F>>()
@@ -173,6 +146,14 @@ pub(crate) fn to_field<F: Field>(v: Vec<u64>) -> Vec<F> {
 #[inline]
 pub(crate) fn get_num_bytes(n: usize) -> usize {
     ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
+}
+
+#[inline]
+pub(crate) fn inner_product<F: Field>(v1: &[F], v2: &[F]) -> F {
+    ark_std::cfg_iter!(v1)
+        .zip(v2)
+        .map(|(li, ri)| *li * ri)
+        .sum()
 }
 
 // TODO: replace by https://github.com/arkworks-rs/crypto-primitives/issues/112.

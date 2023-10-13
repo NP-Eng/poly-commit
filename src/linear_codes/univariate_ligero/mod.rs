@@ -1,3 +1,6 @@
+use super::utils::reed_solomon;
+use super::{LigeroPCParams, LinCodeInfo, LinearEncode};
+
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
@@ -5,11 +8,7 @@ use ark_poly::DenseUVPolynomial;
 use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
-
 use digest::Digest;
-
-use super::utils::reed_solomon;
-use super::{LigeroPCParams, LinCodeInfo, LinearEncode};
 
 mod tests;
 
@@ -29,7 +28,7 @@ pub struct UnivariateLigero<
     _phantom: PhantomData<(F, C, D, S, P)>,
 }
 
-impl<F, C, D, S, P> LinearEncode<F, P, C, D> for UnivariateLigero<F, C, D, S, P>
+impl<F, C, D, S, P> LinearEncode<F, C, D, P> for UnivariateLigero<F, C, D, S, P>
 where
     F: PrimeField,
     C: Config,
@@ -41,7 +40,8 @@ where
 {
     type LinCodePCParams = LigeroPCParams<F, C>;
 
-    fn setup(
+    fn setup<R>(
+        _rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
     ) -> Self::LinCodePCParams {
