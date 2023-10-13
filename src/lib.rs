@@ -34,6 +34,9 @@ use ark_std::{
 pub mod data_structures;
 pub use data_structures::*;
 
+/// Useful functions
+pub(crate) mod utils;
+
 /// R1CS constraints for polynomial constraints.
 #[cfg(feature = "r1cs")]
 mod constraints;

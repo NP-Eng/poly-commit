@@ -15,6 +15,7 @@ use ark_std::vec::Vec;
 use digest::Digest;
 
 use crate::linear_codes::utils::*;
+use crate::utils::inner_product;
 use crate::{
     Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
     PolynomialCommitment,
@@ -90,8 +91,29 @@ where
     /// Needed for appending to transcript.
     fn point_to_vec(point: P::Point) -> Vec<F>;
 
+    /// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
+    /// The return pair (n, m) corresponds to the dimensions n x m.
+    fn compute_dimensions(n: usize) -> (usize, usize);
+
     /// Compute the matrices for the polynomial
-    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>);
+    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
+        let mut coeffs = Self::poly_repr(polynomial);
+
+        // 1. Computing parameters and initial matrix
+        let (n_rows, n_cols) = Self::compute_dimensions(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+
+        // padding the coefficient vector with zeroes
+        // TODO is this the most efficient/safest way to do it?
+        coeffs.resize(n_rows * n_cols, F::zero());
+
+        let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
+
+        // 2. Apply Reed-Solomon encoding row-wise
+        let ext_mat =
+            Matrix::new_from_rows(mat.rows().iter().map(|r| Self::encode(r, param)).collect());
+
+        (mat, ext_mat)
+    }
 
     /// Tensor the point
     fn tensor(point: &P::Point, left_len: usize, right_len: usize) -> (Vec<F>, Vec<F>);

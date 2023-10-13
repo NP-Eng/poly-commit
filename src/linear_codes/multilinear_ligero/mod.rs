@@ -4,7 +4,7 @@ use ark_crypto_primitives::{
     sponge::CryptographicSponge,
 };
 use ark_ff::PrimeField;
-use ark_poly::{MultilinearExtension, Polynomial};
+use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, MultilinearExtension, Polynomial};
 use ark_std::borrow::Borrow;
 use ark_std::log2;
 use ark_std::marker::PhantomData;
@@ -12,10 +12,9 @@ use ark_std::vec::Vec;
 
 use digest::Digest;
 
-use super::{
-    utils::{compute_dimensions, reed_solomon, Matrix},
-    LigeroPCParams, LinCodeInfo, LinearEncode,
-};
+use crate::utils::ceil_div;
+
+use super::{utils::reed_solomon, LigeroPCParams, LinCodeInfo, LinearEncode};
 
 mod tests;
 
@@ -80,23 +79,19 @@ where
         (tensor_inner(left), tensor_inner(right))
     }
 
-    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
-        let mut coeffs = Self::poly_repr(polynomial);
+    fn compute_dimensions(n: usize) -> (usize, usize) {
+        assert_eq!(
+            (n as f64) as usize,
+            n,
+            "n cannot be converted to f64: aborting"
+        );
 
-        // 1. Computing parameters and initial matrix
-        let (n_rows, n_cols) = compute_dimensions::<F>(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+        let aux = (n as f64).sqrt().ceil() as usize;
+        let n_cols = GeneralEvaluationDomain::<F>::new(aux)
+            .expect("Field F does not admit FFT with m elements")
+            .size();
 
-        // padding the coefficient vector with zeroes
-        // TODO is this the most efficient/safest way to do it?
-        coeffs.resize(n_rows * n_cols, F::zero());
-
-        let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
-
-        // 2. Apply Reed-Solomon encoding row-wise
-        let ext_mat =
-            Matrix::new_from_rows(mat.rows().iter().map(|r| Self::encode(r, param)).collect());
-
-        (mat, ext_mat)
+        (ceil_div(n, n_cols), n_cols)
     }
 }
 
