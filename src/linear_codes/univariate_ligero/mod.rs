@@ -5,6 +5,8 @@ use ark_poly::{DenseUVPolynomial, EvaluationDomain, GeneralEvaluationDomain};
 use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 use digest::Digest;
 

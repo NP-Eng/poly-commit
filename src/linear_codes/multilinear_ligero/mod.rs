@@ -9,6 +9,8 @@ use ark_std::borrow::Borrow;
 use ark_std::log2;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 use digest::Digest;
 
