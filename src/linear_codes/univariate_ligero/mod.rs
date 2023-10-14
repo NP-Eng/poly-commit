@@ -5,10 +5,8 @@ use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
 use ark_poly::DenseUVPolynomial;
-use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
-use digest::Digest;
 
 mod tests;
 
@@ -21,31 +19,38 @@ mod tests;
 pub struct UnivariateLigero<
     F: PrimeField,
     C: Config,
-    D: Digest,
     S: CryptographicSponge,
     P: DenseUVPolynomial<F>,
+    H: CRHScheme,
 > {
-    _phantom: PhantomData<(F, C, D, S, P)>,
+    _phantom: PhantomData<(F, C, S, P, H)>,
 }
 
-impl<F, C, D, S, P> LinearEncode<F, C, D, P> for UnivariateLigero<F, C, D, S, P>
+impl<F, C, S, P, H> LinearEncode<F, C, P, H> for UnivariateLigero<F, C, S, P, H>
 where
     F: PrimeField,
     C: Config,
-    D: Digest,
     S: CryptographicSponge,
     P: DenseUVPolynomial<F>,
-    Vec<u8>: Borrow<C::Leaf>,
     P::Point: Into<F>,
+    H: CRHScheme,
 {
-    type LinCodePCParams = LigeroPCParams<F, C>;
+    type LinCodePCParams = LigeroPCParams<F, C, H>;
 
     fn setup<R>(
         _rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
+        col_hash_params: H::Parameters,
     ) -> Self::LinCodePCParams {
-        Self::LinCodePCParams::new(128, 4, true, leaf_hash_params, two_to_one_params)
+        Self::LinCodePCParams::new(
+            128,
+            4,
+            true,
+            leaf_hash_params,
+            two_to_one_params,
+            col_hash_params,
+        )
     }
 
     fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Vec<F> {

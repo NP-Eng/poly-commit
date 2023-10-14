@@ -1,12 +1,14 @@
-use crate::{utils::ceil_div, Error};
+use core::borrow::Borrow;
 
+use crate::{utils::ceil_div, Error};
+use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
 use ark_ff::{FftField, Field, PrimeField};
+
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::CanonicalSerialize;
 use ark_std::marker::PhantomData;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
-use digest::Digest;
 use merlin::Transcript;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -282,12 +284,18 @@ impl<F: PrimeField> IOPTranscript<F> {
 }
 
 #[inline]
-pub(crate) fn hash_column<D: Digest, F: PrimeField + CanonicalSerialize>(array: &[F]) -> Vec<u8> {
-    let mut dig = D::new();
-    for elem in array {
-        dig.update(to_bytes!(elem).unwrap());
-    }
-    dig.finalize().to_vec()
+pub(crate) fn hash_column<F, C, H>(array: Vec<F>, params: &H::Parameters) -> Result<C::Leaf, Error>
+where
+    F: PrimeField,
+    C: Config,
+    H: CRHScheme,
+    Vec<F>: Borrow<<H as CRHScheme>::Input>,
+    C::Leaf: Sized,
+    H::Output: Into<C::Leaf>,
+{
+    H::evaluate(params, array)
+        .map_err(|_| Error::HashingError)
+        .map(|x| x.into())
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)` using the current state of `transcript`
@@ -339,7 +347,7 @@ pub(crate) fn calculate_t<F: PrimeField>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 
     use ark_bls12_377::Fr;
     use ark_poly::{
@@ -347,9 +355,66 @@ mod tests {
         Polynomial,
     };
     use ark_std::test_rng;
-    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+    use digest::Digest;
+    use rand_chacha::{
+        rand_core::{RngCore, SeedableRng},
+        ChaCha20Rng,
+    };
 
     use super::*;
+
+    // Define some shared testing hashers for univariate & multilinear ligero.
+    pub(crate) struct LeafIdentityHasher;
+
+    impl CRHScheme for LeafIdentityHasher {
+        type Input = Vec<u8>;
+        type Output = Vec<u8>;
+        type Parameters = ();
+
+        fn setup<R: RngCore>(_: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+            Ok(())
+        }
+
+        fn evaluate<T: Borrow<Self::Input>>(
+            _: &Self::Parameters,
+            input: T,
+        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+            Ok(input.borrow().to_vec().into())
+        }
+    }
+
+    pub(crate) struct FieldToBytesColHasher<F, D>
+    where
+        F: PrimeField + CanonicalSerialize,
+        D: Digest,
+    {
+        _phantom: PhantomData<(F, D)>,
+    }
+
+    impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
+    where
+        F: PrimeField + CanonicalSerialize,
+        D: Digest,
+    {
+        type Input = Vec<F>;
+        type Output = Vec<u8>;
+        type Parameters = ();
+
+        fn setup<R: RngCore>(
+            _rng: &mut R,
+        ) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+            Ok(())
+        }
+
+        fn evaluate<T: Borrow<Self::Input>>(
+            _parameters: &Self::Parameters,
+            input: T,
+        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+            let mut dig = D::new();
+            dig.update(to_bytes!(input.borrow()).unwrap());
+            Ok(dig.finalize().to_vec())
+        }
+    }
 
     #[test]
     fn test_matrix_constructor_flat() {
