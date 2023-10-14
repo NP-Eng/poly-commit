@@ -11,7 +11,7 @@ mod tests {
     use ark_bls12_377::Fr;
     use ark_bls12_381::Fr as Fr381;
     use ark_crypto_primitives::{
-        crh::{pedersen, sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
+        crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
         merkle_tree::{ByteDigestConverter, Config},
         sponge::poseidon::PoseidonSponge,
     };
@@ -21,20 +21,14 @@ mod tests {
     use blake2::Blake2s256;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    #[derive(Clone)]
-    pub(super) struct Window4x256;
-    impl pedersen::Window for Window4x256 {
-        const WINDOW_SIZE: usize = 4;
-        const NUM_WINDOWS: usize = 256;
-    }
-
-    type LeafH = Sha256;
+    type LeafH = crate::linear_codes::utils::tests::LeafIdentityHasher;
     type CompressH = Sha256;
+    type ColHasher<F, D> = crate::linear_codes::utils::tests::FieldToBytesColHasher<F, D>;
 
     struct MerkleTreeParams;
 
     impl Config for MerkleTreeParams {
-        type Leaf = [u8];
+        type Leaf = Vec<u8>;
 
         type LeafDigest = <LeafH as CRHScheme>::Output;
         type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
@@ -45,23 +39,21 @@ mod tests {
     }
 
     type MTConfig = MerkleTreeParams;
-    type Sponge = PoseidonSponge<Fr>;
+    type Sponge<F> = PoseidonSponge<F>;
 
-    type LigeroPCS = LinearCodePCS<
-        MultilinearLigero<Fr, MTConfig, Blake2s256, Sponge, SparseMultilinearExtension<Fr>>,
-        Fr,
-        SparseMultilinearExtension<Fr>,
-        Sponge,
-        MTConfig,
-        Blake2s256,
-    >;
-    type LigeroPcsF<F> = LinearCodePCS<
-        MultilinearLigero<F, MTConfig, Blake2s256, Sponge, SparseMultilinearExtension<F>>,
+    type LigeroPCS<F> = LinearCodePCS<
+        MultilinearLigero<
+            F,
+            MTConfig,
+            Sponge<F>,
+            SparseMultilinearExtension<F>,
+            ColHasher<F, Blake2s256>,
+        >,
         F,
         SparseMultilinearExtension<F>,
-        Sponge,
+        Sponge<F>,
         MTConfig,
-        Blake2s256,
+        ColHasher<F, Blake2s256>,
     >;
 
     fn rand_poly<Fr: PrimeField>(
@@ -98,17 +90,19 @@ mod tests {
         let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
             .unwrap()
             .clone();
+        let col_hash_params = <ColHasher<Fr, Blake2s256> as CRHScheme>::setup(&mut rng).unwrap();
         let check_well_formedness = true;
 
-        let pp: LigeroPCParams<Fr, MTConfig> = LigeroPCParams::new(
+        let pp: LigeroPCParams<Fr, MTConfig, ColHasher<Fr, Blake2s256>> = LigeroPCParams::new(
             128,
             4,
             check_well_formedness,
             leaf_hash_params,
             two_to_one_params,
+            col_hash_params,
         );
 
-        let (ck, vk) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
+        let (ck, vk) = LigeroPCS::<Fr>::trim(&pp, 0, 0, None).unwrap();
 
         let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
         let labeled_poly = LabeledPolynomial::new(
@@ -119,7 +113,7 @@ mod tests {
         );
 
         let mut test_sponge = test_sponge::<Fr>();
-        let (c, rands) = LigeroPCS::commit(&ck, &[labeled_poly.clone()], None).unwrap();
+        let (c, rands) = LigeroPCS::<Fr>::commit(&ck, &[labeled_poly.clone()], None).unwrap();
 
         let point = rand_point(Some(5), rand_chacha);
 
@@ -128,7 +122,7 @@ mod tests {
         let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
             ChallengeGenerator::new_univariate(&mut test_sponge);
 
-        let proof = LigeroPCS::open(
+        let proof = LigeroPCS::<Fr>::open(
             &ck,
             &[labeled_poly],
             &c,
@@ -138,7 +132,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(LigeroPCS::check(
+        assert!(LigeroPCS::<Fr>::check(
             &vk,
             &c,
             &point,
@@ -177,14 +171,14 @@ mod tests {
     #[test]
     fn single_poly_test() {
         use crate::tests::*;
-        single_poly_test::<_, _, LigeroPCS, _>(
+        single_poly_test::<_, _, LigeroPCS<Fr>, _>(
             Some(5),
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, LigeroPcsF<Fr381>, _>(
+        single_poly_test::<_, _, LigeroPCS<Fr381>, _>(
             Some(10),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -196,14 +190,14 @@ mod tests {
     #[test]
     fn constant_poly_test() {
         use crate::tests::*;
-        single_poly_test::<_, _, LigeroPCS, _>(
+        single_poly_test::<_, _, LigeroPCS<Fr>, _>(
             Some(10),
             constant_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, LigeroPcsF<Fr381>, _>(
+        single_poly_test::<_, _, LigeroPCS<Fr381>, _>(
             Some(5),
             constant_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -215,7 +209,7 @@ mod tests {
     #[test]
     fn full_end_to_end_test() {
         use crate::tests::*;
-        full_end_to_end_test::<_, _, LigeroPCS, _>(
+        full_end_to_end_test::<_, _, LigeroPCS<Fr>, _>(
             Some(8),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -223,7 +217,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_test::<_, _, LigeroPcsF<Fr381>, _>(
+        full_end_to_end_test::<_, _, LigeroPCS<Fr381>, _>(
             Some(3),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -236,7 +230,7 @@ mod tests {
     #[test]
     fn single_equation_test() {
         use crate::tests::*;
-        single_equation_test::<_, _, LigeroPCS, _>(
+        single_equation_test::<_, _, LigeroPCS<Fr>, _>(
             Some(10),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -244,7 +238,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        single_equation_test::<_, _, LigeroPcsF<Fr381>, _>(
+        single_equation_test::<_, _, LigeroPCS<Fr381>, _>(
             Some(5),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -257,7 +251,7 @@ mod tests {
     #[test]
     fn two_equation_test() {
         use crate::tests::*;
-        two_equation_test::<_, _, LigeroPCS, _>(
+        two_equation_test::<_, _, LigeroPCS<Fr>, _>(
             Some(5),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -265,7 +259,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        two_equation_test::<_, _, LigeroPcsF<Fr381>, _>(
+        two_equation_test::<_, _, LigeroPCS<Fr381>, _>(
             Some(10),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -278,7 +272,7 @@ mod tests {
     #[test]
     fn full_end_to_end_equation_test() {
         use crate::tests::*;
-        full_end_to_end_equation_test::<_, _, LigeroPCS, _>(
+        full_end_to_end_equation_test::<_, _, LigeroPCS<Fr>, _>(
             Some(5),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -286,7 +280,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_equation_test::<_, _, LigeroPcsF<Fr381>, _>(
+        full_end_to_end_equation_test::<_, _, LigeroPCS<Fr381>, _>(
             Some(8),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,

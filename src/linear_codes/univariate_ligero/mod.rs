@@ -1,15 +1,12 @@
+use super::utils::reed_solomon;
+use super::{LigeroPCParams, LinCodeInfo, LinearEncode};
+
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
 use ark_poly::DenseUVPolynomial;
-use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
-
-use digest::Digest;
-
-use super::utils::{compute_dimensions, reed_solomon, Matrix};
-use super::{LigeroPCParams, LinCodeInfo, LinearEncode};
 
 mod tests;
 
@@ -22,31 +19,38 @@ mod tests;
 pub struct UnivariateLigero<
     F: PrimeField,
     C: Config,
-    D: Digest,
     S: CryptographicSponge,
     P: DenseUVPolynomial<F>,
+    H: CRHScheme,
 > {
-    _phantom: PhantomData<(F, C, D, S, P)>,
+    _phantom: PhantomData<(F, C, S, P, H)>,
 }
 
-impl<F, C, D, S, P> LinearEncode<F, C, D, P> for UnivariateLigero<F, C, D, S, P>
+impl<F, C, S, P, H> LinearEncode<F, C, P, H> for UnivariateLigero<F, C, S, P, H>
 where
     F: PrimeField,
     C: Config,
-    D: Digest,
     S: CryptographicSponge,
     P: DenseUVPolynomial<F>,
-    Vec<u8>: Borrow<C::Leaf>,
     P::Point: Into<F>,
+    H: CRHScheme,
 {
-    type LinCodePCParams = LigeroPCParams<F, C>;
+    type LinCodePCParams = LigeroPCParams<F, C, H>;
 
     fn setup<R>(
         _rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
+        col_hash_params: H::Parameters,
     ) -> Self::LinCodePCParams {
-        Self::LinCodePCParams::new(128, 4, true, leaf_hash_params, two_to_one_params)
+        Self::LinCodePCParams::new(
+            128,
+            4,
+            true,
+            leaf_hash_params,
+            two_to_one_params,
+            col_hash_params,
+        )
     }
 
     fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Vec<F> {
@@ -79,24 +83,5 @@ where
         }
 
         (left_out, right_out)
-    }
-
-    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
-        let mut coeffs = Self::poly_repr(polynomial);
-
-        // 1. Computing parameters and initial matrix
-        let (n_rows, n_cols) = compute_dimensions::<F>(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
-
-        // padding the coefficient vector with zeroes
-        // TODO is this the most efficient/safest way to do it?
-        coeffs.resize(n_rows * n_cols, F::zero());
-
-        let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
-
-        // 2. Apply Reed-Solomon encoding row-wise
-        let ext_mat =
-            Matrix::new_from_rows(mat.rows().iter().map(|r| Self::encode(r, param)).collect());
-
-        (mat, ext_mat)
     }
 }

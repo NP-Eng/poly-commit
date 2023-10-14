@@ -1,3 +1,7 @@
+use core::borrow::Borrow;
+
+use crate::{utils::ceil_div, Error};
+use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
 use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
@@ -5,7 +9,6 @@ use ark_serialize::CanonicalSerialize;
 use ark_std::marker::PhantomData;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
-use digest::Digest;
 use merlin::Transcript;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -14,9 +17,6 @@ use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},
     prelude::IndexedParallelIterator,
 };
-
-use crate::streaming_kzg::ceil_div;
-use crate::Error;
 
 #[derive(Debug)]
 pub struct Matrix<F: Field> {
@@ -119,23 +119,6 @@ impl<F: Field> Matrix<F> {
     }
 }
 
-/// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
-/// The return pair (n, m) corresponds to the dimensions n x m.
-pub(crate) fn compute_dimensions<F: FftField>(n: usize) -> (usize, usize) {
-    assert_eq!(
-        (n as f64) as usize,
-        n,
-        "n cannot be converted to f64: aborting"
-    );
-
-    let aux = (n as f64).sqrt().ceil() as usize;
-    let n_cols = GeneralEvaluationDomain::<F>::new(aux)
-        .expect("Field F does not admit FFT with m elements")
-        .size();
-
-    (ceil_div(n, n_cols), n_cols)
-}
-
 /// Apply reed-solomon encoding to msg.
 /// Assumes msg.len() is equal to the order of an FFT domain in F.
 /// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * RHO_INV.
@@ -157,14 +140,6 @@ pub(crate) fn reed_solomon<F: FftField>(
 }
 
 #[inline]
-pub(crate) fn inner_product<F: Field>(v1: &[F], v2: &[F]) -> F {
-    ark_std::cfg_iter!(v1)
-        .zip(v2)
-        .map(|(li, ri)| *li * ri)
-        .sum()
-}
-
-#[inline]
 #[cfg(test)]
 pub(crate) fn to_field<F: Field>(v: Vec<u64>) -> Vec<F> {
     v.iter().map(|x| F::from(*x)).collect::<Vec<F>>()
@@ -173,6 +148,14 @@ pub(crate) fn to_field<F: Field>(v: Vec<u64>) -> Vec<F> {
 #[inline]
 pub(crate) fn get_num_bytes(n: usize) -> usize {
     ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
+}
+
+#[inline]
+pub(crate) fn inner_product<F: Field>(v1: &[F], v2: &[F]) -> F {
+    ark_std::cfg_iter!(v1)
+        .zip(v2)
+        .map(|(li, ri)| *li * ri)
+        .sum()
 }
 
 // TODO: replace by https://github.com/arkworks-rs/crypto-primitives/issues/112.
@@ -301,12 +284,18 @@ impl<F: PrimeField> IOPTranscript<F> {
 }
 
 #[inline]
-pub(crate) fn hash_column<D: Digest, F: PrimeField + CanonicalSerialize>(array: &[F]) -> Vec<u8> {
-    let mut dig = D::new();
-    for elem in array {
-        dig.update(to_bytes!(elem).unwrap());
-    }
-    dig.finalize().to_vec()
+pub(crate) fn hash_column<F, C, H>(array: Vec<F>, params: &H::Parameters) -> Result<C::Leaf, Error>
+where
+    F: PrimeField,
+    C: Config,
+    H: CRHScheme,
+    Vec<F>: Borrow<<H as CRHScheme>::Input>,
+    C::Leaf: Sized,
+    H::Output: Into<C::Leaf>,
+{
+    H::evaluate(params, array)
+        .map_err(|_| Error::HashingError)
+        .map(|x| x.into())
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)` using the current state of `transcript`
@@ -358,7 +347,7 @@ pub(crate) fn calculate_t<F: PrimeField>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 
     use ark_bls12_377::Fr;
     use ark_poly::{
@@ -366,9 +355,66 @@ mod tests {
         Polynomial,
     };
     use ark_std::test_rng;
-    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+    use digest::Digest;
+    use rand_chacha::{
+        rand_core::{RngCore, SeedableRng},
+        ChaCha20Rng,
+    };
 
     use super::*;
+
+    // Define some shared testing hashers for univariate & multilinear ligero.
+    pub(crate) struct LeafIdentityHasher;
+
+    impl CRHScheme for LeafIdentityHasher {
+        type Input = Vec<u8>;
+        type Output = Vec<u8>;
+        type Parameters = ();
+
+        fn setup<R: RngCore>(_: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+            Ok(())
+        }
+
+        fn evaluate<T: Borrow<Self::Input>>(
+            _: &Self::Parameters,
+            input: T,
+        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+            Ok(input.borrow().to_vec().into())
+        }
+    }
+
+    pub(crate) struct FieldToBytesColHasher<F, D>
+    where
+        F: PrimeField + CanonicalSerialize,
+        D: Digest,
+    {
+        _phantom: PhantomData<(F, D)>,
+    }
+
+    impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
+    where
+        F: PrimeField + CanonicalSerialize,
+        D: Digest,
+    {
+        type Input = Vec<F>;
+        type Output = Vec<u8>;
+        type Parameters = ();
+
+        fn setup<R: RngCore>(
+            _rng: &mut R,
+        ) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+            Ok(())
+        }
+
+        fn evaluate<T: Borrow<Self::Input>>(
+            _parameters: &Self::Parameters,
+            input: T,
+        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+            let mut dig = D::new();
+            dig.update(to_bytes!(input.borrow()).unwrap());
+            Ok(dig.finalize().to_vec())
+        }
+    }
 
     #[test]
     fn test_matrix_constructor_flat() {

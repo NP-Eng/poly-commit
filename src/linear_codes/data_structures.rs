@@ -1,7 +1,11 @@
 use crate::{
     PCCommitment, PCPreparedCommitment, PCPreparedVerifierKey, PCRandomness, PCVerifierKey,
 };
-use ark_crypto_primitives::merkle_tree::{Config, LeafParam, Path, TwoToOneParam};
+
+use ark_crypto_primitives::{
+    crh::CRHScheme,
+    merkle_tree::{Config, LeafParam, Path, TwoToOneParam},
+};
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
@@ -11,11 +15,7 @@ use ark_std::vec::Vec;
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 /// The public parameters for Ligero PCS.
-pub struct LigeroPCParams<F, C>
-where
-    F: PrimeField,
-    C: Config,
-{
+pub struct LigeroPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     pub(crate) _field: PhantomData<F>,
     /// The security parameter
     pub(crate) sec_param: usize,
@@ -29,16 +29,14 @@ where
     /// Parameters for hash function of Merke tree combining two nodes into one
     #[derivative(Debug = "ignore")]
     pub(crate) two_to_one_params: TwoToOneParam<C>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) col_hash_params: H::Parameters,
 }
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 /// The public parameters for Ligero PCS.
-pub struct BreakdownPCParams<F, C>
-where
-    F: PrimeField,
-    C: Config,
-{
+pub struct BreakdownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     pub(crate) _field: PhantomData<F>,
     /// The security parameter
     pub(crate) sec_param: usize,
@@ -60,7 +58,10 @@ where
     /// Parameters for hash function of Merke tree combining two nodes into one
     #[derivative(Debug = "ignore")]
     pub(crate) two_to_one_params: TwoToOneParam<C>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) col_hash_params: H::Parameters,
 }
+
 pub(crate) type LinCodePCPreparedVerifierKey = ();
 
 impl<Unprepared: PCVerifierKey> PCPreparedVerifierKey<Unprepared> for LinCodePCPreparedVerifierKey {

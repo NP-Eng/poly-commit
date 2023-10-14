@@ -1,16 +1,17 @@
+use super::LigeroPCParams;
+use super::LinCodeInfo;
 use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
+
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 
-use super::LigeroPCParams;
-use super::LinCodeInfo;
-
-impl<F, C> LigeroPCParams<F, C>
+impl<F, C, H> LigeroPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     /// Create new UniversalParams
     pub fn new(
@@ -19,6 +20,7 @@ where
         check_well_formedness: bool,
         leaf_hash_params: LeafParam<C>,
         two_to_one_params: TwoToOneParam<C>,
+        col_hash_params: H::Parameters,
     ) -> Self {
         Self {
             _field: PhantomData,
@@ -27,14 +29,16 @@ where
             check_well_formedness,
             leaf_hash_params,
             two_to_one_params,
+            col_hash_params,
         }
     }
 }
 
-impl<F, C> PCUniversalParams for LigeroPCParams<F, C>
+impl<F, C, H> PCUniversalParams for LigeroPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         if F::TWO_ADICITY < self.rho_inv as u32 {
@@ -47,10 +51,11 @@ where
     }
 }
 
-impl<F, C> PCCommitterKey for LigeroPCParams<F, C>
+impl<F, C, H> PCCommitterKey for LigeroPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
@@ -61,14 +66,15 @@ where
     }
 
     fn supported_degree(&self) -> usize {
-        <LigeroPCParams<F, C> as PCCommitterKey>::max_degree(self)
+        <LigeroPCParams<F, C, H> as PCCommitterKey>::max_degree(self)
     }
 }
 
-impl<F, C> PCVerifierKey for LigeroPCParams<F, C>
+impl<F, C, H> PCVerifierKey for LigeroPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
@@ -79,14 +85,15 @@ where
     }
 
     fn supported_degree(&self) -> usize {
-        <LigeroPCParams<F, C> as PCVerifierKey>::max_degree(self)
+        <LigeroPCParams<F, C, H> as PCVerifierKey>::max_degree(self)
     }
 }
 
-impl<F, C> LinCodeInfo<C> for LigeroPCParams<F, C>
+impl<F, C, H> LinCodeInfo<C, H> for LigeroPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn check_well_formedness(&self) -> bool {
         self.check_well_formedness
@@ -106,5 +113,9 @@ where
 
     fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters {
         &self.two_to_one_params
+    }
+
+    fn col_hash_params(&self) -> &<H as CRHScheme>::Parameters {
+        &self.col_hash_params
     }
 }

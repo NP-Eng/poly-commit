@@ -12,7 +12,7 @@ mod tests {
     use ark_bls12_377::Fr;
     use ark_bls12_381::Fr as Fr381;
     use ark_crypto_primitives::{
-        crh::{pedersen, sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
+        crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
         merkle_tree::{ByteDigestConverter, Config},
         sponge::poseidon::PoseidonSponge,
     };
@@ -22,20 +22,14 @@ mod tests {
     use blake2::Blake2s256;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    #[derive(Clone)]
-    pub(super) struct Window4x256;
-    impl pedersen::Window for Window4x256 {
-        const WINDOW_SIZE: usize = 4;
-        const NUM_WINDOWS: usize = 256;
-    }
-
-    type LeafH = Sha256;
+    type LeafH = crate::linear_codes::utils::tests::LeafIdentityHasher;
     type CompressH = Sha256;
+    type ColHasher<F, D> = crate::linear_codes::utils::tests::FieldToBytesColHasher<F, D>;
 
     struct MerkleTreeParams;
 
     impl Config for MerkleTreeParams {
-        type Leaf = [u8];
+        type Leaf = Vec<u8>;
 
         type LeafDigest = <LeafH as CRHScheme>::Output;
         type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
@@ -49,20 +43,21 @@ mod tests {
     type Sponge = PoseidonSponge<Fr>;
 
     type LigeroPCS = LinearCodePCS<
-        UnivariateLigero<Fr, MTConfig, Blake2s256, Sponge, DensePolynomial<Fr>>,
+        UnivariateLigero<Fr, MTConfig, Sponge, DensePolynomial<Fr>, ColHasher<Fr, Blake2s256>>,
         Fr,
         DensePolynomial<Fr>,
         Sponge,
         MTConfig,
-        Blake2s256,
+        ColHasher<Fr, Blake2s256>,
     >;
+
     type LigeroPcsF<F> = LinearCodePCS<
-        UnivariateLigero<F, MTConfig, Blake2s256, Sponge, DensePolynomial<F>>,
+        UnivariateLigero<F, MTConfig, Sponge, DensePolynomial<F>, ColHasher<F, Blake2s256>>,
         F,
         DensePolynomial<F>,
         Sponge,
         MTConfig,
-        Blake2s256,
+        ColHasher<F, Blake2s256>,
     >;
 
     fn rand_poly<Fr: PrimeField>(
@@ -90,14 +85,16 @@ mod tests {
         let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
             .unwrap()
             .clone();
+        let col_hash_params = <ColHasher<Fr, Blake2s256> as CRHScheme>::setup(&mut rng).unwrap();
         let check_well_formedness = true;
 
-        let pp: LigeroPCParams<Fr, MTConfig> = LigeroPCParams::new(
+        let pp: LigeroPCParams<Fr, MTConfig, ColHasher<_, _>> = LigeroPCParams::new(
             128,
             4,
             check_well_formedness,
             leaf_hash_params,
             two_to_one_params,
+            col_hash_params,
         );
 
         let (ck, vk) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
