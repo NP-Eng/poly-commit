@@ -1,55 +1,61 @@
+use super::BreakdownPCParams;
+use super::LinCodeInfo;
+use crate::utils::{ceil_mul, ent};
 use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
+
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
 use ark_std::vec::Vec;
-// use ark_std::marker::PhantomData;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
-use super::BreakdownPCParams;
-use super::LinCodeInfo;
-
-impl<F, C> PCUniversalParams for BreakdownPCParams<F, C>
+impl<F, C, H> PCUniversalParams for BreakdownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         todo!()
     }
 }
 
-impl<F, C> PCCommitterKey for BreakdownPCParams<F, C>
+impl<F, C, H> PCCommitterKey for BreakdownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
-{
-    fn max_degree(&self) -> usize {
-        todo!()
-    }
-
-    fn supported_degree(&self) -> usize {
-        <BreakdownPCParams<F, C> as PCCommitterKey>::max_degree(self)
-    }
-}
-
-impl<F, C> PCVerifierKey for BreakdownPCParams<F, C>
-where
-    F: PrimeField,
-    C: Config,
+    H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
         todo!()
     }
 
     fn supported_degree(&self) -> usize {
-        <BreakdownPCParams<F, C> as PCVerifierKey>::max_degree(self)
+        <BreakdownPCParams<F, C, H> as PCCommitterKey>::max_degree(self)
     }
 }
 
-impl<F, C> LinCodeInfo<C> for BreakdownPCParams<F, C>
+impl<F, C, H> PCVerifierKey for BreakdownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
+{
+    fn max_degree(&self) -> usize {
+        todo!()
+    }
+
+    fn supported_degree(&self) -> usize {
+        <BreakdownPCParams<F, C, H> as PCVerifierKey>::max_degree(self)
+    }
+}
+
+impl<F, C, H> LinCodeInfo<C, H> for BreakdownPCParams<F, C, H>
+where
+    F: PrimeField,
+    C: Config,
+    H: CRHScheme,
 {
     fn check_well_formedness(&self) -> bool {
         self.check_well_formedness
@@ -70,12 +76,17 @@ where
     fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters {
         &self.two_to_one_params
     }
+
+    fn col_hash_params(&self) -> &<H as CRHScheme>::Parameters {
+        &self.col_hash_params
+    }
 }
 
-impl<F, C> BreakdownPCParams<F, C>
+impl<F, C, H> BreakdownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
+    H: CRHScheme,
 {
     /// Create new UniversalParams
     pub fn new(
@@ -200,20 +211,7 @@ where
     }
 }
 
-/// Entropy function
-fn ent(x: f64) -> f64 {
-    assert!(0f64 <= x && x <= 1f64);
-    if x == 0f64 || x == 1f64 {
-        0f64
-    } else {
-        -x * x.log2() - (1.0 - x) * (1.0 - x).log2()
-    }
-}
 #[inline]
 fn div(a: (usize, usize)) -> f64 {
     a.0 as f64 / a.1 as f64
-}
-#[inline]
-fn ceil_mul(a: usize, b: (usize, usize)) -> usize {
-    (a * b.0 + b.1 - 1) / b.1
 }
