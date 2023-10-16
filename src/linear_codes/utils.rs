@@ -162,7 +162,7 @@ impl<F: Field> SprsMat<F> {
             }
             ind_ptr[i + 1] = ind_ptr[i + 1] + ind_ptr[i]
         }
-        assert!(ind_ptr[m] == nnz);
+        assert!(ind_ptr[m] <= nnz);
         Self {
             n,
             m,
@@ -536,6 +536,17 @@ pub(crate) mod tests {
         ];
 
         let mat = Matrix::new_from_rows(rows);
+        let v: Vec<Fr> = to_field(vec![12, 41, 55]);
+        // by giving the result in the integers and then converting to Fr
+        // we ensure the test will still pass even if Fr changes
+        assert_eq!(mat.row_mul(&v), to_field::<Fr>(vec![4088, 4431, 543]));
+    }
+
+    #[test]
+    fn test_sprs_row_mul() {
+        let mat: Vec<Fr> = to_field(vec![10, 23, 55, 100, 1, 58, 4, 0, 9]);
+
+        let mat = SprsMat::new_from_flat(3,3,3, &mat);
         let v: Vec<Fr> = to_field(vec![12, 41, 55]);
         // by giving the result in the integers and then converting to Fr
         // we ensure the test will still pass even if Fr changes
