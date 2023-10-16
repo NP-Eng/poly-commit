@@ -9,7 +9,7 @@ use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_poly::MultilinearExtension;
-use ark_std::{rand::RngCore, UniformRand, vec::Vec};
+use ark_std::{rand::RngCore, string::ToString, vec::Vec, UniformRand};
 use blake2::Blake2s256;
 use core::marker::PhantomData;
 use digest::Digest;
@@ -18,9 +18,7 @@ use digest::Digest;
 use rayon::prelude::*;
 
 use crate::hyrax::utils::tensor_prime;
-use crate::linear_codes::utils::{
-    inner_product, scalar_by_vector, vector_sum, IOPTranscript, Matrix,
-};
+use crate::utils::{inner_product, scalar_by_vector, vector_sum, IOPTranscript, Matrix};
 
 use crate::{
     challenge::ChallengeGenerator, hyrax::utils::flat_to_matrix_column_major, Error,
@@ -304,7 +302,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
                 .collect();
 
             let com = HyraxCommitment { row_coms };
-            let l_comm = LabeledCommitment::new(label.clone(), com, Some(1));
+            let l_comm = LabeledCommitment::new(label.to_string(), com, Some(1));
 
             coms.push(l_comm);
             rands.push(com_rands);
