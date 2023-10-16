@@ -8,9 +8,11 @@ use ark_crypto_primitives::{
     },
 };
 use ark_ff::PrimeField;
-use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
+use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 use ark_poly_commit::{
-    challenge::ChallengeGenerator, ligero::Ligero, LabeledPolynomial, PolynomialCommitment,
+    challenge::ChallengeGenerator,
+    linear_codes::{FieldToBytesColHasher, LinearCodePCS, MultilinearLigero, LeafIdentityHasher},
+    LabeledPolynomial, PolynomialCommitment,
 };
 use ark_std::rand::Rng;
 use ark_std::test_rng;
@@ -18,11 +20,11 @@ use ark_std::UniformRand;
 use blake2::Blake2s256;
 use criterion::{criterion_group, criterion_main, Criterion};
 struct MerkleTreeParams;
-type LeafH = Sha256;
+type LeafH = LeafIdentityHasher;
 type CompressH = Sha256;
 
 impl Config for MerkleTreeParams {
-    type Leaf = [u8];
+    type Leaf = Vec<u8>;
 
     type LeafDigest = <LeafH as CRHScheme>::Output;
     type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
@@ -33,19 +35,30 @@ impl Config for MerkleTreeParams {
 }
 
 type MTConfig = MerkleTreeParams;
-type UniPoly = DensePolynomial<Fr>;
+type MLE = DenseMultilinearExtension<Fr>;
 type Sponge = PoseidonSponge<Fr>;
-type PC<F, C, D, S, P> = Ligero<F, C, D, S, P>;
-type LigeroPCS = PC<Fr, MTConfig, Blake2s256, Sponge, UniPoly>;
-// TODO are we going to bench with various fields?
-type _LigeroPcsF<F> = PC<F, MTConfig, Blake2s256, Sponge, DensePolynomial<F>>;
+type ColHasher = FieldToBytesColHasher<Fr, Blake2s256>;
+type LigeroPCS = LinearCodePCS<
+    MultilinearLigero<Fr, MTConfig, Sponge, MLE, ColHasher>,
+    Fr,
+    MLE,
+    Sponge,
+    MTConfig,
+    ColHasher,
+>;
 
-fn rand_poly<F: PrimeField>(
-    degree: usize,
-    _: Option<usize>,
+fn rand_poly(
+    num_vars: usize,
     rng: &mut impl Rng,
-) -> DensePolynomial<F> {
-    DensePolynomial::rand(degree, rng)
+) -> MLE {
+        MLE::rand(num_vars, rng)
+}
+
+fn rand_point(num_vars: Option<usize>, rng: &mut impl Rng) -> Vec<Fr> {
+    match num_vars {
+        Some(n) => (0..n).map(|_| Fr::rand(rng)).collect(),
+        None => unimplemented!(), // should not happen!
+    }
 }
 
 const SAMPLES: usize = 100;
@@ -78,15 +91,15 @@ fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
 
 fn commit(c: &mut Criterion) {
     // degree is 18 like in Jellyfish Multilinear KZG
-    let degree = 18;
+    let num_vars = 23;
 
     let rng = &mut test_rng();
-    let pp = LigeroPCS::setup(degree, None, rng).unwrap();
+    let pp = LigeroPCS::setup(num_vars, None, rng).unwrap();
     let (ck, _) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
 
     let labeled_polys = (0..SAMPLES)
         .map(|_| {
-            LabeledPolynomial::new("test".to_string(), rand_poly(degree, None, rng), None, None)
+            LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None)
         })
         .collect::<Vec<_>>();
 
@@ -104,15 +117,15 @@ fn commit(c: &mut Criterion) {
 
 fn open(c: &mut Criterion) {
     // degree is 18 like in Jellyfish Multilinear KZG
-    let degree = 18;
+    let num_vars = 23;
 
     let rng = &mut test_rng();
-    let pp = LigeroPCS::setup(degree, None, rng).unwrap();
+    let pp = LigeroPCS::setup(num_vars, None, rng).unwrap();
     let (ck, _) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
 
     let labeled_polys = (0..SAMPLES)
         .map(|_| {
-            LabeledPolynomial::new("test".to_string(), rand_poly(degree, None, rng), None, None)
+            LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None)
         })
         .collect::<Vec<_>>();
 
@@ -128,7 +141,7 @@ fn open(c: &mut Criterion) {
     let challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
         ChallengeGenerator::new_univariate(&mut test_sponge());
 
-    let points: Vec<_> = (0..SAMPLES).map(|_| Fr::rand(&mut test_rng())).collect();
+    let points: Vec<_> = (0..SAMPLES).map(|_| rand_point(Some(num_vars), &mut test_rng())).collect();
 
     c.bench_function("Ligero Open", |b| {
         let mut i = 0;
