@@ -1,4 +1,5 @@
 use ark_ff::Field;
+use ark_std::vec::Vec;
 
 /// Transforms a flat vector into a matrix in column major order.
 /// For example, if flat = [1, 2, 3, 4, 5, 6] and n = 2, m = 3, then
