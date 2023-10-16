@@ -5,7 +5,7 @@ use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
 use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
@@ -18,7 +18,9 @@ use rayon::{
     prelude::IndexedParallelIterator,
 };
 
-#[derive(Debug)]
+// #[derive(Debug)] // TODO what to do? :)
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Clone(bound = ""), Debug(bound = ""))]
 pub struct Matrix<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,

@@ -26,6 +26,10 @@ mod univariate_ligero;
 pub use multilinear_ligero::MultilinearLigero;
 pub use univariate_ligero::UnivariateLigero;
 
+mod univariate_breakdown;
+
+pub use univariate_breakdown::UnivariateBreakdown;
+
 mod breakdown;
 mod data_structures;
 mod ligero;

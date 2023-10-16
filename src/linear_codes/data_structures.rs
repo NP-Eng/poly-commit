@@ -12,6 +12,8 @@ use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
 
+use super::utils::Matrix;
+
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 /// The public parameters for Ligero PCS.
@@ -37,7 +39,6 @@ pub struct LigeroPCParams<F: PrimeField, C: Config, H: CRHScheme> {
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 /// The public parameters for Ligero PCS.
 pub struct BreakdownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
-    pub(crate) _field: PhantomData<F>,
     /// The security parameter
     pub(crate) sec_param: usize,
     /// alpha in the paper
@@ -50,6 +51,14 @@ pub struct BreakdownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     pub(crate) base_len: usize,
     /// Length of input
     pub(crate) n: usize,
+    /// Size of all of matrices
+    pub(crate) a_dims: Vec<(usize, usize, usize)>,
+    /// Size of all of matrices
+    pub(crate) b_dims: Vec<(usize, usize, usize)>,
+    /// Matrices
+    pub(crate) a_mats: Vec<Matrix<F>>,
+    /// Matrices
+    pub(crate) b_mats: Vec<Matrix<F>>,
     /// This is a flag which determines if the random linear combination is done.
     pub(crate) check_well_formedness: bool,
     /// Parameters for hash function of Merkle tree leaves

@@ -1,3 +1,4 @@
+use super::utils::Matrix;
 use super::BreakdownPCParams;
 use super::LinCodeInfo;
 use crate::utils::{ceil_mul, ent};
@@ -6,6 +7,7 @@ use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
+use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -89,80 +91,119 @@ where
     H: CRHScheme,
 {
     /// Create new UniversalParams
-    pub fn new(
-        _sec_param: usize,
-        _alpha: (usize, usize),
-        _beta: (usize, usize),
-        _rho_inv: (usize, usize),
-        _check_well_formedness: bool,
-        _leaf_hash_params: LeafParam<C>,
-        _two_to_one_params: TwoToOneParam<C>,
+    pub fn new<R: RngCore>(
+        rng: &mut R,
+        sec_param: usize,
+        alpha: (usize, usize),
+        beta: (usize, usize),
+        rho_inv: (usize, usize),
+        base_len: usize,
+        n: usize,
+        check_well_formedness: bool,
+        leaf_hash_params: LeafParam<C>,
+        two_to_one_params: TwoToOneParam<C>,
+        col_hash_params: H::Parameters,
     ) -> Self {
-        todo!()
-        // Self {
-        //     _field: PhantomData,
-        //     sec_param,
-        //     alpha,
-        //     beta,
-        //     rho_inv,
-        //     check_well_formedness,
-        //     leaf_hash_params,
-        //     two_to_one_params,
-        // }
+        assert!(n > base_len); // Make this an error
+        let a = alpha;
+        let b = beta;
+        let r = rho_inv;
+        let c = Self::cn_const(a, b);
+        let d = Self::dn_const(a, b, r);
+        let ct = Constants { a, b, r, c, d };
+        let (a_dims, b_dims) = Self::mat_size(n, base_len, &ct);
+        // let (a_mats, b_mats) = a_dims
+        //     .iter()
+        //     .zip(b_dims.iter())
+        //     .map(|((n, m, d), (np, mp, dp))| {
+        //         (
+        //             Self::make_mat(*n, *m, *d, rng),
+        //             Self::make_mat(*np, *mp, *dp, rng),
+        //         )
+        //     })
+        //     .unzip();
+
+        // let a_mats = {
+        //     a_dims
+        //         .iter()
+        //         .map(|(n, m, d)| Self::make_mat(*n, *m, *d, rng))
+        //         .collect::<Vec<Matrix<F>>>()
+        // };
+        // let b_mats = {
+        //     b_dims
+        //         .iter()
+        //         .map(|(n, m, d)| Self::make_mat(*n, *m, *d, rng))
+        //         .collect::<Vec<Matrix<F>>>()
+        // };
+        let a_mats = Self::make_all(rng, &a_dims);
+        let b_mats = Self::make_all(rng, &b_dims);
+
+        Self {
+            sec_param,
+            alpha,
+            beta,
+            rho_inv,
+            base_len,
+            n,
+            a_dims,
+            b_dims,
+            a_mats,
+            b_mats,
+            check_well_formedness,
+            leaf_hash_params,
+            two_to_one_params,
+            col_hash_params,
+        }
     }
     /// mu = rho_inv - 1 - rho_inv * alpha
-    fn mu(&self) -> f64 {
-        let r = self.rho_inv;
-        let a = self.alpha;
+    fn mu(a: (usize, usize), r: (usize, usize)) -> f64 {
         let nom = r.0 * (a.1 - a.0) - r.1 * a.1;
         let den = r.1 * a.1;
         nom as f64 / den as f64
     }
     /// nu = beta + alpha * beta + 0.03
-    fn nu(&self) -> f64 {
-        let a = self.alpha;
-        let b = self.beta;
+    fn nu(a: (usize, usize), b: (usize, usize)) -> f64 {
         let c = (3usize, 100usize);
         let nom = b.0 * (a.1 + a.0) * c.1 + c.0 * b.1 * a.1;
         let den = b.1 * a.1 * c.1;
         nom as f64 / den as f64
     }
     /// cn_const
-    fn cn_const(&self) -> (f64, f64) {
-        let a = div(self.alpha);
-        let b = div(self.beta);
+    fn cn_const(a: (usize, usize), b: (usize, usize)) -> (f64, f64) {
+        let a = div(a);
+        let b = div(b);
         let arg = 1.28 * b / a;
         let nom = ent(b) + a * ent(arg);
         let den = -b * arg.log2();
         (nom, den)
     }
     /// cn
-    fn cn(&self, n: usize) -> usize {
+    fn cn(n: usize, ct: &Constants) -> usize {
         use ark_std::cmp::{max, min};
-        let b = self.beta;
-        let c = self.cn_const();
+        let b = ct.b;
+        let c = ct.c;
         min(
             max(ceil_mul(n, (32 * b.0, 25 * b.1)), 4 + ceil_mul(n, b)),
             ((110f64 / (n as f64) + c.0) / c.1).ceil() as usize,
         )
     }
     /// dn_const
-    fn dn_const(&self) -> (f64, f64) {
-        let a = div(self.alpha);
-        let b = div(self.beta);
-        let r = div(self.rho_inv);
-        let m = self.mu();
-        let n = self.nu();
+    fn dn_const(a: (usize, usize), b: (usize, usize), r: (usize, usize)) -> (f64, f64) {
+        let m = Self::mu(a, r);
+        let n = Self::nu(a, b);
+        let a = div(a);
+        let b = div(b);
+        let r = div(r);
         let nm = n / m;
         let nom = r * a * ent(b / r) + m * ent(nm);
         let den = -a * b * nm.log2();
         (nom, den)
     }
     /// dn
-    fn dn(&self, n: usize) -> usize {
-        let b = self.beta;
-        let r = self.rho_inv;
-        let d = self.dn_const();
+    fn dn(n: usize, ct: &Constants) -> usize {
+        let b = ct.b;
+        let r = ct.r;
+        let d = ct.d;
         let v1 = {
             ceil_mul(n, (2 * b.0, b.1)) + // 2 * beta * n 
             ((ceil_mul(n, r) - n + 110) // n * (r - 1 + 110/n)
@@ -175,16 +216,18 @@ where
             v2
         }
     }
-    fn mat_size(&self) -> (Vec<(usize, usize, usize)>, Vec<(usize, usize, usize)>) {
-        assert!(self.n > self.base_len); // TODO move this to new function
+    fn mat_size(
+        mut n: usize,
+        base_len: usize,
+        ct: &Constants,
+    ) -> (Vec<(usize, usize, usize)>, Vec<(usize, usize, usize)>) {
         let mut a_dims: Vec<(usize, usize, usize)> = Vec::default();
-        let a = self.alpha;
-        let r = self.rho_inv;
+        let a = ct.a;
+        let r = ct.r;
 
-        let mut n = self.n;
-        while n > self.base_len {
+        while n > base_len {
             let m = ceil_mul(n, a);
-            let cn = self.cn(n);
+            let cn = Self::cn(n, ct);
             let cn = if cn < m { cn } else { m }; // can't generate more nonzero entries than there are columns
             a_dims.push((n, m, cn));
             n = m;
@@ -195,7 +238,7 @@ where
             .map(|&(an, am, _)| {
                 let n = ceil_mul(am, r);
                 let m = ceil_mul(an, r) - an - n;
-                let dn = self.dn(n);
+                let dn = Self::dn(n, ct);
                 let dn = if dn < m { dn } else { m }; // can't generate more nonzero entries than there are columns
                 (n, m, dn)
             })
@@ -204,14 +247,48 @@ where
     }
 
     fn codeword_len(&self) -> usize {
-        let (a_dims, b_dims) = self.mat_size();
+        let (a_dims, b_dims) = (&self.a_dims, &self.b_dims);
         b_dims.iter().map(|(_, m, _)| m).sum::<usize>() + // Output v of the recursive encoding
         a_dims.iter().map(|(n, _, _)| n).sum::<usize>() + // Input x to the recursive encoding
         b_dims.last().unwrap().0 // Output z of the last step of recursion
+    }
+
+    fn make_mat<R: RngCore>(n: usize, m: usize, d: usize, rng: &mut R) -> Matrix<F> {
+        let mut array: Vec<usize> = (0..m).collect();
+        let mut mat = Vec::<F>::with_capacity(n * m);
+        for i in 0..n {
+            let idxs = {
+                (0..d)
+                    .map(|j| {
+                        let r = rng.next_u64() as usize % (m - j);
+                        array.swap(r, m - 1 - j);
+                        array[m - 1 - j]
+                    })
+                    .collect::<Vec<usize>>()
+            };
+            for j in idxs {
+                mat[i * n + j] = F::rand(rng);
+            }
+        }
+        Matrix::<F>::new_from_flat(n, m, &mat)
+    }
+
+    fn make_all<R: RngCore>(rng: &mut R, dims: &[(usize, usize, usize)]) -> Vec<Matrix<F>> {
+        dims.iter()
+            .map(|(n, m, d)| Self::make_mat(*n, *m, *d, rng))
+            .collect::<Vec<_>>()
     }
 }
 
 #[inline]
 fn div(a: (usize, usize)) -> f64 {
     a.0 as f64 / a.1 as f64
+}
+
+struct Constants {
+    a: (usize, usize),
+    b: (usize, usize),
+    r: (usize, usize),
+    c: (f64, f64),
+    d: (f64, f64),
 }
