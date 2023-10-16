@@ -56,30 +56,38 @@ pub struct HyraxPC<
     G: AffineRepr,
     // A polynomial type representing multilinear polynomials
     P: MultilinearExtension<G::ScalarField>,
-    // TODO make generic or fix one type and remove this
-    // S: CryptographicSponge,
 > {
     _curve: PhantomData<G>,
     _poly: PhantomData<P>,
 }
 
-// TODO so far everything is done with asserts instead of the Error
-// types defined by the library. Is this okay?
-
-// TODO use ark_std::cfg_iter! instead of iter() as it is now?
-
-// TODO check if it makes sense to implement batch_check, batch_open, open_combinations or check_combinations
-
-// TODO document
+// TODO Outstanding issues
+// - Will ark_std::cfg_iter! lead to any performance gains?
+//   currently only used in the performance bottleneck: multiexponentiation
+// - Do any of the following methods have a natural implementation which is
+//   more efficient than the default?
+//   batch_check, batch_open, open_combinations check_combinations
+//   The reference article does not mention this
+// - Is it safe to open several polynomials at once, and if so, is there a
+//   more efficient way than what is done below? (which simply shares the
+//   computation of L and R across all polynomials)
+// - Decide whether to re-introduce the assertions marked with
+//   `// TODO re-introduce`. These deal with arguments related to degree bounds,
+//   which do not meaningfully apply to multilinear polynomials. However,
+//   including those checks makes some of the tests provided by the test suite
+//   panic.
+// - Implement optimisation from section `Reducing the cost of
+//   proof-of-dot-prod` in the reference article.
 
 impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
-where
-    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     /// Pedersen commitment to a vector of scalars as described in appendix A.1
     /// of the reference article.
     /// The caller must either directly pass hiding exponent `r` inside Some,
     /// or provide an rng so that `r` can be sampled.
+    /// If there are `n` scalars, the first `n` elements of the key will be
+    /// multiplied by them in the same order, and its `n + 1`th element will be
+    /// multiplied by `r`.
     ///
     /// # Panics
     ///
@@ -90,6 +98,7 @@ where
         r: Option<G::ScalarField>,
         rng: Option<&mut dyn RngCore>,
     ) -> (G, G::ScalarField) {
+
         // Cannot use unwrap_or, since its argument is always evaluated
         let r = match r {
             Some(v) => v,
@@ -98,7 +107,8 @@ where
 
         let mut scalars_ext = Vec::from(scalars);
         scalars_ext.push(r);
-
+        
+        // Trimming the key to the length of the coefficient vector
         let mut points_ext = key.com_key[0..scalars.len()].to_vec();
         points_ext.push(key.h);
 
@@ -107,16 +117,16 @@ where
             .map(|s| s.into_bigint())
             .collect::<Vec<_>>();
 
+        // Multi-exponentiation in the group of points of the EC
         let com = <G::Group as VariableBaseMSM>::msm_bigint(&points_ext, &scalars_bigint);
 
-        // TODO better way than with into? Difference AffineRep and idem::Group?
         (com.into(), r)
     }
 
     #[inline]
     // Auxiliary one-liner to avoid cluttering the code with type specifications
     fn to_vec(point: <P as Polynomial<G::ScalarField>>::Point) -> Vec<G::ScalarField> {
-        point.into()
+        point.into_iter().collect::<Vec<_>>()
     }
 }
 
@@ -127,8 +137,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         // Dummy sponge - required by the trait, not used in this implementation
         PoseidonSponge<G::ScalarField>,
     > for HyraxPC<G, P>
-where
-    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     type UniversalParams = HyraxUniversalParams<G>;
     type CommitterKey = HyraxCommitterKey<G>;
@@ -144,8 +152,7 @@ where
     /// Outputs mock universal parameters for the Hyrax polynomial commitment
     /// scheme. It does *not* return random keys across calls and should never
     /// be used in settings where security is required - it is only useful for
-    /// testing. Furthermore, the point at infinity could possibly be part of
-    /// the output, which sould not happen in an actual key.
+    /// testing.
     ///
     /// # Panics
     ///
@@ -172,7 +179,8 @@ where
         let dim = 1 << n / 2;
 
         // The following block of code is largely taking from the IPA module
-        // in this crate.
+        // in this crate. It generates random points (not guaranteed to be
+        // generators, since the point at infinity should theoretically occur)
         let points: Vec<_> = ark_std::cfg_into_iter!(0u64..dim + 1)
             .map(|i| {
                 let mut hash =
@@ -180,8 +188,7 @@ where
                 let mut p = G::from_random_bytes(&hash);
                 let mut j = 0u64;
                 while p.is_none() {
-                    // PROTOCOL NAME, i, j
-                    let mut bytes = b"Hyrax-protocol".to_vec();
+                    let mut bytes = PROTOCOL_NAME.to_vec();
                     bytes.extend(i.to_le_bytes());
                     bytes.extend(j.to_le_bytes());
                     hash = Blake2s256::digest(bytes.as_slice());
@@ -193,6 +200,7 @@ where
             })
             .collect();
 
+        // Converting from projective to affine representation
         let mut points = G::Group::normalize_batch(&points);
 
         let h: G = points.pop().unwrap();
@@ -205,12 +213,12 @@ where
     /// and verifier only wish to commit to polynomials with fewer variables
     /// than the key can support. Since the number of variables is not
     /// considered in the prototype, this function currently simply clones the
-    /// key
+    /// key.
     fn trim(
         pp: &Self::UniversalParams,
-        supported_degree: usize,
-        supported_hiding_bound: usize,
-        enforced_degree_bounds: Option<&[usize]>,
+        _supported_degree: usize,
+        _supported_hiding_bound: usize,
+        _enforced_degree_bounds: Option<&[usize]>,
     ) -> Result<(Self::CommitterKey, Self::VerifierKey), Self::Error> {
         // TODO re-introduce
         // assert!(
@@ -228,7 +236,8 @@ where
         Ok((pp.clone(), pp.clone()))
     }
 
-    /// Produces a list of commitments to the passed polynomials
+    /// Produces a list of commitments to the passed polynomials. Cf. the
+    /// section "Square-root commitment scheme" from the reference article.
     ///
     /// # Panics
     ///
@@ -291,10 +300,12 @@ where
 
             let m = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
 
+            // Commiting to the matrix with one multi-commitment per row
             let row_coms = m
                 .iter()
                 .map(|row| {
                     let (c, r) = Self::pedersen_commit(ck, &row, None, Some(rng_inner));
+                    // Storing the randomness used in the commitment
                     com_rands.push(r);
                     c
                 })
@@ -313,7 +324,8 @@ where
     /// Opens a list of polynomial commitments at a desired point. This
     /// requires the list of original polynomials (`labeled_polynomials`) as
     /// well as the random values using by the Pedersen multi-commits during
-    /// the commitment phase (`randomness`).
+    /// the commitment phase (`randomness`). Cf. sections "Square-root
+    /// commitment scheme" and appendix A.2 from the reference article.
     ///
     /// # Panics
     ///
@@ -346,9 +358,6 @@ where
         Self::Randomness: 'a,
         P: 'a,
     {
-        // TODO is it safe to open several polynomials at once?
-        // TODO is there a more efficient way to open several polynomials at once?
-        //      can one e.g. share zs, ds..?
 
         let point = Self::to_vec(point.clone());
         let n = point.len();
@@ -368,7 +377,9 @@ where
 
         let point_lower = &point_rev[n / 2..];
         let point_upper = &point_rev[..n / 2];
-
+        
+        // Deriving the tensors which result in the evaluation of the polynomial
+        // when they are multiplied by the coefficient matrix.
         let l = tensor_prime(point_lower);
         let r = tensor_prime(point_upper);
 
@@ -417,6 +428,8 @@ where
 
             let lt = t.row_mul(&l);
 
+            // t_prime coincides witht he Pedersen commitment to lt with the
+            // randomnes r_lt computed here
             let r_lt = l
                 .iter()
                 .zip(randomness.iter())
@@ -521,6 +534,8 @@ where
         let point_lower = &point_rev[n / 2..];
         let point_upper = &point_rev[..n / 2];
 
+        // Deriving the tensors which result in the evaluation of the polynomial
+        // when they are multiplied by the coefficient matrix.
         let l = tensor_prime(point_lower);
         let r = tensor_prime(point_upper);
 
@@ -550,13 +565,9 @@ where
                 row_coms.len()
             );
 
-            // TODO change to multi-exponentiation OR directly compute as the commitment to LT?
-            let t_prime: G = row_coms
-                .iter()
-                .zip(l.iter())
-                .map(|(e, s)| e.mul(s))
-                .sum::<G::Group>()
-                .into();
+            // Computing t_prime with a multi-exponentiation
+            let l_bigint = l.iter().map(|chi| chi.into_bigint()).collect::<Vec<_>>();
+            let t_prime: G = <G::Group as VariableBaseMSM>::msm_bigint(&row_coms, &l_bigint).into();
 
             // Construct transcript and squeeze the challenge c from it
 
@@ -590,7 +601,6 @@ where
 
             // Second check
             let com_dp = Self::pedersen_commit(vk, &[inner_product(&r, &z)], Some(*z_b), None).0;
-            // TODO clarify why into() is needed
             if com_dp != (com_eval.mul(c) + com_b).into() {
                 return Ok(false);
             }
