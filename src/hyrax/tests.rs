@@ -10,7 +10,7 @@ use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use crate::challenge::ChallengeGenerator;
 use crate::hyrax::HyraxPC;
 
-use crate::linear_codes::utils::test_sponge;
+use crate::utils::test_sponge;
 use crate::{LabeledPolynomial, PolynomialCommitment};
 
 use crate::tests::*;
