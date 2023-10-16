@@ -1,7 +1,7 @@
+use super::utils::SprsMat;
 use crate::{
     PCCommitment, PCPreparedCommitment, PCPreparedVerifierKey, PCRandomness, PCVerifierKey,
 };
-
 use ark_crypto_primitives::{
     crh::CRHScheme,
     merkle_tree::{Config, LeafParam, Path, TwoToOneParam},
@@ -11,8 +11,6 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
-
-use super::utils::Matrix;
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
@@ -56,9 +54,9 @@ pub struct BreakdownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     /// Size of all of matrices
     pub(crate) b_dims: Vec<(usize, usize, usize)>,
     /// Matrices
-    pub(crate) a_mats: Vec<Matrix<F>>,
+    pub(crate) a_mats: Vec<SprsMat<F>>,
     /// Matrices
-    pub(crate) b_mats: Vec<Matrix<F>>,
+    pub(crate) b_mats: Vec<SprsMat<F>>,
     /// This is a flag which determines if the random linear combination is done.
     pub(crate) check_well_formedness: bool,
     /// Parameters for hash function of Merkle tree leaves

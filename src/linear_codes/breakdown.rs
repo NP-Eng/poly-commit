@@ -1,4 +1,4 @@
-use super::utils::Matrix;
+use super::utils::SprsMat;
 use super::BreakdownPCParams;
 use super::LinCodeInfo;
 use crate::utils::{ceil_mul, ent};
@@ -253,7 +253,7 @@ where
         b_dims.last().unwrap().0 // Output z of the last step of recursion
     }
 
-    fn make_mat<R: RngCore>(n: usize, m: usize, d: usize, rng: &mut R) -> Matrix<F> {
+    fn make_mat<R: RngCore>(n: usize, m: usize, d: usize, rng: &mut R) -> SprsMat<F> {
         let mut array: Vec<usize> = (0..m).collect();
         let mut mat = vec![F::zero(); n * m]; // TODO is this ok?
         for i in 0..n {
@@ -267,13 +267,15 @@ where
                     .collect::<Vec<usize>>()
             };
             for j in idxs {
-                mat[i * m + j] = F::rand(rng);
+                // This puts columns together
+                mat[i + n * j] = F::rand(rng);
             }
         }
-        Matrix::<F>::new_from_flat(n, m, &mat)
+        // Notice that it is transposed now
+        SprsMat::<F>::new_from_flat(n, m, d, &mat)
     }
 
-    fn make_all<R: RngCore>(rng: &mut R, dims: &[(usize, usize, usize)]) -> Vec<Matrix<F>> {
+    fn make_all<R: RngCore>(rng: &mut R, dims: &[(usize, usize, usize)]) -> Vec<SprsMat<F>> {
         dims.iter()
             .map(|(n, m, d)| Self::make_mat(*n, *m, *d, rng))
             .collect::<Vec<_>>()

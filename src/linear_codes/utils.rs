@@ -1,11 +1,10 @@
-use core::borrow::Borrow;
-
 use crate::{utils::ceil_div, Error};
+
 use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
 use ark_ff::{FftField, Field, PrimeField};
-
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
@@ -118,6 +117,60 @@ impl<F: Field> Matrix<F> {
                 )
             })
             .collect()
+    }
+}
+
+/// This is CSR format
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Clone(bound = ""), Debug(bound = ""))]
+pub(crate) struct SprsMat<F: Field> {
+    pub(crate) n: usize,
+    pub(crate) m: usize,
+    pub(crate) d: usize,
+    ind_ptr: Vec<usize>,
+    col_ind: Vec<usize>,
+    val: Vec<F>,
+}
+
+impl<F: Field> SprsMat<F> {
+    /// Calulates M.v
+    pub(crate) fn row_mul(&self, v: &[F]) -> Vec<F> {
+        (0..self.m)
+            .map(|j| {
+                let ij = self.ind_ptr[j]..self.ind_ptr[j + 1];
+                self.col_ind[ij.clone()]
+                    .iter()
+                    .zip(&self.val[ij])
+                    .map(|(&idx, x)| v[idx] * x)
+                    .sum::<F>()
+            })
+            .collect::<Vec<_>>()
+    }
+    /// m is nrow, n is ncol, d is NNZ in each column
+    pub(crate) fn new_from_flat(n: usize, m: usize, d: usize, list: &[F]) -> Self {
+        let nnz = d * n;
+        let mut ind_ptr = vec![0; m + 1];
+        let mut col_ind = Vec::<usize>::with_capacity(nnz);
+        let mut val = Vec::<F>::with_capacity(nnz);
+        for i in 0..m {
+            for (c, &v) in list[i * n..(i + 1) * n].iter().enumerate() {
+                if v != F::zero() {
+                    ind_ptr[i + 1] += 1;
+                    col_ind.push(c);
+                    val.push(v);
+                }
+            }
+            ind_ptr[i + 1] = ind_ptr[i + 1] + ind_ptr[i]
+        }
+        assert!(ind_ptr[m] == nnz);
+        Self {
+            n,
+            m,
+            d,
+            ind_ptr,
+            col_ind,
+            val,
+        }
     }
 }
 
