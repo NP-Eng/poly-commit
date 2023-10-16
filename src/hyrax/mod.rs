@@ -79,8 +79,7 @@ pub struct HyraxPC<
 // - Implement optimisation from section `Reducing the cost of
 //   proof-of-dot-prod` in the reference article.
 
-impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
-{
+impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> {
     /// Pedersen commitment to a vector of scalars as described in appendix A.1
     /// of the reference article.
     /// The caller must either directly pass hiding exponent `r` inside Some,
@@ -98,7 +97,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
         r: Option<G::ScalarField>,
         rng: Option<&mut dyn RngCore>,
     ) -> (G, G::ScalarField) {
-
         // Cannot use unwrap_or, since its argument is always evaluated
         let r = match r {
             Some(v) => v,
@@ -107,7 +105,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
 
         let mut scalars_ext = Vec::from(scalars);
         scalars_ext.push(r);
-        
+
         // Trimming the key to the length of the coefficient vector
         let mut points_ext = key.com_key[0..scalars.len()].to_vec();
         points_ext.push(key.h);
@@ -352,7 +350,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         Self::Randomness: 'a,
         P: 'a,
     {
-
         let n = point.len();
 
         assert_eq!(
@@ -370,7 +367,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
 
         let point_lower = &point_rev[n / 2..];
         let point_upper = &point_rev[..n / 2];
-        
+
         // Deriving the tensors which result in the evaluation of the polynomial
         // when they are multiplied by the coefficient matrix.
         let l = tensor_prime(point_lower);

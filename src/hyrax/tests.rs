@@ -1,7 +1,7 @@
+use ark_bls12_377::G1Affine;
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::AffineRepr;
 use ark_ed_on_bls12_381::EdwardsAffine;
-use ark_bls12_377::G1Affine;
 use ark_ff::PrimeField;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 use ark_std::test_rng;

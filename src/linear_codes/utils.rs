@@ -140,14 +140,6 @@ pub(crate) fn reed_solomon<F: FftField>(
 }
 
 #[inline]
-pub(crate) fn inner_product<F: Field>(v1: &[F], v2: &[F]) -> F {
-    ark_std::cfg_iter!(v1)
-        .zip(v2)
-        .map(|(li, ri)| *li * ri)
-        .sum()
-}
-
-#[inline]
 pub(crate) fn scalar_by_vector<F: Field>(s: F, v: &[F]) -> Vec<F> {
     ark_std::cfg_iter!(v).map(|x| *x * s).collect()
 }
