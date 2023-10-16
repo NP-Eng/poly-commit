@@ -8,7 +8,7 @@ mod tests;
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
-use ark_poly::{MultilinearExtension, Polynomial};
+use ark_poly::MultilinearExtension;
 use ark_std::{rand::RngCore, UniformRand};
 use blake2::Blake2s256;
 use core::marker::PhantomData;
@@ -80,8 +80,6 @@ pub struct HyraxPC<
 //   proof-of-dot-prod` in the reference article.
 
 impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
-where
-    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     /// Pedersen commitment to a vector of scalars as described in appendix A.1
     /// of the reference article.
@@ -124,12 +122,6 @@ where
 
         (com.into(), r)
     }
-
-    #[inline]
-    // Auxiliary one-liner to avoid cluttering the code with type specifications
-    fn to_vec(point: <P as Polynomial<G::ScalarField>>::Point) -> Vec<G::ScalarField> {
-        point.into()
-    }
 }
 
 impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
@@ -139,8 +131,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         // Dummy sponge - required by the trait, not used in this implementation
         PoseidonSponge<G::ScalarField>,
     > for HyraxPC<G, P>
-where
-    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     type UniversalParams = HyraxUniversalParams<G>;
     type CommitterKey = HyraxCommitterKey<G>;
@@ -363,7 +353,6 @@ where
         P: 'a,
     {
 
-        let point = Self::to_vec(point.clone());
         let n = point.len();
 
         assert_eq!(
@@ -424,7 +413,7 @@ where
             transcript.append_serializable_element(b"commitment", &com.row_coms)?;
 
             // Absorbing the point
-            transcript.append_serializable_element(b"point", &point)?;
+            transcript.append_serializable_element(b"point", point)?;
 
             // Commiting to the matrix formed by the polynomial coefficients
             let t_aux = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
@@ -521,7 +510,6 @@ where
     where
         Self::Commitment: 'a,
     {
-        let point = Self::to_vec(point.clone());
         let n = point.len();
 
         assert_eq!(
@@ -584,7 +572,7 @@ where
             transcript.append_serializable_element(b"commitment", row_coms)?;
 
             // Absorbing the point
-            transcript.append_serializable_element(b"point", &point)?;
+            transcript.append_serializable_element(b"point", point)?;
 
             // Absorbing the commitment to the evaluation
             transcript.append_serializable_element(b"com_eval", com_eval)?;

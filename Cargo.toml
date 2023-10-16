@@ -58,10 +58,10 @@ parallel = ["std", "ark-ff/parallel", "ark-ec/parallel", "ark-poly/parallel", "a
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
-ark-ec = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
-ark-poly = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
-ark-serialize = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
+ark-ff = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
+ark-ec = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
+ark-poly = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
+ark-serialize = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
 
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives" }
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/" }
