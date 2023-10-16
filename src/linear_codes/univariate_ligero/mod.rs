@@ -1,5 +1,5 @@
 use super::utils::reed_solomon;
-use super::{LigeroPCParams, LinCodeInfo, LinearEncode};
+use super::{LigeroPCParams, LinearEncode};
 
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
@@ -54,7 +54,7 @@ where
     }
 
     fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Vec<F> {
-        reed_solomon(msg, param.rho_inv().0)
+        reed_solomon(msg, param.rho_inv)
     }
 
     /// For a univariate polynomial, we simply return the list of coefficients.ś

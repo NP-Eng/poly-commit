@@ -51,7 +51,7 @@ where
     fn sec_param(&self) -> usize;
 
     /// Get the inverse of code rate
-    fn rho_inv(&self) -> (usize, usize);
+    fn distance(&self) -> (usize, usize);
 
     /// See whether there should be a well-formedness check
     fn check_well_formedness(&self) -> bool;
@@ -368,7 +368,7 @@ where
                 // compute the opening proof and append b.M to the transcript
                 opening: generate_proof(
                     ck.sec_param(),
-                    ck.rho_inv(),
+                    ck.distance(),
                     &b,
                     &mat,
                     &ext_mat,
@@ -418,7 +418,7 @@ where
             let n_cols = commitment.metadata.n_cols;
             let n_ext_cols = commitment.metadata.n_ext_cols;
             let root = &commitment.root;
-            let t = calculate_t::<F>(vk.sec_param(), vk.rho_inv(), n_ext_cols)?;
+            let t = calculate_t::<F>(vk.sec_param(), vk.distance(), n_ext_cols)?;
 
             let mut transcript = IOPTranscript::new(b"transcript");
             transcript
@@ -574,7 +574,7 @@ where
 
 fn generate_proof<F, C>(
     sec_param: usize,
-    rho_inv: (usize, usize),
+    distance: (usize, usize),
     b: &[F],
     mat: &Matrix<F>,
     ext_mat: &Matrix<F>,
@@ -585,7 +585,7 @@ where
     F: PrimeField,
     C: Config,
 {
-    let t = calculate_t::<F>(sec_param, rho_inv, ext_mat.n)?;
+    let t = calculate_t::<F>(sec_param, distance, ext_mat.n)?;
 
     // 1. left-multiply the matrix by `b`, where for a requested query point `z`,
     // `b = [1, z^m, z^(2m), ..., z^((m-1)m)]`

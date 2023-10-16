@@ -1,4 +1,4 @@
-use super::{utils::reed_solomon, LigeroPCParams, LinCodeInfo, LinearEncode};
+use super::{utils::reed_solomon, LigeroPCParams, LinearEncode};
 
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
@@ -57,7 +57,7 @@ where
     }
 
     fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Vec<F> {
-        reed_solomon(msg, param.rho_inv().0)
+        reed_solomon(msg, param.rho_inv)
     }
 
     fn poly_repr(polynomial: &P) -> Vec<F> {

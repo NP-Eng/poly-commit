@@ -63,8 +63,8 @@ where
         self.check_well_formedness
     }
 
-    fn rho_inv(&self) -> (usize, usize) {
-        (self.rho_inv.0, self.rho_inv.1)
+    fn distance(&self) -> (usize, usize) {
+        (self.rho_inv.0 * self.beta.0, self.rho_inv.1 * self.beta.1)
     }
 
     fn sec_param(&self) -> usize {
