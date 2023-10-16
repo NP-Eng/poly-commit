@@ -60,7 +60,7 @@ num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 [patch.crates-io]
 ark-ff = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
 ark-ec = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
-ark-poly = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-into"}
+ark-poly = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
 ark-serialize = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly"}
 
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives" }

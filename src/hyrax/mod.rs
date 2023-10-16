@@ -80,6 +80,8 @@ pub struct HyraxPC<
 //   proof-of-dot-prod` in the reference article.
 
 impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
+where
+    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     /// Pedersen commitment to a vector of scalars as described in appendix A.1
     /// of the reference article.
@@ -126,7 +128,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P>
     #[inline]
     // Auxiliary one-liner to avoid cluttering the code with type specifications
     fn to_vec(point: <P as Polynomial<G::ScalarField>>::Point) -> Vec<G::ScalarField> {
-        point.into_iter().collect::<Vec<_>>()
+        point.into()
     }
 }
 
@@ -137,6 +139,8 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         // Dummy sponge - required by the trait, not used in this implementation
         PoseidonSponge<G::ScalarField>,
     > for HyraxPC<G, P>
+where
+    <P as Polynomial<G::ScalarField>>::Point: Into<Vec<G::ScalarField>>,
 {
     type UniversalParams = HyraxUniversalParams<G>;
     type CommitterKey = HyraxCommitterKey<G>;
