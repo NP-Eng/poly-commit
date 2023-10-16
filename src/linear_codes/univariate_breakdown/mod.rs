@@ -1,3 +1,4 @@
+use super::{BreakdownPCParams, LinearEncode};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
@@ -5,8 +6,6 @@ use ark_poly::DenseUVPolynomial;
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
-
-use super::{BreakdownPCParams, LinearEncode};
 
 mod tests;
 
@@ -50,7 +49,7 @@ where
             (82, 1000),
             (10, 6),
             30,
-            1 << 20,
+            1 << 10,
             true,
             leaf_hash_params,
             two_to_one_params,
@@ -58,8 +57,49 @@ where
         )
     }
 
-    fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Vec<F> {
-        todo!()
+    fn encode(msg: &[F], pp: &Self::LinCodePCParams) -> Vec<F> {
+        eprintln!("{}, {}", msg.len(), pp.n);
+        assert!(msg.len() == pp.n); // TODO Make it error
+        let cw_len = pp.codeword_len();
+        let mut cw = vec![F::zero(); cw_len];
+        cw[..msg.len()].copy_from_slice(msg);
+
+        // istart and iend are two arrays which keep the indices of the encoding in each step
+        let start = pp
+            .a_dims
+            .iter()
+            .scan(0, |acc, &(x, _, _)| {
+                *acc += x;
+                Some(*acc)
+            })
+            .collect::<Vec<_>>();
+        let end = pp
+            .b_dims
+            .iter()
+            .scan(cw_len, |acc, &(_, x, _)| {
+                *acc -= x;
+                Some(*acc)
+            })
+            .collect::<Vec<_>>();
+
+        // Multiply by matrices A
+        for (i, &s) in start.iter().enumerate() {
+            let src = &pp.a_mats[i].row_mul(&cw[s - pp.a_dims[i].0..s]);
+            cw[s..s + pp.a_dims[i].1].copy_from_slice(src);
+        }
+
+        // RS encode the last one
+        let rss = *start.last().unwrap();
+        let rsie = rss + pp.a_dims.last().unwrap().1;
+        let rsoe = *end.last().unwrap();
+        Self::reed_solomon(&mut cw, rss, rsie, rsoe);
+
+        // Come back
+        for (i, (&s, e)) in start.iter().zip(end).enumerate() {
+            let src = &pp.b_mats[i].row_mul(&cw[s..e]);
+            cw[e..e + pp.b_dims[i].1].copy_from_slice(src);
+        }
+        cw.to_vec()
     }
 
     /// For a univariate polynomial, we simply return the list of coefficients
@@ -100,4 +140,18 @@ where
     P::Point: Into<F>,
     H: CRHScheme,
 {
+    // This RS encoding is on points 1, ..., oe - s
+    fn reed_solomon(cw: &mut [F], s: usize, ie: usize, oe: usize) {
+        let mut res = vec![F::zero(); oe - s];
+
+        let mut x = F::one();
+        for r in res.iter_mut() {
+            for j in (s..ie).rev() {
+                *r *= x;
+                *r += cw[j];
+            }
+            x += F::one();
+        }
+        cw[s..oe].copy_from_slice(&res);
+    }
 }

@@ -19,7 +19,7 @@ where
     H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
-        todo!()
+        usize::MAX
     }
 }
 
@@ -30,7 +30,7 @@ where
     H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
-        todo!()
+        usize::MAX
     }
 
     fn supported_degree(&self) -> usize {
@@ -45,7 +45,7 @@ where
     H: CRHScheme,
 {
     fn max_degree(&self) -> usize {
-        todo!()
+        usize::MAX
     }
 
     fn supported_degree(&self) -> usize {
@@ -246,7 +246,7 @@ where
         (a_dims, b_dims)
     }
 
-    fn codeword_len(&self) -> usize {
+    pub(crate) fn codeword_len(&self) -> usize {
         let (a_dims, b_dims) = (&self.a_dims, &self.b_dims);
         b_dims.iter().map(|(_, m, _)| m).sum::<usize>() + // Output v of the recursive encoding
         a_dims.iter().map(|(n, _, _)| n).sum::<usize>() + // Input x to the recursive encoding
@@ -255,7 +255,7 @@ where
 
     fn make_mat<R: RngCore>(n: usize, m: usize, d: usize, rng: &mut R) -> Matrix<F> {
         let mut array: Vec<usize> = (0..m).collect();
-        let mut mat = Vec::<F>::with_capacity(n * m);
+        let mut mat = vec![F::zero(); n * m]; // TODO is this ok?
         for i in 0..n {
             let idxs = {
                 (0..d)
@@ -267,7 +267,7 @@ where
                     .collect::<Vec<usize>>()
             };
             for j in idxs {
-                mat[i * n + j] = F::rand(rng);
+                mat[i * m + j] = F::rand(rng);
             }
         }
         Matrix::<F>::new_from_flat(n, m, &mat)
