@@ -37,6 +37,8 @@ where
     type LinCodePCParams = BreakdownPCParams<F, C, H>;
 
     fn setup<R: RngCore>(
+        max_degree: usize,
+        _num_vars: Option<usize>,
         rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
@@ -49,7 +51,7 @@ where
             (41, 500),
             (41, 25),
             30,
-            1 << 10,
+            max_degree,
             true,
             leaf_hash_params,
             two_to_one_params,
@@ -58,7 +60,6 @@ where
     }
 
     fn encode(msg: &[F], pp: &Self::LinCodePCParams) -> Vec<F> {
-        eprintln!("{}, {}", msg.len(), pp.n);
         assert!(msg.len() == pp.n); // TODO Make it error
         let cw_len = pp.codeword_len();
         let mut cw = vec![F::zero(); cw_len];

@@ -47,8 +47,10 @@ pub struct BreakdownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     pub(crate) rho_inv: (usize, usize),
     /// Size of the base case to encode with RS
     pub(crate) base_len: usize,
-    /// Length of input
+    /// Number of columns
     pub(crate) n: usize,
+    /// Number of rows
+    pub(crate) n_row: usize,
     /// Size of all of matrices
     pub(crate) a_dims: Vec<(usize, usize, usize)>,
     /// Size of all of matrices

@@ -41,6 +41,8 @@ where
     type LinCodePCParams = LigeroPCParams<F, C, H>;
 
     fn setup<R>(
+        _max_degree: usize,
+        _num_vars: Option<usize>,
         _rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,

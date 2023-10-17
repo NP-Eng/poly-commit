@@ -398,6 +398,9 @@ pub(crate) fn calculate_t<F: PrimeField>(
     }
     let nom = rhs - 1.0;
     let denom = (1.0 - 0.5 * distance.0 as f64 / distance.1 as f64).log2();
+    if !(denom.is_normal()) {
+        return Err(Error::InvalidParameters("The distance is wrong".to_string()));
+    }
     Ok((nom / denom).ceil() as usize) // This is the `t`
 }
 
@@ -546,7 +549,7 @@ pub(crate) mod tests {
     fn test_sprs_row_mul() {
         let mat: Vec<Fr> = to_field(vec![10, 23, 55, 100, 1, 58, 4, 0, 9]);
 
-        let mat = SprsMat::new_from_flat(3,3,3, &mat);
+        let mat = SprsMat::new_from_flat(3, 3, 3, &mat);
         let v: Vec<Fr> = to_field(vec![12, 41, 55]);
         // by giving the result in the integers and then converting to Fr
         // we ensure the test will still pass even if Fr changes

@@ -1,6 +1,8 @@
 use super::utils::SprsMat;
 use super::BreakdownPCParams;
 use super::LinCodeInfo;
+use crate::linear_codes::utils::calculate_t;
+use crate::utils::ceil_div;
 use crate::utils::{ceil_mul, ent};
 use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
 
@@ -71,6 +73,10 @@ where
         self.sec_param
     }
 
+    fn compute_dimensions(&self, _n: usize) -> (usize, usize) {
+        (self.n_row, self.n)
+    }
+
     fn leaf_hash_params(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters {
         &self.leaf_hash_params
     }
@@ -104,6 +110,11 @@ where
         two_to_one_params: TwoToOneParam<C>,
         col_hash_params: H::Parameters,
     ) -> Self {
+        let aux = (n as f64).sqrt().ceil() as usize;
+        let t = calculate_t::<F>(sec_param, (beta.0 * rho_inv.0, beta.1 * rho_inv.1), aux).unwrap(); // aux is just an approximation of length
+        let n_cols = ((ceil_div(t, 2) * n) as f64).sqrt().ceil() as usize;
+        let (n_row, n) = (ceil_div(n, n_cols), n_cols);
+        eprintln!("dfsksdfdk;ldfks;fks;fks;fks;fs;dfks;fddfks;fk {}, {}", n_row, n);
         assert!(n > base_len); // Make this an error
         let a = alpha;
         let b = beta;
@@ -145,6 +156,7 @@ where
             rho_inv,
             base_len,
             n,
+            n_row,
             a_dims,
             b_dims,
             a_mats,
