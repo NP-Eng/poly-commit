@@ -2,6 +2,7 @@
 mod tests {
 
     use crate::linear_codes::LinearCodePCS;
+    use crate::utils::test_sponge;
     use crate::{
         challenge::ChallengeGenerator,
         linear_codes::{utils::*, LigeroPCParams, MultilinearLigero, PolynomialCommitment},
