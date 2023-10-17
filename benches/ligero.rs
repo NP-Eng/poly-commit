@@ -99,13 +99,13 @@ fn commit(c: &mut Criterion) {
         .collect::<Vec<_>>();
 
     // this is a little ugly, but ideally we want to avoid cloning inside the benchmark. Therefore we keep `labeled_polys` in scope, and just commit to references to it.
-    let labaled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
+    let labeled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
 
     c.bench_function("Ligero Commit", |b| {
         let mut i = 0;
         b.iter(|| {
             i = (i + 1) % SAMPLES;
-            let (_, _) = LigeroPCS::commit(&ck, [labaled_poly_refs[i]], None).unwrap();
+            let (_, _) = LigeroPCS::commit(&ck, [labeled_poly_refs[i]], None).unwrap();
         })
     });
 }
@@ -122,11 +122,11 @@ fn open(c: &mut Criterion) {
         .collect::<Vec<_>>();
 
     // this is a little ugly, but ideally we want to avoid cloning inside the benchmark. Therefore we keep `labeled_polys` in scope, and just commit to references to it.
-    let labaled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
+    let labeled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
 
     let commitments: Vec<(Vec<_>, _)> = (0..SAMPLES)
         .map(|i| {
-            let (c, r) = LigeroPCS::commit(&ck, [labaled_poly_refs[i]], None).unwrap();
+            let (c, r) = LigeroPCS::commit(&ck, [labeled_poly_refs[i]], None).unwrap();
             (c, r)
         })
         .collect();
@@ -143,7 +143,7 @@ fn open(c: &mut Criterion) {
             i = (i + 1) % SAMPLES;
             let _commitment = LigeroPCS::open(
                 &ck,
-                [labaled_poly_refs[i]],
+                [labeled_poly_refs[i]],
                 &commitments[i].0,
                 &points[i],
                 &mut (challenge_generator.clone()),
@@ -167,11 +167,11 @@ fn verify(c: &mut Criterion) {
         .collect::<Vec<_>>();
 
     // this is a little ugly, but ideally we want to avoid cloning inside the benchmark. Therefore we keep `labeled_polys` in scope, and just commit to references to it.
-    let labaled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
+    let labeled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
 
     let commitments: Vec<(Vec<_>, _)> = (0..SAMPLES)
         .map(|i| {
-            let (c, r) = LigeroPCS::commit(&ck, [labaled_poly_refs[i]], None).unwrap();
+            let (c, r) = LigeroPCS::commit(&ck, [labeled_poly_refs[i]], None).unwrap();
             (c, r)
         })
         .collect();
@@ -191,7 +191,7 @@ fn verify(c: &mut Criterion) {
         .map(|i| {
             LigeroPCS::open(
                 &ck,
-                [labaled_poly_refs[i]],
+                [labeled_poly_refs[i]],
                 &commitments[i].0,
                 &points[i],
                 &mut (challenge_generator.clone()),
