@@ -1,5 +1,4 @@
-use crate::linear_codes::utils::*;
-use crate::utils::ceil_div;
+use crate::utils::{ceil_div, inner_product, IOPTranscript, Matrix};
 use crate::{
     Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
     PolynomialCommitment,

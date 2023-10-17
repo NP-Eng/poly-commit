@@ -134,6 +134,16 @@ pub mod streaming_kzg;
 /// [ligero]: https://eprint.iacr.org/2022/1608
 pub mod linear_codes;
 
+/// A polynomial commitment scheme based on the hardness of the
+/// discrete logarithm problem in prime-order groups. This is a
+/// Fiat-Shamired version of the PCS described in the Hyrax paper
+/// [[WTsTW17]][hyrax], with the difference that, unlike in the
+/// cited reference, the evaluation of the polynomial at the point
+/// of interest is indeed revealed to the verifier at the end.
+///
+/// [hyrax]: https://eprint.iacr.org/2017/1132.pdf
+pub mod hyrax;
+
 /// `QuerySet` is the set of queries that are to be made to a set of labeled polynomials/equations
 /// `p` that have previously been committed to. Each element of a `QuerySet` is a pair of
 /// `(label, (point_label, point))`, where `label` is the label of a polynomial in `p`,
