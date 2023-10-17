@@ -553,6 +553,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
 
             // Computing t_prime with a multi-exponentiation
             let l_bigint = l.iter().map(|chi| chi.into_bigint()).collect::<Vec<_>>();
+            println!("DOING MSM");
             let t_prime: G = <G::Group as VariableBaseMSM>::msm_bigint(&row_coms, &l_bigint).into();
 
             // Construct transcript and squeeze the challenge c from it

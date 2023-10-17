@@ -1,4 +1,6 @@
 #![cfg(feature = "benches")]
+use core::num;
+
 use ark_bls12_377::Fr;
 use ark_crypto_primitives::{
     crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
@@ -96,7 +98,7 @@ fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
     PoseidonSponge::new(&config)
 }
 
-fn commit(c: &mut Criterion) {
+fn commit_ligero(c: &mut Criterion) {
     let num_vars = 18;
 
     let rng = &mut test_rng();
@@ -142,8 +144,8 @@ fn commit_hyrax(c: &mut Criterion) {
     });
 }
 
-fn open(c: &mut Criterion) {
-    let num_vars = 17;
+fn open_ligero(c: &mut Criterion) {
+    let num_vars = 18;
 
     let rng = &mut test_rng();
     let pp = LigeroPCS::setup(num_vars, None, rng).unwrap();
@@ -187,8 +189,53 @@ fn open(c: &mut Criterion) {
     });
 }
 
-fn verify(c: &mut Criterion) {
-    let num_vars = 17;
+fn open_hyrax(c: &mut Criterion) {
+    let num_vars = 18;
+
+    let rng = &mut test_rng();
+    let pp = Hyrax377::setup(1, Some(num_vars), rng).unwrap();
+    let (ck, _) = Hyrax377::trim(&pp, 1, 1, None).unwrap();
+
+    let labeled_polys = (0..SAMPLES)
+        .map(|_| LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None))
+        .collect::<Vec<_>>();
+
+    // this is a little ugly, but ideally we want to avoid cloning inside the benchmark. Therefore we keep `labeled_polys` in scope, and just commit to references to it.
+    let labeled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
+
+    let commitments: Vec<(Vec<_>, _)> = (0..SAMPLES)
+        .map(|i| {
+            let (c, r) = Hyrax377::commit(&ck, [labeled_poly_refs[i]], Some(rng)).unwrap();
+            (c, r)
+        })
+        .collect();
+    let challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
+        ChallengeGenerator::new_univariate(&mut test_sponge());
+
+    let points: Vec<_> = (0..SAMPLES)
+        .map(|_| rand_point(Some(num_vars), &mut test_rng()))
+        .collect();
+
+    c.bench_function("Hyrax Open", |b| {
+        let mut i = 0;
+        b.iter(|| {
+            i = (i + 1) % SAMPLES;
+            let _commitment = Hyrax377::open(
+                &ck,
+                [labeled_poly_refs[i]],
+                &commitments[i].0,
+                &points[i],
+                &mut (challenge_generator.clone()),
+                &commitments[i].1,
+                Some(rng),
+            )
+            .unwrap();
+        })
+    });
+}
+
+fn verify_ligero(c: &mut Criterion) {
+    let num_vars = 18;
 
     let rng = &mut test_rng();
     let pp = LigeroPCS::setup(num_vars, None, rng).unwrap();
@@ -240,7 +287,7 @@ fn verify(c: &mut Criterion) {
             i = (i + 1) % SAMPLES;
 
             // we check the proof
-            let _check = LigeroPCS::check(
+            LigeroPCS::check(
                 &vk,
                 &commitments[i].0,
                 &points[i],
@@ -248,7 +295,73 @@ fn verify(c: &mut Criterion) {
                 &proofs[i],
                 &mut (challenge_generator.clone()),
                 None,
-            );
+            ).unwrap();
+        })
+    });
+}
+
+fn verify_hyrax(c: &mut Criterion) {
+    let num_vars = 18;
+    
+    let rng = &mut test_rng();
+    let pp = Hyrax377::setup(1, Some(num_vars), rng).unwrap();
+    let (ck, vk) = Hyrax377::trim(&pp, 1, 1, None).unwrap();
+
+    let labeled_polys = (0..SAMPLES)
+        .map(|_| LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None))
+        .collect::<Vec<_>>();
+
+    // this is a little ugly, but ideally we want to avoid cloning inside the benchmark. Therefore we keep `labeled_polys` in scope, and just commit to references to it.
+    let labeled_poly_refs = labeled_polys.iter().map(|p| p).collect::<Vec<_>>();
+
+    let commitments: Vec<(Vec<_>, _)> = (0..SAMPLES)
+        .map(|i| {
+            let (c, r) = Hyrax377::commit(&ck, [labeled_poly_refs[i]], Some(rng)).unwrap();
+            (c, r)
+        })
+        .collect();
+    let challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
+        ChallengeGenerator::new_univariate(&mut test_sponge());
+
+    let points: Vec<_> = (0..SAMPLES)
+        .map(|_| rand_point(Some(num_vars), &mut test_rng()))
+        .collect();
+
+    let claimed_evals = (0..SAMPLES)
+        .map(|i| (labeled_polys[i].evaluate(&points[i])))
+        .collect::<Vec<_>>();
+
+    // instead of benching open, we create a list of proofs
+    let proofs: Vec<_> = (0..SAMPLES)
+        .map(|i| {
+            Hyrax377::open(
+                &ck,
+                [labeled_poly_refs[i]],
+                &commitments[i].0,
+                &points[i],
+                &mut (challenge_generator.clone()),
+                &commitments[i].1,
+                Some(rng),
+            )
+            .unwrap()
+        })
+        .collect();
+
+    c.bench_function("Hyrax Verify", |b| {
+        let mut i = 0;
+        b.iter(|| {
+            i = (i + 1) % SAMPLES;
+
+            // we check the proof
+            Hyrax377::check(
+                &vk,
+                &commitments[i].0,
+                &points[i],
+                [claimed_evals[i]],
+                &proofs[i],
+                &mut (challenge_generator.clone()),
+                None,
+            ).unwrap();
         })
     });
 }
@@ -257,10 +370,12 @@ criterion_group! {
     name = ligero_benches;
     config = Criterion::default();
     targets =
-        commit,
+        commit_ligero,
         commit_hyrax,
-        // open,
-        // verify,
+        open_ligero,
+        open_hyrax,
+        verify_ligero,
+        verify_hyrax,
 }
 
 criterion_main!(ligero_benches);
