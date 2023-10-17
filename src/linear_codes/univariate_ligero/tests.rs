@@ -3,6 +3,7 @@ mod tests {
 
     use crate::ark_std::UniformRand;
     use crate::linear_codes::LinearCodePCS;
+    use crate::utils::test_sponge;
     use crate::{
         challenge::ChallengeGenerator,
         linear_codes::{utils::*, LigeroPCParams, PolynomialCommitment, UnivariateLigero},
@@ -22,9 +23,9 @@ mod tests {
     use blake2::Blake2s256;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    type LeafH = crate::linear_codes::utils::tests::LeafIdentityHasher;
+    type LeafH = LeafIdentityHasher;
     type CompressH = Sha256;
-    type ColHasher<F, D> = crate::linear_codes::utils::tests::FieldToBytesColHasher<F, D>;
+    type ColHasher<F, D> = FieldToBytesColHasher<F, D>;
 
     struct MerkleTreeParams;
 

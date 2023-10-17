@@ -50,7 +50,7 @@ where
     ) -> Self::LinCodePCParams {
         Self::LinCodePCParams::new(
             128,
-            4,
+            2,
             true,
             leaf_hash_params,
             two_to_one_params,

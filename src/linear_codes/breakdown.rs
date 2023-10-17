@@ -114,7 +114,10 @@ where
         let t = calculate_t::<F>(sec_param, (beta.0 * rho_inv.0, beta.1 * rho_inv.1), aux).unwrap(); // aux is just an approximation of length
         let n_cols = ((ceil_div(t, 2) * n) as f64).sqrt().ceil() as usize;
         let (n_row, n) = (ceil_div(n, n_cols), n_cols);
-        eprintln!("dfsksdfdk;ldfks;fks;fks;fks;fs;dfks;fddfks;fk {}, {}", n_row, n);
+        eprintln!(
+            "dfsksdfdk;ldfks;fks;fks;fks;fs;dfks;fddfks;fk {}, {}",
+            n_row, n
+        );
         assert!(n > base_len); // Make this an error
         let a = alpha;
         let b = beta;
