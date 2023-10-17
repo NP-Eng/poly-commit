@@ -1,3 +1,4 @@
+#![cfg(feature = "benches")]
 use ark_bls12_377::Fr;
 use ark_crypto_primitives::{
     crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
