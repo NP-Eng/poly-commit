@@ -55,8 +55,7 @@ pub struct HyraxPC<
     // A polynomial type representing multilinear polynomials
     P: MultilinearExtension<G::ScalarField>,
 > {
-    _curve: PhantomData<G>,
-    _poly: PhantomData<P>,
+    _phantom: PhantomData<(G, P)>,
 }
 
 // TODO Outstanding issues
