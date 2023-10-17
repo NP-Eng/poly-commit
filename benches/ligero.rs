@@ -87,12 +87,12 @@ fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
     PoseidonSponge::new(&config)
 }
 
-fn commit(c: &mut Criterion) {
+fn commit<PCS: PolynomialCommitment>(c: &mut Criterion) {
     let num_vars = 17;
 
     let rng = &mut test_rng();
-    let pp = LigeroPCS::setup(num_vars, None, rng).unwrap();
-    let (ck, _) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
+    let pp = PCS::setup(num_vars, None, rng).unwrap();
+    let (ck, _) = PCS::trim(&pp, 0, 0, None).unwrap();
 
     let labeled_polys = (0..SAMPLES)
         .map(|_| LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None))
@@ -105,7 +105,7 @@ fn commit(c: &mut Criterion) {
         let mut i = 0;
         b.iter(|| {
             i = (i + 1) % SAMPLES;
-            let (_, _) = LigeroPCS::commit(&ck, [labeled_poly_refs[i]], None).unwrap();
+            let (_, _) = PCS::commit(&ck, [labeled_poly_refs[i]], None).unwrap();
         })
     });
 }
@@ -225,7 +225,7 @@ criterion_group! {
     name = ligero_benches;
     config = Criterion::default();
     targets =
-        commit,
+        commit::<LigeroPCS>,
         open,
         verify,
 }
