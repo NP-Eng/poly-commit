@@ -27,7 +27,7 @@ pub use univariate_ligero::UnivariateLigero;
 
 mod univariate_brakedown;
 
-pub use univariate_brakedown::UnivariateBreakdown;
+pub use univariate_brakedown::UnivariateBrakedown;
 
 mod brakedown;
 mod data_structures;
@@ -77,7 +77,7 @@ where
     H: CRHScheme,
     P: Polynomial<F>,
 {
-    /// For schemes like Breakdown and Ligero, PCCommiiterKey and
+    /// For schemes like Brakedown and Ligero, PCCommiiterKey and
     /// PCVerifierKey and PCUniversalParams are all the same.
     type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeInfo<C, H>;
 

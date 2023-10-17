@@ -1,5 +1,5 @@
 use super::utils::SprsMat;
-use super::BreakdownPCParams;
+use super::BrakedownPCParams;
 use super::LinCodeInfo;
 use crate::linear_codes::utils::calculate_t;
 use crate::utils::ceil_div;
@@ -14,7 +14,7 @@ use ark_std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-impl<F, C, H> PCUniversalParams for BreakdownPCParams<F, C, H>
+impl<F, C, H> PCUniversalParams for BrakedownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
@@ -25,22 +25,7 @@ where
     }
 }
 
-impl<F, C, H> PCCommitterKey for BreakdownPCParams<F, C, H>
-where
-    F: PrimeField,
-    C: Config,
-    H: CRHScheme,
-{
-    fn max_degree(&self) -> usize {
-        usize::MAX
-    }
-
-    fn supported_degree(&self) -> usize {
-        <BreakdownPCParams<F, C, H> as PCCommitterKey>::max_degree(self)
-    }
-}
-
-impl<F, C, H> PCVerifierKey for BreakdownPCParams<F, C, H>
+impl<F, C, H> PCCommitterKey for BrakedownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
@@ -51,11 +36,26 @@ where
     }
 
     fn supported_degree(&self) -> usize {
-        <BreakdownPCParams<F, C, H> as PCVerifierKey>::max_degree(self)
+        <BrakedownPCParams<F, C, H> as PCCommitterKey>::max_degree(self)
     }
 }
 
-impl<F, C, H> LinCodeInfo<C, H> for BreakdownPCParams<F, C, H>
+impl<F, C, H> PCVerifierKey for BrakedownPCParams<F, C, H>
+where
+    F: PrimeField,
+    C: Config,
+    H: CRHScheme,
+{
+    fn max_degree(&self) -> usize {
+        usize::MAX
+    }
+
+    fn supported_degree(&self) -> usize {
+        <BrakedownPCParams<F, C, H> as PCVerifierKey>::max_degree(self)
+    }
+}
+
+impl<F, C, H> LinCodeInfo<C, H> for BrakedownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
@@ -90,7 +90,7 @@ where
     }
 }
 
-impl<F, C, H> BreakdownPCParams<F, C, H>
+impl<F, C, H> BrakedownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,

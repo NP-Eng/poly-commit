@@ -36,7 +36,7 @@ pub struct LigeroPCParams<F: PrimeField, C: Config, H: CRHScheme> {
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 /// The public parameters for Ligero PCS.
-pub struct BreakdownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
+pub struct BrakedownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     /// The security parameter
     pub(crate) sec_param: usize,
     /// alpha in the paper

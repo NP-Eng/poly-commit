@@ -1,4 +1,4 @@
-use super::{BreakdownPCParams, LinearEncode};
+use super::{BrakedownPCParams, LinearEncode};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
@@ -9,13 +9,13 @@ use ark_std::vec::Vec;
 
 mod tests;
 
-/// The univariate Breakdown polynomial commitment scheme based on [[Breakdown]][bd].
+/// The univariate Brakedown polynomial commitment scheme based on [[Brakedown]][bd].
 /// The scheme defaults to the naive batching strategy.
 ///
 /// Note: The scheme currently does not support hiding.
 ///
 /// [bd]: https://eprint.iacr.org/2021/1043.pdf
-pub struct UnivariateBreakdown<
+pub struct UnivariateBrakedown<
     F: PrimeField,
     C: Config,
     S: CryptographicSponge,
@@ -25,7 +25,7 @@ pub struct UnivariateBreakdown<
     _phantom: PhantomData<(F, C, S, P, H)>,
 }
 
-impl<F, C, S, P, H> LinearEncode<F, C, P, H> for UnivariateBreakdown<F, C, S, P, H>
+impl<F, C, S, P, H> LinearEncode<F, C, P, H> for UnivariateBrakedown<F, C, S, P, H>
 where
     F: PrimeField,
     C: Config,
@@ -34,7 +34,7 @@ where
     P::Point: Into<F>,
     H: CRHScheme,
 {
-    type LinCodePCParams = BreakdownPCParams<F, C, H>;
+    type LinCodePCParams = BrakedownPCParams<F, C, H>;
 
     fn setup<R: RngCore>(
         max_degree: usize,
@@ -132,7 +132,7 @@ where
     }
 }
 
-impl<F, C, S, P, H> UnivariateBreakdown<F, C, S, P, H>
+impl<F, C, S, P, H> UnivariateBrakedown<F, C, S, P, H>
 where
     F: PrimeField,
     C: Config,

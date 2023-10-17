@@ -6,7 +6,7 @@ mod tests {
     use crate::utils::test_sponge;
     use crate::{
         challenge::ChallengeGenerator,
-        linear_codes::{utils::*, BreakdownPCParams, PolynomialCommitment, UnivariateBreakdown},
+        linear_codes::{utils::*, BrakedownPCParams, PolynomialCommitment, UnivariateBrakedown},
         LabeledPolynomial,
     };
     use ark_bls12_377::Fq;
@@ -43,8 +43,8 @@ mod tests {
     type MTConfig = MerkleTreeParams;
     type Sponge = PoseidonSponge<Fr>;
 
-    type BreakdownPCS = LinearCodePCS<
-        UnivariateBreakdown<Fr, MTConfig, Sponge, DensePolynomial<Fr>, ColHasher<Fr, Blake2s256>>,
+    type BrakedownPCS = LinearCodePCS<
+        UnivariateBrakedown<Fr, MTConfig, Sponge, DensePolynomial<Fr>, ColHasher<Fr, Blake2s256>>,
         Fr,
         DensePolynomial<Fr>,
         Sponge,
@@ -52,8 +52,8 @@ mod tests {
         ColHasher<Fr, Blake2s256>,
     >;
 
-    type BreakdownPcsF<F> = LinearCodePCS<
-        UnivariateBreakdown<F, MTConfig, Sponge, DensePolynomial<F>, ColHasher<F, Blake2s256>>,
+    type BrakedownPcsF<F> = LinearCodePCS<
+        UnivariateBrakedown<F, MTConfig, Sponge, DensePolynomial<F>, ColHasher<F, Blake2s256>>,
         F,
         DensePolynomial<F>,
         Sponge,
@@ -89,7 +89,7 @@ mod tests {
         let col_hash_params = <ColHasher<Fr, Blake2s256> as CRHScheme>::setup(&mut rng).unwrap();
         let check_well_formedness = true;
 
-        let pp: BreakdownPCParams<Fr, MTConfig, ColHasher<_, _>> = BreakdownPCParams::new(
+        let pp: BrakedownPCParams<Fr, MTConfig, ColHasher<_, _>> = BrakedownPCParams::new(
             rng,
             128,
             (1, 5),
@@ -103,7 +103,7 @@ mod tests {
             col_hash_params,
         );
 
-        let (ck, vk) = BreakdownPCS::trim(&pp, 0, 0, None).unwrap();
+        let (ck, vk) = BrakedownPCS::trim(&pp, 0, 0, None).unwrap();
 
         let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
         let labeled_poly = LabeledPolynomial::new(
@@ -114,7 +114,7 @@ mod tests {
         );
 
         let mut test_sponge = test_sponge::<Fr>();
-        let (c, rands) = BreakdownPCS::commit(&ck, &[labeled_poly.clone()], None).unwrap();
+        let (c, rands) = BrakedownPCS::commit(&ck, &[labeled_poly.clone()], None).unwrap();
 
         let point = Fr::rand(rand_chacha);
 
@@ -123,7 +123,7 @@ mod tests {
         let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
             ChallengeGenerator::new_univariate(&mut test_sponge);
 
-        let proof = BreakdownPCS::open(
+        let proof = BrakedownPCS::open(
             &ck,
             &[labeled_poly],
             &c,
@@ -133,7 +133,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(BreakdownPCS::check(
+        assert!(BrakedownPCS::check(
             &vk,
             &c,
             &point,
@@ -169,14 +169,14 @@ mod tests {
     #[test]
     fn single_poly_test() {
         use crate::tests::*;
-        single_poly_test::<_, _, BreakdownPCS, _>(
+        single_poly_test::<_, _, BrakedownPCS, _>(
             None,
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        single_poly_test::<_, _, BrakedownPcsF<Fr381>, _>(
             None,
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -188,14 +188,14 @@ mod tests {
     #[test]
     fn constant_poly_test() {
         use crate::tests::*;
-        single_poly_test::<_, _, BreakdownPCS, _>(
+        single_poly_test::<_, _, BrakedownPCS, _>(
             None,
             constant_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        single_poly_test::<_, _, BrakedownPcsF<Fr381>, _>(
             None,
             constant_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -207,13 +207,13 @@ mod tests {
     #[test]
     fn quadratic_poly_degree_bound_multiple_queries_test() {
         use crate::tests::*;
-        quadratic_poly_degree_bound_multiple_queries_test::<_, _, BreakdownPCS, _>(
+        quadratic_poly_degree_bound_multiple_queries_test::<_, _, BrakedownPCS, _>(
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        quadratic_poly_degree_bound_multiple_queries_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        quadratic_poly_degree_bound_multiple_queries_test::<_, _, BrakedownPcsF<Fr381>, _>(
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
             poseidon_sponge_for_test,
@@ -224,13 +224,13 @@ mod tests {
     #[test]
     fn linear_poly_degree_bound_test() {
         use crate::tests::*;
-        linear_poly_degree_bound_test::<_, _, BreakdownPCS, _>(
+        linear_poly_degree_bound_test::<_, _, BrakedownPCS, _>(
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        linear_poly_degree_bound_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        linear_poly_degree_bound_test::<_, _, BrakedownPcsF<Fr381>, _>(
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
             poseidon_sponge_for_test,
@@ -241,13 +241,13 @@ mod tests {
     #[test]
     fn single_poly_degree_bound_test() {
         use crate::tests::*;
-        single_poly_degree_bound_test::<_, _, BreakdownPCS, _>(
+        single_poly_degree_bound_test::<_, _, BrakedownPCS, _>(
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_degree_bound_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        single_poly_degree_bound_test::<_, _, BrakedownPcsF<Fr381>, _>(
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
             poseidon_sponge_for_test,
@@ -258,13 +258,13 @@ mod tests {
     #[test]
     fn single_poly_degree_bound_multiple_queries_test() {
         use crate::tests::*;
-        single_poly_degree_bound_multiple_queries_test::<_, _, BreakdownPCS, _>(
+        single_poly_degree_bound_multiple_queries_test::<_, _, BrakedownPCS, _>(
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_degree_bound_multiple_queries_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        single_poly_degree_bound_multiple_queries_test::<_, _, BrakedownPcsF<Fr381>, _>(
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
             poseidon_sponge_for_test,
@@ -275,13 +275,13 @@ mod tests {
     #[test]
     fn two_polys_degree_bound_single_query_test() {
         use crate::tests::*;
-        two_polys_degree_bound_single_query_test::<_, _, BreakdownPCS, _>(
+        two_polys_degree_bound_single_query_test::<_, _, BrakedownPCS, _>(
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        two_polys_degree_bound_single_query_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        two_polys_degree_bound_single_query_test::<_, _, BrakedownPcsF<Fr381>, _>(
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
             poseidon_sponge_for_test,
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn full_end_to_end_test() {
         use crate::tests::*;
-        full_end_to_end_test::<_, _, BreakdownPCS, _>(
+        full_end_to_end_test::<_, _, BrakedownPCS, _>(
             None,
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -300,7 +300,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        full_end_to_end_test::<_, _, BrakedownPcsF<Fr381>, _>(
             None,
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn single_equation_test() {
         use crate::tests::*;
-        single_equation_test::<_, _, BreakdownPCS, _>(
+        single_equation_test::<_, _, BrakedownPCS, _>(
             None,
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -321,7 +321,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        single_equation_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        single_equation_test::<_, _, BrakedownPcsF<Fr381>, _>(
             None,
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -334,7 +334,7 @@ mod tests {
     #[test]
     fn two_equation_test() {
         use crate::tests::*;
-        two_equation_test::<_, _, BreakdownPCS, _>(
+        two_equation_test::<_, _, BrakedownPCS, _>(
             None,
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -342,7 +342,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        two_equation_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        two_equation_test::<_, _, BrakedownPcsF<Fr381>, _>(
             None,
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -355,14 +355,14 @@ mod tests {
     #[test]
     fn two_equation_degree_bound_test() {
         use crate::tests::*;
-        two_equation_degree_bound_test::<_, _, BreakdownPCS, _>(
+        two_equation_degree_bound_test::<_, _, BrakedownPCS, _>(
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        two_equation_degree_bound_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        two_equation_degree_bound_test::<_, _, BrakedownPcsF<Fr381>, _>(
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
             poseidon_sponge_for_test,
@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn full_end_to_end_equation_test() {
         use crate::tests::*;
-        full_end_to_end_equation_test::<_, _, BreakdownPCS, _>(
+        full_end_to_end_equation_test::<_, _, BrakedownPCS, _>(
             None,
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -382,7 +382,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_equation_test::<_, _, BreakdownPcsF<Fr381>, _>(
+        full_end_to_end_equation_test::<_, _, BrakedownPcsF<Fr381>, _>(
             None,
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -397,7 +397,7 @@ mod tests {
     fn bad_degree_bound_test() {
         use crate::tests::*;
         use ark_bls12_381::Fq as Fq381;
-        bad_degree_bound_test::<_, _, BreakdownPcsF<Fq381>, _>(
+        bad_degree_bound_test::<_, _, BrakedownPcsF<Fq381>, _>(
             rand_poly::<Fq381>,
             rand_point::<Fq381>,
             poseidon_sponge_for_test,
