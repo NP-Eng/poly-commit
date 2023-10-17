@@ -96,7 +96,7 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --no-default-features --target aarch64-unknown-none
+          args: --no-default-features --target aarch64-unknown-none --lib
 
       - name: Check
         uses: actions-rs/cargo@v1
