@@ -1,14 +1,19 @@
 use core::borrow::Borrow;
 
+use crate::to_bytes;
 use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
 use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
 use ark_ff::{FftField, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
+use ark_serialize::CanonicalSerialize;
+use ark_std::marker::PhantomData;
+use ark_std::rand::RngCore;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
+use digest::Digest;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
@@ -100,80 +105,71 @@ pub(crate) fn calculate_t<F: PrimeField>(
     Ok((nom / denom).ceil() as usize) // This is the `t`
 }
 
+/// Only needed for benches and tests
+pub struct LeafIdentityHasher;
+
+impl CRHScheme for LeafIdentityHasher {
+    type Input = Vec<u8>;
+    type Output = Vec<u8>;
+    type Parameters = ();
+
+    fn setup<R: RngCore>(_: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+        Ok(())
+    }
+
+    fn evaluate<T: Borrow<Self::Input>>(
+        _: &Self::Parameters,
+        input: T,
+    ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+        Ok(input.borrow().to_vec().into())
+    }
+}
+
+/// Only needed for benches and tests
+pub struct FieldToBytesColHasher<F, D>
+where
+    F: PrimeField + CanonicalSerialize,
+    D: Digest,
+{
+    _phantom: PhantomData<(F, D)>,
+}
+
+impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
+where
+    F: PrimeField + CanonicalSerialize,
+    D: Digest,
+{
+    type Input = Vec<F>;
+    type Output = Vec<u8>;
+    type Parameters = ();
+
+    fn setup<R: RngCore>(_rng: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
+        Ok(())
+    }
+
+    fn evaluate<T: Borrow<Self::Input>>(
+        _parameters: &Self::Parameters,
+        input: T,
+    ) -> Result<Self::Output, ark_crypto_primitives::Error> {
+        let mut dig = D::new();
+        dig.update(to_bytes!(input.borrow()).unwrap());
+        Ok(dig.finalize().to_vec())
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
 
+    use super::*;
     use ark_bls12_377::Fr;
     use ark_poly::{
         domain::general::GeneralEvaluationDomain, univariate::DensePolynomial, DenseUVPolynomial,
         Polynomial,
     };
-    use ark_serialize::CanonicalSerialize;
     use ark_std::test_rng;
-    use digest::Digest;
-    use rand_chacha::{
-        rand_core::{RngCore, SeedableRng},
-        ChaCha20Rng,
-    };
-
-    use ark_std::marker::PhantomData;
-
-    use crate::to_bytes;
-
-    use super::*;
+    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
     // Define some shared testing hashers for univariate & multilinear ligero.
-    pub(crate) struct LeafIdentityHasher;
-
-    impl CRHScheme for LeafIdentityHasher {
-        type Input = Vec<u8>;
-        type Output = Vec<u8>;
-        type Parameters = ();
-
-        fn setup<R: RngCore>(_: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
-            Ok(())
-        }
-
-        fn evaluate<T: Borrow<Self::Input>>(
-            _: &Self::Parameters,
-            input: T,
-        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
-            Ok(input.borrow().to_vec().into())
-        }
-    }
-
-    pub(crate) struct FieldToBytesColHasher<F, D>
-    where
-        F: PrimeField + CanonicalSerialize,
-        D: Digest,
-    {
-        _phantom: PhantomData<(F, D)>,
-    }
-
-    impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
-    where
-        F: PrimeField + CanonicalSerialize,
-        D: Digest,
-    {
-        type Input = Vec<F>;
-        type Output = Vec<u8>;
-        type Parameters = ();
-
-        fn setup<R: RngCore>(
-            _rng: &mut R,
-        ) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
-            Ok(())
-        }
-
-        fn evaluate<T: Borrow<Self::Input>>(
-            _parameters: &Self::Parameters,
-            input: T,
-        ) -> Result<Self::Output, ark_crypto_primitives::Error> {
-            let mut dig = D::new();
-            dig.update(to_bytes!(input.borrow()).unwrap());
-            Ok(dig.finalize().to_vec())
-        }
-    }
 
     #[test]
     fn test_encoding() {

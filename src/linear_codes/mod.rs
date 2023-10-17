@@ -30,6 +30,7 @@ mod ligero;
 use data_structures::*;
 
 pub use data_structures::{LigeroPCParams, LinCodePCProof};
+pub use utils::{FieldToBytesColHasher, LeafIdentityHasher};
 
 use utils::{calculate_t, get_indices_from_transcript, hash_column};
 
