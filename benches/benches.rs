@@ -11,7 +11,7 @@ use ark_crypto_primitives::sponge::{
 use ark_ff::PrimeField;
 use ark_std::{rand::Rng, test_rng};
 
-use ark_poly_commit::bench_templates::hyrax::commit_hyrax;
+use ark_poly_commit::bench_templates::hyrax::{commit_hyrax, commit_hyrax_custom};
 
 use ark_bls12_377::G1Affine;
 use ark_ed_on_bls12_381::EdwardsAffine;
@@ -30,6 +30,22 @@ fn commit_hyrax_n12_c381(c: &mut Criterion) {
 fn commit_hyrax_n14_c381(c: &mut Criterion) {
     commit_hyrax::<EdwardsAffine>(c, 14, "commit_hyrax_n14_c381");
 }
+
+use std::iter;
+
+use criterion::BenchmarkId;
+
+fn hyrax_range_benches(c: &mut Criterion) {
+    let mut group = c.benchmark_group("commit_hyrax_range");
+    for n_vars in (10..20).step_by(2) {
+        group.bench_with_input(BenchmarkId::from_parameter(n_vars), &n_vars, |b, num_vars| {
+            b.iter(|| commit_hyrax_custom::<G1Affine>(*num_vars, "commit_hyrax_range_n12_c377"));
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(hyrax_range, hyrax_range_benches);
 
 /*************** Benchmarks ***************/
 

@@ -1,3 +1,6 @@
+use core::time::Duration;
+use std::time::Instant;
+
 use crate::{
     challenge::ChallengeGenerator, hyrax::HyraxPC, LabeledPolynomial, PolynomialCommitment,
 };
@@ -37,6 +40,19 @@ pub fn commit_hyrax<G: AffineRepr>(c: &mut Criterion, num_vars: usize, msg: &str
             let (_, _) = Hyrax::<G>::commit(&ck, [labeled_poly_refs[i]], Some(rng)).unwrap();
         })
     });
+}
+
+/// Measure the time cost of Hyrax commitments over a range of numbers of variables
+pub fn commit_hyrax_custom<G: AffineRepr>(num_vars: usize, msg: &str) -> Duration {
+    let rng = &mut test_rng();
+    let pp = Hyrax::<G>::setup(1, Some(num_vars), rng).unwrap();
+    let (ck, _) = Hyrax::<G>::trim(&pp, 1, 1, None).unwrap();
+
+    let labeled_poly = LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
+
+    let start = Instant::now();
+    let (_, _) = Hyrax::<G>::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
+    start.elapsed()
 }
 
 /// Measure the time cost of Hyrax openings
