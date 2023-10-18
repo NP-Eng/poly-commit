@@ -37,7 +37,7 @@ rand_chacha = { version = "0.3.0", default-features = false }
 
 [[bench]]
 name = "pcs"
-path = "benches/ligero.rs"
+path = "benches/benches.rs"
 harness = false
 
 [profile.release]

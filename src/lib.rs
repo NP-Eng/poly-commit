@@ -37,6 +37,10 @@ pub use data_structures::*;
 /// Useful functions
 pub(crate) mod utils;
 
+/// Auxiliary functions `benches.rs`
+#[cfg(feature = "benches")]
+pub mod bench_templates;
+
 /// R1CS constraints for polynomial constraints.
 #[cfg(feature = "r1cs")]
 mod constraints;
