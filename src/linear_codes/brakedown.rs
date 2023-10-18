@@ -105,19 +105,20 @@ where
         beta: (usize, usize),
         rho_inv: (usize, usize),
         base_len: usize,
-        n: usize,
+        poly_len: usize,
         check_well_formedness: bool,
         leaf_hash_params: LeafParam<C>,
         two_to_one_params: TwoToOneParam<C>,
         col_hash_params: H::Parameters,
     ) -> Self {
-        eprintln!("NUM_VARS {}", n);
-        let aux = (n as f64).sqrt().ceil() as usize;
-        let t = calculate_t::<F>(sec_param, (beta.0 * rho_inv.0, beta.1 * rho_inv.1), aux).unwrap(); // aux is just an approximation of length
-        let n_row = 1 << log2((ceil_div(2 * n, t) as f64).sqrt().ceil() as usize);
-        let (n_row, n) = (n_row, ceil_div(n, n_row));
-        eprintln!("n_row, n: {}, {}", n_row, n);
-        // assert!(n > base_len); // Make this an error
+        let t = calculate_t::<F>(
+            sec_param,
+            (beta.0 * rho_inv.0, beta.1 * rho_inv.1),
+            poly_len,
+        )
+        .unwrap(); // we want to get a rough idea what t is
+        let n_row = 1 << log2((ceil_div(2 * poly_len, t) as f64).sqrt().ceil() as usize);
+        let (n_row, n) = (n_row, ceil_div(poly_len, n_row));
         let a = alpha;
         let b = beta;
         let r = rho_inv;

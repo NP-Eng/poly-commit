@@ -332,7 +332,7 @@ where
             // 1. Arrange the coefficients of the polynomial into a matrix,
             // and apply Reed-Solomon encoding to get `ext_mat`.
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck);
-            eprintln!("{}, {}", mat.m, ext_mat.m);
+
             // 2. Create the Merkle tree from the hashes of each column.
             let col_tree = create_merkle_tree::<F, C, H>(
                 &ext_mat,
@@ -433,7 +433,6 @@ where
             let n_ext_cols = commitment.metadata.n_ext_cols;
             let root = &commitment.root;
             let t = calculate_t::<F>(vk.sec_param(), vk.distance(), n_ext_cols)?;
-            eprintln!("this is T {}", t);
 
             let mut transcript = IOPTranscript::new(b"transcript");
             transcript
