@@ -1,7 +1,7 @@
 use super::{BrakedownPCParams, LinearEncode};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
-use ark_ff::PrimeField;
+use ark_ff::{Field, PrimeField};
 use ark_poly::DenseUVPolynomial;
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
@@ -93,7 +93,7 @@ where
         let rss = *start.last().unwrap();
         let rsie = rss + pp.a_dims.last().unwrap().1;
         let rsoe = *end.last().unwrap();
-        Self::reed_solomon(&mut cw, rss, rsie, rsoe);
+        naive_reed_solomon(&mut cw, rss, rsie, rsoe);
 
         // Come back
         for (i, (&s, e)) in start.iter().zip(end).enumerate() {
@@ -132,27 +132,17 @@ where
     }
 }
 
-impl<F, C, S, P, H> UnivariateBrakedown<F, C, S, P, H>
-where
-    F: PrimeField,
-    C: Config,
-    S: CryptographicSponge,
-    P: DenseUVPolynomial<F>,
-    P::Point: Into<F>,
-    H: CRHScheme,
-{
-    // This RS encoding is on points 1, ..., oe - s
-    fn reed_solomon(cw: &mut [F], s: usize, ie: usize, oe: usize) {
-        let mut res = vec![F::zero(); oe - s];
+// This RS encoding is on points 1, ..., oe - s without relying on FFTs
+fn naive_reed_solomon<F: Field>(cw: &mut [F], s: usize, ie: usize, oe: usize) {
+    let mut res = vec![F::zero(); oe - s];
 
-        let mut x = F::one();
-        for r in res.iter_mut() {
-            for j in (s..ie).rev() {
-                *r *= x;
-                *r += cw[j];
-            }
-            x += F::one();
+    let mut x = F::one();
+    for r in res.iter_mut() {
+        for j in (s..ie).rev() {
+            *r *= x;
+            *r += cw[j];
         }
-        cw[s..oe].copy_from_slice(&res);
+        x += F::one();
     }
+    cw[s..oe].copy_from_slice(&res);
 }
