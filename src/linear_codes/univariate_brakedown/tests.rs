@@ -410,18 +410,21 @@ mod tests {
     #[test]
     fn test_naive_reed_solomon() {
         use ark_std::Zero;
-        // test naive reed solomon against reed solomon
+
         let test_rng = &mut test_rng();
         let mut msg: Vec<Fr> = (0..32).map(|_| Fr::rand(test_rng)).collect();
-        let mut msg2 = msg.clone();
+        let sum = msg.iter().sum::<Fr>();
         msg.resize_with(64, Fr::zero);
-
         naive_reed_solomon(&mut msg, 0, 32, 64);
+        // The sum of coeffcients should be equal to the evaluation at point F::one.
+        assert_eq!(sum, msg[0]);
 
-        // the below only computes the FFT (without the IFFT) - maybe this affects the results?
-        let codeword2 = reed_solomon(&mut msg2, 2);
-        assert_eq!(msg.len(), codeword2.len());
-        // TODO this is failing - what is the naive_reed_solomon supposed to compute? Can we write some unit tests for it?
-        assert_eq!(msg, codeword2);
+        let mut msg = vec![Fr::zero(); 64];
+        msg[1] = Fr::from(3);
+        msg[2] = Fr::from(5);
+        naive_reed_solomon(&mut msg, 0, 32, 64);
+        for i in 1..64u32 {
+            assert_eq!(msg[i as usize - 1], Fr::from(i * 3 + i * i * 5));
+        }
     }
 }
