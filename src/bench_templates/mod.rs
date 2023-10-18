@@ -7,7 +7,7 @@ use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 use ark_std::{rand::Rng, test_rng};
 
 // /// Auxiliary functions for benchmarking the Ligero PCS
-// pub mod ligero;
+//pub mod ligero;
 
 /// Auxiliary functions for benchmarking the Hyrax PCS
 pub mod hyrax;
