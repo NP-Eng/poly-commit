@@ -2,6 +2,7 @@
 mod tests {
 
     use crate::ark_std::UniformRand;
+    use crate::linear_codes::univariate_brakedown::naive_reed_solomon;
     use crate::linear_codes::LinearCodePCS;
     use crate::utils::test_sponge;
     use crate::{
@@ -404,5 +405,23 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
+    }
+
+    #[test]
+    fn test_naive_reed_solomon() {
+        use ark_std::Zero;
+        // test naive reed solomon against reed solomon
+        let test_rng = &mut test_rng();
+        let mut msg: Vec<Fr> = (0..32).map(|_| Fr::rand(test_rng)).collect();
+        let mut msg2 = msg.clone();
+        msg.resize_with(64, Fr::zero);
+
+        naive_reed_solomon(&mut msg, 0, 32, 64);
+
+        // the below only computes the FFT (without the IFFT) - maybe this affects the results?
+        let codeword2 = reed_solomon(&mut msg2, 2);
+        assert_eq!(msg.len(), codeword2.len());
+        // TODO this is failing - what is the naive_reed_solomon supposed to compute? Can we write some unit tests for it?
+        assert_eq!(msg, codeword2);
     }
 }
