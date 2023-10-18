@@ -37,9 +37,12 @@ fn commit_hyrax_range_c377(c: &mut Criterion) {
 }
 
 fn commit_hyrax_range_c381(c: &mut Criterion) {
-    commit_hyrax_range::<EdwardsAffine>(c, (10..20).step_by(2).collect(), "commit_hyrax_range_c381");
+    commit_hyrax_range::<EdwardsAffine>(
+        c,
+        (10..20).step_by(2).collect(),
+        "commit_hyrax_range_c381",
+    );
 }
-
 
 criterion_group!(hyrax_benches_range_377, commit_hyrax_range_c377);
 criterion_group!(hyrax_benches_range_381, commit_hyrax_range_c381);

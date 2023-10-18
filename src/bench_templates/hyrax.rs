@@ -2,13 +2,15 @@ use core::time::Duration;
 use std::time::Instant;
 
 use crate::{
-    challenge::ChallengeGenerator, hyrax::{HyraxPC, HyraxUniversalParams}, LabeledPolynomial, PolynomialCommitment,
+    challenge::ChallengeGenerator,
+    hyrax::{HyraxPC, HyraxUniversalParams},
+    LabeledPolynomial, PolynomialCommitment,
 };
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::AffineRepr;
 use ark_poly::DenseMultilinearExtension;
 use ark_std::test_rng;
-use criterion::{Criterion, BenchmarkId};
+use criterion::{BenchmarkId, Criterion};
 
 use super::{rand_ml_poly, rand_mv_point, test_sponge, SAMPLES};
 
@@ -43,16 +45,14 @@ pub fn commit_hyrax<G: AffineRepr>(c: &mut Criterion, num_vars: usize, msg: &str
 }
 
 // Report the time cost of a Hyrax commitment
-fn commit_hyrax_report<G: AffineRepr>(
-    pp: HyraxUniversalParams<G>,
-    num_vars: usize,
-) -> Duration {
+fn commit_hyrax_report<G: AffineRepr>(pp: HyraxUniversalParams<G>, num_vars: usize) -> Duration {
     // TODO create or pass? depends on the cost
     let rng = &mut test_rng();
-    
+
     let (ck, _) = Hyrax::<G>::trim(&pp, 1, 1, None).unwrap();
 
-    let labeled_poly = LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
+    let labeled_poly =
+        LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
 
     let start = Instant::now();
     let (_, _) = Hyrax::<G>::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
@@ -61,7 +61,6 @@ fn commit_hyrax_report<G: AffineRepr>(
 
 /// Measure the time cost of Hyrax commitments across a range of num_vars
 pub fn commit_hyrax_range<G: AffineRepr>(c: &mut Criterion, range: Vec<usize>, msg: &str) {
-    
     let mut group = c.benchmark_group(msg);
     let rng = &mut test_rng();
 
@@ -73,9 +72,13 @@ pub fn commit_hyrax_range<G: AffineRepr>(c: &mut Criterion, range: Vec<usize>, m
         // TODO if this takes too long and key trimming works, we might want to pull this out from the loop
         let pp = Hyrax::<G>::setup(1, Some(num_vars), rng).unwrap();
 
-        group.bench_with_input(BenchmarkId::from_parameter(num_vars), &num_vars, |b, num_vars| {
-            b.iter(|| commit_hyrax_report::<G>(pp.clone(), *num_vars));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_vars),
+            &num_vars,
+            |b, num_vars| {
+                b.iter(|| commit_hyrax_report::<G>(pp.clone(), *num_vars));
+            },
+        );
     }
 
     group.finish();
