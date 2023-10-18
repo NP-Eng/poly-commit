@@ -29,6 +29,7 @@ merlin = { version = "3.0.0", default-features = false }
 halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib", branch = "release-0.4.0-rc" }
 
 poseidon-native = { git = "https://github.com/privacy-scaling-explorations/poseidon", package = "poseidon" }
+criterion = { version = "0.5", optional = true }
 
 [dev-dependencies]
 ark-ed-on-bls12-381 = { version = "^0.4.0", default-features = false }
@@ -37,6 +38,11 @@ ark-bls12-377 = { version = "^0.4.0", default-features = false, features = [ "cu
 ark-bn254 = { version = "^0.4.0", default-features = false, features = [ "curve" ] }
 blake2 = { version = "0.10", default-features = false }
 rand_chacha = { version = "0.3.0", default-features = false }
+
+[[bench]]
+name = "pcs"
+path = "benches/benches.rs"
+harness = false
 
 [profile.release]
 opt-level = 3
@@ -56,6 +62,7 @@ std = [ "ark-ff/std", "ark-ec/std", "ark-poly/std", "ark-std/std", "ark-relation
 r1cs = [ "ark-relations", "ark-r1cs-std", "hashbrown", "ark-crypto-primitives/r1cs"]
 print-trace = [ "ark-std/print-trace" ]
 parallel = [ "std", "ark-ff/parallel", "ark-ec/parallel", "ark-poly/parallel", "ark-std/parallel", "rayon" ]
+benches = [ "std", "criterion" ]
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }

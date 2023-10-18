@@ -34,6 +34,10 @@ use ark_std::{
 pub mod data_structures;
 pub use data_structures::*;
 
+/// benches
+#[cfg(feature = "benches")]
+pub mod bench_templates;
+
 /// R1CS constraints for polynomial constraints.
 #[cfg(feature = "r1cs")]
 mod constraints;
