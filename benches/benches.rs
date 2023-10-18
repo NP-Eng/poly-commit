@@ -165,6 +165,7 @@ const MIN_NUM_VARS: usize = 10;
 const MAX_NUM_VARS: usize = 20;
 
 fn ligero_bn254(c: &mut Criterion) {
+    // only commit and open; verify is done in-circuit!
     bench_pcs_method::<_, Ligero<Fr254>>(
         c,
         (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
@@ -176,13 +177,6 @@ fn ligero_bn254(c: &mut Criterion) {
         (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
         "open_ligero_range_BN_254",
         open::<_, Ligero<Fr254>>,
-    );
-
-    bench_pcs_method::<_, Ligero<Fr254>>(
-        c,
-        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
-        "verify_ligero_range_BN_254",
-        verify::<_, Ligero<Fr254>>,
     );
 }
 
