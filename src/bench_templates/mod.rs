@@ -6,24 +6,145 @@ use ark_ff::PrimeField;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 use ark_std::{rand::Rng, test_rng};
 
-// /// Auxiliary functions for benchmarking the Ligero PCS
-//pub mod ligero;
+/// type alias for DenseMultilinearExtension
+pub type MLE<F> = DenseMultilinearExtension<F>;
 
-/// Auxiliary functions for benchmarking the Hyrax PCS
-pub mod hyrax;
+use core::time::Duration;
+use std::time::Instant;
 
-type MLE<F> = DenseMultilinearExtension<F>;
+use crate::{challenge::ChallengeGenerator, LabeledPolynomial, PolynomialCommitment};
 
-pub(crate) const SAMPLES: usize = 100;
+use criterion::{BenchmarkId, Criterion};
+
+/// Measure the time cost of {commit/open/verify} across a range of num_vars
+pub fn bench_pcs_method<
+    F: PrimeField,
+    PCS: PolynomialCommitment<F, DenseMultilinearExtension<F>, PoseidonSponge<F>>,
+>(
+    c: &mut Criterion,
+    range: Vec<usize>,
+    msg: &str,
+    method: impl Fn(&PCS::UniversalParams, usize) -> Duration,
+) {
+    let mut group = c.benchmark_group(msg);
+    let rng = &mut test_rng();
+
+    // Add for logarithmic scale (should yield linear plots)
+    // let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
+    // group.plot_config(plot_config);
+
+    for num_vars in range {
+        // TODO if this takes too long and key trimming works, we might want to pull this out from the loop
+        let pp = PCS::setup(1, Some(num_vars), rng).unwrap();
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_vars),
+            &num_vars,
+            |b, num_vars| {
+                b.iter(|| method(&pp, *num_vars));
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Report the time cost of a commitment
+pub fn commit<
+    F: PrimeField,
+    PCS: PolynomialCommitment<F, DenseMultilinearExtension<F>, PoseidonSponge<F>>,
+>(
+    pp: &PCS::UniversalParams,
+    num_vars: usize,
+) -> Duration {
+    // TODO create or pass? depends on the cost
+    let rng = &mut test_rng();
+
+    let (ck, _) = PCS::trim(&pp, 1, 1, None).unwrap();
+
+    let labeled_poly =
+        LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
+
+    let start = Instant::now();
+    let (_, _) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
+    start.elapsed()
+}
+
+/// Report the time cost of an opening
+pub fn open<
+    F: PrimeField,
+    PCS: PolynomialCommitment<F, DenseMultilinearExtension<F>, PoseidonSponge<F>>,
+>(
+    pp: &PCS::UniversalParams,
+    num_vars: usize,
+) -> Duration {
+    let rng = &mut test_rng();
+    let (ck, _) = PCS::trim(&pp, 1, 1, None).unwrap();
+    let labeled_poly =
+        LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
+
+    let (coms, randomness) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
+    let point = rand_mv_point(num_vars, rng);
+
+    let start = Instant::now();
+    let _ = PCS::open(
+        &ck,
+        [&labeled_poly],
+        &coms,
+        &point,
+        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        &randomness,
+        Some(rng),
+    )
+    .unwrap();
+    start.elapsed()
+}
+
+/// Report the time cost of a verification
+pub fn verify<
+    F: PrimeField,
+    PCS: PolynomialCommitment<F, DenseMultilinearExtension<F>, PoseidonSponge<F>>,
+>(
+    pp: &PCS::UniversalParams,
+    num_vars: usize,
+) -> Duration {
+    let rng = &mut test_rng();
+    let (ck, vk) = PCS::trim(&pp, 1, 1, None).unwrap();
+    let labeled_poly =
+        LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
+
+    let (coms, randomness) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
+    let point = rand_mv_point(num_vars, rng);
+    let claimed_eval = labeled_poly.evaluate(&point);
+    let proof = PCS::open(
+        &ck,
+        [&labeled_poly],
+        &coms,
+        &point,
+        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        &randomness,
+        Some(rng),
+    )
+    .unwrap();
+
+    let start = Instant::now();
+    PCS::check(
+        &vk,
+        &coms,
+        &point,
+        [claimed_eval],
+        &proof,
+        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        None,
+    )
+    .unwrap();
+    start.elapsed()
+}
 
 /*************** Auxiliary functions ***************/
 
 fn rand_ml_poly<F: PrimeField>(num_vars: usize, rng: &mut impl Rng) -> MLE<F> {
     MLE::rand(num_vars, rng)
-}
-
-fn rand_uv_point<F: PrimeField>(rng: &mut impl Rng) -> F {
-    F::rand(rng)
 }
 
 fn rand_mv_point<F: PrimeField>(num_vars: usize, rng: &mut impl Rng) -> Vec<F> {

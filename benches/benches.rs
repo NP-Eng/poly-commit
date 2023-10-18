@@ -1,74 +1,158 @@
 #![cfg(feature = "benches")]
-use core::num;
-
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_ec::AffineRepr;
+use ark_poly::DenseMultilinearExtension;
+use blake2::Blake2s256;
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use ark_crypto_primitives::sponge::{
-    poseidon::{PoseidonConfig, PoseidonSponge},
-    CryptographicSponge,
+use ark_crypto_primitives::{
+    crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
+    merkle_tree::{ByteDigestConverter, Config},
+    sponge::poseidon::PoseidonSponge,
 };
-use ark_ff::PrimeField;
-use ark_std::{rand::Rng, test_rng};
-use criterion::BenchmarkId;
 
-use ark_poly_commit::bench_templates::hyrax::{commit_hyrax, commit_hyrax_range};
+use ark_poly_commit::{
+    bench_templates::{bench_pcs_method, commit, open, verify, MLE},
+    hyrax::HyraxPC,
+    linear_codes::{FieldToBytesColHasher, LeafIdentityHasher, LinearCodePCS, MultilinearLigero},
+};
 
-use ark_bls12_377::G1Affine;
-use ark_ed_on_bls12_381::EdwardsAffine;
+use ark_bls12_381::{Fr as Fr381, G1Affine as G1Affine381};
+use ark_bn254::{Fr as Fr254, G1Affine as G1Affine254};
+
+type Hyrax<G> = HyraxPC<G, DenseMultilinearExtension<<G as AffineRepr>::ScalarField>>;
+
+struct MerkleTreeParams;
+type LeafH = LeafIdentityHasher;
+type CompressH = Sha256;
+impl Config for MerkleTreeParams {
+    type Leaf = Vec<u8>;
+
+    type LeafDigest = <LeafH as CRHScheme>::Output;
+    type LeafInnerDigestConverter = ByteDigestConverter<Self::LeafDigest>;
+    type InnerDigest = <CompressH as TwoToOneCRHScheme>::Output;
+
+    type LeafHash = LeafH;
+    type TwoToOneHash = CompressH;
+}
+
+type MTConfig = MerkleTreeParams;
+type Sponge<F> = PoseidonSponge<F>;
+type ColHasher<F> = FieldToBytesColHasher<F, Blake2s256>;
+type Ligero<F> = LinearCodePCS<
+    MultilinearLigero<F, MTConfig, Sponge<F>, MLE<F>, ColHasher<F>>,
+    F,
+    MLE<F>,
+    Sponge<F>,
+    MTConfig,
+    ColHasher<F>,
+>;
+
+const MIN_NUM_VARS: usize = 10;
+const MAX_NUM_VARS: usize = 20;
 
 /*************** Instantiating target functions ***************/
-fn commit_hyrax_n12_c377(c: &mut Criterion) {
-    commit_hyrax::<G1Affine>(c, 12, "commit_hyrax_n12_c377");
-}
-fn commit_hyrax_n14_c377(c: &mut Criterion) {
-    commit_hyrax::<G1Affine>(c, 14, "commit_hyrax_n14_c377");
-}
-
-fn commit_hyrax_n12_c381(c: &mut Criterion) {
-    commit_hyrax::<EdwardsAffine>(c, 12, "commit_hyrax_n12_c381");
-}
-fn commit_hyrax_n14_c381(c: &mut Criterion) {
-    commit_hyrax::<EdwardsAffine>(c, 14, "commit_hyrax_n14_c381");
-}
-
-fn commit_hyrax_range_c377(c: &mut Criterion) {
-    commit_hyrax_range::<G1Affine>(c, (10..20).step_by(2).collect(), "commit_hyrax_range_c377");
-}
-
-fn commit_hyrax_range_c381(c: &mut Criterion) {
-    commit_hyrax_range::<EdwardsAffine>(
+fn hyrax_bls12_381(c: &mut Criterion) {
+    bench_pcs_method::<_, Hyrax<G1Affine381>>(
         c,
-        (10..20).step_by(2).collect(),
-        "commit_hyrax_range_c381",
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "commit_hyrax_range_BLS12_381",
+        commit::<_, Hyrax<G1Affine381>>,
+    );
+    bench_pcs_method::<_, Hyrax<G1Affine381>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "oepn_hyrax_range_BLS12_381",
+        open::<_, Hyrax<G1Affine381>>,
+    );
+
+    bench_pcs_method::<_, Hyrax<G1Affine381>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "verify_hyrax_range_BLS12_381",
+        verify::<_, Hyrax<G1Affine381>>,
     );
 }
 
-criterion_group!(hyrax_benches_range_377, commit_hyrax_range_c377);
-criterion_group!(hyrax_benches_range_381, commit_hyrax_range_c381);
+fn hyrax_bn254(c: &mut Criterion) {
+    bench_pcs_method::<_, Hyrax<G1Affine254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "commit_hyrax_range_BN_254",
+        commit::<_, Hyrax<G1Affine254>>,
+    );
+    bench_pcs_method::<_, Hyrax<G1Affine254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "open_hyrax_range_BN_254",
+        open::<_, Hyrax<G1Affine254>>,
+    );
 
-/*************** Benchmarks ***************/
+    bench_pcs_method::<_, Hyrax<G1Affine254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "verify_hyrax_range_BN_254",
+        verify::<_, Hyrax<G1Affine254>>,
+    );
+}
 
-// criterion_group! {
-//     name = mixed_benches;
-//     config = Criterion::default();
-//     targets =
-//         commit_ligero,
-//         commit_hyrax,
-//         open_ligero,
-//         open_hyrax,
-//         verify_ligero,
-//         verify_hyrax,
-// }
+fn ligero_bls12_381(c: &mut Criterion) {
+    bench_pcs_method::<_, Ligero<Fr381>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "commit_ligero_range_BLS12_381",
+        commit::<_, Ligero<Fr381>>,
+    );
+    bench_pcs_method::<_, Ligero<Fr381>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "open_ligero_range_BLS12_381",
+        open::<_, Ligero<Fr381>>,
+    );
+
+    bench_pcs_method::<_, Ligero<Fr381>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "verify_ligero_range_BLS12_381",
+        verify::<_, Ligero<Fr381>>,
+    );
+}
+
+fn ligero_bn254(c: &mut Criterion) {
+    bench_pcs_method::<_, Ligero<Fr254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "commit_ligero_range_BN_254",
+        commit::<_, Ligero<Fr254>>,
+    );
+    bench_pcs_method::<_, Ligero<Fr254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "open_ligero_range_BN_254",
+        open::<_, Ligero<Fr254>>,
+    );
+
+    bench_pcs_method::<_, Ligero<Fr254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "verify_ligero_range_BN_254",
+        verify::<_, Ligero<Fr254>>,
+    );
+}
 
 criterion_group! {
     name = hyrax_benches;
     config = Criterion::default();
     targets =
-        commit_hyrax_n12_c377,
-        commit_hyrax_n14_c377,
-        commit_hyrax_n12_c381,
-        commit_hyrax_n14_c381,
+        hyrax_bls12_381,
+        hyrax_bn254
 }
 
-criterion_main!(hyrax_benches_range_377);
+criterion_group! {
+    name = ligero_benches;
+    config = Criterion::default();
+    targets =
+        ligero_bls12_381,
+        ligero_bn254
+}
+
+criterion_main!(hyrax_benches, ligero_benches);
