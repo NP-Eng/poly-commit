@@ -41,6 +41,11 @@ name = "pcs"
 path = "benches/benches.rs"
 harness = false
 
+[[bench]]
+name = "pcs-size"
+path = "benches/benches_size.rs"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "thin"
