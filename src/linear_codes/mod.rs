@@ -14,8 +14,6 @@ use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
-#[cfg(not(feature = "std"))]
-use num_traits::Float;
 
 mod utils;
 

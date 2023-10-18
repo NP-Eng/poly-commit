@@ -9,6 +9,8 @@ use ark_ff::PrimeField;
 use ark_poly::EvaluationDomain;
 use ark_poly::GeneralEvaluationDomain;
 use ark_std::marker::PhantomData;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 impl<F, C, H> LigeroPCParams<F, C, H>
 where
