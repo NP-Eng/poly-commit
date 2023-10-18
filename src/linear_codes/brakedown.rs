@@ -9,6 +9,7 @@ use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
+use ark_std::log2;
 use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
 #[cfg(not(feature = "std"))]
@@ -110,15 +111,13 @@ where
         two_to_one_params: TwoToOneParam<C>,
         col_hash_params: H::Parameters,
     ) -> Self {
+        eprintln!("NUM_VARS {}", n);
         let aux = (n as f64).sqrt().ceil() as usize;
         let t = calculate_t::<F>(sec_param, (beta.0 * rho_inv.0, beta.1 * rho_inv.1), aux).unwrap(); // aux is just an approximation of length
-        let n_cols = ((ceil_div(t, 2) * n) as f64).sqrt().ceil() as usize;
-        let (n_row, n) = (ceil_div(n, n_cols), n_cols);
-        eprintln!(
-            "dfsksdfdk;ldfks;fks;fks;fks;fs;dfks;fddfks;fk {}, {}",
-            n_row, n
-        );
-        assert!(n > base_len); // Make this an error
+        let n_row = 1 << log2((ceil_div(2 * n, t) as f64).sqrt().ceil() as usize);
+        let (n_row, n) = (n_row, ceil_div(n, n_row));
+        eprintln!("n_row, n: {}, {}", n_row, n);
+        // assert!(n > base_len); // Make this an error
         let a = alpha;
         let b = beta;
         let r = rho_inv;
@@ -262,6 +261,9 @@ where
     }
 
     pub(crate) fn codeword_len(&self) -> usize {
+        if self.a_dims.is_empty() {
+            return ceil_mul(self.n, self.rho_inv);
+        }
         let (a_dims, b_dims) = (&self.a_dims, &self.b_dims);
         b_dims.iter().map(|(_, m, _)| m).sum::<usize>() + // Output v of the recursive encoding
         a_dims.iter().map(|(n, _, _)| n).sum::<usize>() + // Input x to the recursive encoding

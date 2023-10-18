@@ -5,7 +5,7 @@ mod tests {
     use crate::utils::test_sponge;
     use crate::{
         challenge::ChallengeGenerator,
-        linear_codes::{utils::*, LigeroPCParams, MultilinearLigero, PolynomialCommitment},
+        linear_codes::{utils::*, BrakedownPCParams, MultilinearBrakedown, PolynomialCommitment},
         LabeledPolynomial,
     };
     use ark_bls12_377::Fq;
@@ -42,8 +42,8 @@ mod tests {
     type MTConfig = MerkleTreeParams;
     type Sponge<F> = PoseidonSponge<F>;
 
-    type LigeroPCS<F> = LinearCodePCS<
-        MultilinearLigero<
+    type BrakedownPCS<F> = LinearCodePCS<
+        MultilinearBrakedown<
             F,
             MTConfig,
             Sponge<F>,
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn test_construction() {
         let mut rng = &mut test_rng();
-        let num_vars = 10;
+        let num_vars = 11;
         // just to make sure we have the right degree given the FFT domain for our field
         let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
         let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
@@ -95,16 +95,21 @@ mod tests {
         let col_hash_params = <ColHasher<Fr, Blake2s256> as CRHScheme>::setup(&mut rng).unwrap();
         let check_well_formedness = true;
 
-        let pp: LigeroPCParams<Fr, MTConfig, ColHasher<Fr, Blake2s256>> = LigeroPCParams::new(
+        let pp: BrakedownPCParams<Fr, MTConfig, ColHasher<Fr, Blake2s256>> = BrakedownPCParams::new(
+            rng,
             128,
-            4,
+            (1, 5),
+            (41, 500),
+            (41, 25),
+            30,
+            1 << num_vars,
             check_well_formedness,
             leaf_hash_params,
             two_to_one_params,
             col_hash_params,
         );
 
-        let (ck, vk) = LigeroPCS::<Fr>::trim(&pp, 0, 0, None).unwrap();
+        let (ck, vk) = BrakedownPCS::<Fr>::trim(&pp, 0, 0, None).unwrap();
 
         let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
         let labeled_poly = LabeledPolynomial::new(
@@ -115,7 +120,7 @@ mod tests {
         );
 
         let mut test_sponge = test_sponge::<Fr>();
-        let (c, rands) = LigeroPCS::<Fr>::commit(&ck, &[labeled_poly.clone()], None).unwrap();
+        let (c, rands) = BrakedownPCS::<Fr>::commit(&ck, &[labeled_poly.clone()], None).unwrap();
 
         let point = rand_point(Some(num_vars), rand_chacha);
 
@@ -124,7 +129,7 @@ mod tests {
         let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
             ChallengeGenerator::new_univariate(&mut test_sponge);
 
-        let proof = LigeroPCS::<Fr>::open(
+        let proof = BrakedownPCS::<Fr>::open(
             &ck,
             &[labeled_poly],
             &c,
@@ -134,7 +139,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(LigeroPCS::<Fr>::check(
+        assert!(BrakedownPCS::<Fr>::check(
             &vk,
             &c,
             &point,
@@ -173,14 +178,14 @@ mod tests {
     #[test]
     fn single_poly_test() {
         use crate::tests::*;
-        single_poly_test::<_, _, LigeroPCS<Fr>, _>(
+        single_poly_test::<_, _, BrakedownPCS<Fr>, _>(
             Some(5),
             rand_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, LigeroPCS<Fr381>, _>(
+        single_poly_test::<_, _, BrakedownPCS<Fr381>, _>(
             Some(10),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -192,14 +197,14 @@ mod tests {
     #[test]
     fn constant_poly_test() {
         use crate::tests::*;
-        single_poly_test::<_, _, LigeroPCS<Fr>, _>(
+        single_poly_test::<_, _, BrakedownPCS<Fr>, _>(
             Some(10),
             constant_poly::<Fr>,
             rand_point::<Fr>,
             poseidon_sponge_for_test,
         )
         .expect("test failed for bls12-377");
-        single_poly_test::<_, _, LigeroPCS<Fr381>, _>(
+        single_poly_test::<_, _, BrakedownPCS<Fr381>, _>(
             Some(5),
             constant_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -211,7 +216,7 @@ mod tests {
     #[test]
     fn full_end_to_end_test() {
         use crate::tests::*;
-        full_end_to_end_test::<_, _, LigeroPCS<Fr>, _>(
+        full_end_to_end_test::<_, _, BrakedownPCS<Fr>, _>(
             Some(8),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -219,8 +224,8 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_test::<_, _, LigeroPCS<Fr381>, _>(
-            Some(3),
+        full_end_to_end_test::<_, _, BrakedownPCS<Fr381>, _>(
+            Some(9),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
             poseidon_sponge_for_test,
@@ -232,7 +237,7 @@ mod tests {
     #[test]
     fn single_equation_test() {
         use crate::tests::*;
-        single_equation_test::<_, _, LigeroPCS<Fr>, _>(
+        single_equation_test::<_, _, BrakedownPCS<Fr>, _>(
             Some(10),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -240,7 +245,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        single_equation_test::<_, _, LigeroPCS<Fr381>, _>(
+        single_equation_test::<_, _, BrakedownPCS<Fr381>, _>(
             Some(5),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -253,7 +258,7 @@ mod tests {
     #[test]
     fn two_equation_test() {
         use crate::tests::*;
-        two_equation_test::<_, _, LigeroPCS<Fr>, _>(
+        two_equation_test::<_, _, BrakedownPCS<Fr>, _>(
             Some(5),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -261,7 +266,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        two_equation_test::<_, _, LigeroPCS<Fr381>, _>(
+        two_equation_test::<_, _, BrakedownPCS<Fr381>, _>(
             Some(10),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,
@@ -274,7 +279,7 @@ mod tests {
     #[test]
     fn full_end_to_end_equation_test() {
         use crate::tests::*;
-        full_end_to_end_equation_test::<_, _, LigeroPCS<Fr>, _>(
+        full_end_to_end_equation_test::<_, _, BrakedownPCS<Fr>, _>(
             Some(5),
             rand_poly::<Fr>,
             rand_point::<Fr>,
@@ -282,7 +287,7 @@ mod tests {
         )
         .expect("test failed for bls12-377");
         println!("Finished bls12-377");
-        full_end_to_end_equation_test::<_, _, LigeroPCS<Fr381>, _>(
+        full_end_to_end_equation_test::<_, _, BrakedownPCS<Fr381>, _>(
             Some(8),
             rand_poly::<Fr381>,
             rand_point::<Fr381>,

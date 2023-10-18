@@ -58,7 +58,7 @@ impl<F: Field> SprsMat<F> {
                     val.push(v);
                 }
             }
-            ind_ptr[i + 1] = ind_ptr[i + 1] + ind_ptr[i]
+            ind_ptr[i + 1] += ind_ptr[i]
         }
         assert!(ind_ptr[m] <= nnz);
         Self {
@@ -146,11 +146,10 @@ pub(crate) fn calculate_t<F: PrimeField>(
     // With $\delta = \frac{1-\rho}{2}$, the expreesion is
     // $2 * (\frac{1+\rho}{2})^t + \frac{n}{F} < 2^(-\lambda)$.
 
-    let codeword_len = codeword_len as f64;
     let field_bits = F::MODULUS_BIT_SIZE as i32;
     let sec_param = sec_param as i32;
 
-    let residual = codeword_len / 2.0_f64.powi(field_bits);
+    let residual = codeword_len as f64 / 2.0_f64.powi(field_bits);
     let rhs = (2.0_f64.powi(-sec_param) - residual).log2();
     if !(rhs.is_normal()) {
         return Err(Error::InvalidParameters("For the given codeword length and the required security guarantee, the field is not big enough.".to_string()));
@@ -162,7 +161,8 @@ pub(crate) fn calculate_t<F: PrimeField>(
             "The distance is wrong".to_string(),
         ));
     }
-    Ok((nom / denom).ceil() as usize) // This is the `t`
+    let t = (nom / denom).ceil() as usize;
+    Ok(if t < codeword_len { t } else { codeword_len }) // This is the `t`
 }
 
 /// Only needed for benches and tests
