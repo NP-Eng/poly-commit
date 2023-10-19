@@ -65,10 +65,10 @@ benches = ["default", "criterion"] # criterion needs to be an optional dependenc
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
-ark-ec = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
-ark-poly = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
-ark-serialize = { git = "https://github.com/HungryCatsStudio/algebra", branch = "ml-is-poly-vec"}
+ark-ff = { git = "https://github.com/HungryCatsStudio/algebra", branch = "hacky-bounded-msm"}
+ark-ec = { git = "https://github.com/HungryCatsStudio/algebra", branch = "hacky-bounded-msm"}
+ark-poly = { git = "https://github.com/HungryCatsStudio/algebra", branch = "hacky-bounded-msm"}
+ark-serialize = { git = "https://github.com/HungryCatsStudio/algebra", branch = "hacky-bounded-msm"}
 
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives" }
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/" }
