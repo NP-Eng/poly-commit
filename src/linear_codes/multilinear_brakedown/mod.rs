@@ -1,3 +1,4 @@
+use super::utils::tensor_vec;
 use super::{BrakedownPCParams, LinearEncode};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
@@ -58,15 +59,17 @@ where
     fn encode(msg: &[F], pp: &Self::LinCodePCParams) -> Vec<F> {
         assert!(msg.len() == pp.m); // TODO Make it error
         let cw_len = pp.m_ext;
-        let mut cw = vec![F::zero(); cw_len];
-        cw[..msg.len()].copy_from_slice(msg);
+        let mut cw = Vec::with_capacity(cw_len);
+        cw.extend_from_slice(msg);
 
         // Multiply by matrices A
         for (i, &s) in pp.start.iter().enumerate() {
-            let src = &pp.a_mats[i].row_mul(&cw[s - pp.a_dims[i].0..s]);
-            cw[s..s + pp.a_dims[i].1].copy_from_slice(src);
+            let mut src = pp.a_mats[i].row_mul(&cw[s - pp.a_dims[i].0..s]);
+            cw.append(&mut src);
         }
 
+        // later we don't necessarily mutate in order, so we need the full vec now.
+        cw.resize(cw_len, F::zero());
         // RS encode the last one
         let rss = *pp.start.last().unwrap_or(&0);
         let rsie = rss + pp.a_dims.last().unwrap_or(&(0, pp.m, 0)).1;
@@ -99,7 +102,7 @@ where
         let split = log2(left_len) as usize;
         let left = &point[..split];
         let right = &point[split..];
-        (tensor_inner(left), tensor_inner(right))
+        (tensor_vec(left), tensor_vec(right))
     }
 }
 
@@ -115,24 +118,4 @@ fn naive_reed_solomon<F: Field>(cw: &mut [F], s: usize, ie: usize, oe: usize) {
         x += F::one();
     }
     cw[s..oe].copy_from_slice(&res);
-}
-
-fn tensor_inner<F: PrimeField>(values: &[F]) -> Vec<F> {
-    let one = F::one();
-    let anti_values: Vec<F> = values.iter().map(|v| one - *v).collect();
-
-    let mut layer: Vec<F> = vec![one];
-
-    for i in 0..values.len() {
-        let mut new_layer = Vec::new();
-        for v in &layer {
-            new_layer.push(*v * anti_values[i]);
-        }
-        for v in &layer {
-            new_layer.push(*v * values[i]);
-        }
-        layer = new_layer;
-    }
-
-    layer
 }

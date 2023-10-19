@@ -13,12 +13,13 @@ use ark_crypto_primitives::{
 use ark_poly_commit::{
     bench_templates::{bench_pcs_method, commit, open, verify, MLE},
     hyrax::HyraxPC,
-    linear_codes::{FieldToBytesColHasher, LeafIdentityHasher, LinearCodePCS, MultilinearLigero},
+    linear_codes::{FieldToBytesColHasher, LeafIdentityHasher, LinearCodePCS, MultilinearLigero, MultilinearBrakedown},
 };
 
 use ark_bls12_381::{Fr as Fr381, G1Affine as G1Affine381};
 use ark_bn254::{Fr as Fr254, G1Affine as G1Affine254};
 
+// Hyrax type alias
 type Hyrax<G> = HyraxPC<G, DenseMultilinearExtension<<G as AffineRepr>::ScalarField>>;
 
 struct MerkleTreeParams;
@@ -38,8 +39,20 @@ impl Config for MerkleTreeParams {
 type MTConfig = MerkleTreeParams;
 type Sponge<F> = PoseidonSponge<F>;
 type ColHasher<F> = FieldToBytesColHasher<F, Blake2s256>;
+
+// Ligero type alias
 type Ligero<F> = LinearCodePCS<
     MultilinearLigero<F, MTConfig, Sponge<F>, MLE<F>, ColHasher<F>>,
+    F,
+    MLE<F>,
+    Sponge<F>,
+    MTConfig,
+    ColHasher<F>,
+>;
+
+// Brakedown type alias
+type Brakedown<F> = LinearCodePCS<
+    MultilinearBrakedown<F, MTConfig, Sponge<F>, MLE<F>, ColHasher<F>>,
     F,
     MLE<F>,
     Sponge<F>,
@@ -139,6 +152,28 @@ fn ligero_bn254(c: &mut Criterion) {
     );
 }
 
+fn brakedown_bn254(c: &mut Criterion) {
+    bench_pcs_method::<_, Brakedown<Fr254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "commit_brakedown_range_BN_254",
+        commit::<_, Brakedown<Fr254>>,
+    );
+    bench_pcs_method::<_, Brakedown<Fr254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "open_brakedown_range_BN_254",
+        open::<_, Brakedown<Fr254>>,
+    );
+
+    bench_pcs_method::<_, Brakedown<Fr254>>(
+        c,
+        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
+        "verify_brakedown_range_BN_254",
+        verify::<_, Brakedown<Fr254>>,
+    );
+}
+
 criterion_group! {
     name = hyrax_benches;
     config = Criterion::default();
@@ -155,4 +190,11 @@ criterion_group! {
         ligero_bn254
 }
 
-criterion_main!(hyrax_benches, ligero_benches);
+criterion_group! {
+    name = brakedown_benches;
+    config = Criterion::default();
+    targets =
+        brakedown_bn254,
+}
+
+criterion_main!(hyrax_benches, ligero_benches, brakedown_benches);

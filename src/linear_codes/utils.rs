@@ -217,6 +217,26 @@ where
     }
 }
 
+pub(crate) fn tensor_vec<F: PrimeField>(values: &[F]) -> Vec<F> {
+    let one = F::one();
+    let anti_values: Vec<F> = values.iter().map(|v| one - *v).collect();
+
+    let mut layer: Vec<F> = vec![one];
+
+    for i in 0..values.len() {
+        let mut new_layer = Vec::new();
+        for v in &layer {
+            new_layer.push(*v * anti_values[i]);
+        }
+        for v in &layer {
+            new_layer.push(*v * values[i]);
+        }
+        layer = new_layer;
+    }
+
+    layer
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
 
