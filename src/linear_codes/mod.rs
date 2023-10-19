@@ -105,7 +105,7 @@ where
         let mut coeffs = Self::poly_repr(polynomial);
 
         // 1. Computing parameters and initial matrix
-        let (n_rows, n_cols) = param.compute_dimensions(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+        let (n_rows, n_cols) = param.compute_dimensions(coeffs.len()); // TODO for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
 
         // padding the coefficient vector with zeroes
         // TODO is this the most efficient/safest way to do it?
