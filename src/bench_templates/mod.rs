@@ -2,8 +2,8 @@ use ark_crypto_primitives::sponge::{
     poseidon::{PoseidonConfig, PoseidonSponge},
     CryptographicSponge,
 };
-use ark_ff::PrimeField;
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_ff::{BigInteger, PrimeField};
+use ark_poly::DenseMultilinearExtension;
 use ark_std::{rand::Rng, test_rng};
 
 /// type alias for DenseMultilinearExtension
@@ -144,7 +144,21 @@ pub fn verify<
 /*************** Auxiliary functions ***************/
 
 fn rand_ml_poly<F: PrimeField>(num_vars: usize, rng: &mut impl Rng) -> MLE<F> {
-    MLE::rand(num_vars, rng)
+    // sample scalars from a smaller range, of up to 30 bits, by using `from_bits_le`
+    let max_bits: usize = 60;
+    let num_bits = F::MODULUS_BIT_SIZE as usize;
+    let small_scalars = (0..(1 << num_vars))
+        .map(|_| {
+            let s = F::rand(rng).into_bigint();
+            let mut bits = s.to_bits_le();
+            bits.truncate(max_bits);
+            bits.resize(num_bits, false);
+            let bigint = F::BigInt::from_bits_le(&bits);
+            F::from_bigint(bigint).unwrap()
+        })
+        .collect::<Vec<_>>();
+
+    MLE::from_evaluations_vec(num_vars, small_scalars)
 }
 
 fn rand_mv_point<F: PrimeField>(num_vars: usize, rng: &mut impl Rng) -> Vec<F> {
