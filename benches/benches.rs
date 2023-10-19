@@ -74,7 +74,7 @@ fn hyrax_bls12_381(c: &mut Criterion) {
     bench_pcs_method::<_, Hyrax<G1Affine381>>(
         c,
         (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
-        "oepn_hyrax_range_BLS12_381",
+        "open_hyrax_range_BLS12_381",
         open::<_, Hyrax<G1Affine381>>,
     );
 
