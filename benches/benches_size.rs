@@ -5,6 +5,7 @@ use ark_crypto_primitives::{sponge::poseidon::PoseidonSponge, crh::sha256::Sha25
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_poly_commit::bench_templates::{commitment_size, proof_size};
 use ark_poly_commit::linear_codes::{FieldToBytesColHasher, LinearCodePCS, MultilinearLigero};
 use ark_poly_commit::{hyrax::HyraxPC, PolynomialCommitment, LabeledPolynomial, challenge::ChallengeGenerator, linear_codes::LeafIdentityHasher};
 use ark_std::UniformRand;
@@ -187,6 +188,7 @@ fn main() {
     println!("\nHyrax on BLS12-381: Commitment size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
         println!("\tnum_vars: {}, size: {} B", num_vars, hyrax_commitment_size::<G1Affine381>(num_vars));
+        println!("\tser: {} B", commitment_size::<_, Hyrax<G1Affine381>>(num_vars));
     }
 
     println!("\nHyrax on BN-254: Commitment size");
@@ -209,6 +211,7 @@ fn main() {
     println!("\nHyrax on BLS12-381: Proof size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
         println!("\tnum_vars: {}, size: {} B", num_vars, hyrax_proof_size::<G1Affine381>(num_vars));
+        println!("\tser: {} B", proof_size::<_, Hyrax<G1Affine381>>(num_vars));
     }
 
     println!("\nHyrax on BN-254: Proof size");
@@ -225,4 +228,5 @@ fn main() {
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
         println!("\tnum_vars: {}, size: {} B", num_vars, ligero_proof_size::<Fr254>(num_vars));
     }
+
 }
