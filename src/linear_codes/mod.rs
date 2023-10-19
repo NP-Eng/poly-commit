@@ -1,4 +1,4 @@
-use crate::utils::{ceil_div, inner_product, IOPTranscript, Matrix};
+use crate::utils::{inner_product, IOPTranscript, Matrix};
 use crate::{
     Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
     PolynomialCommitment,
@@ -8,14 +8,12 @@ use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::MerkleTree;
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
-use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, Polynomial};
+use ark_poly::Polynomial;
 use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
-#[cfg(not(feature = "std"))]
-use num_traits::Float;
 
 mod utils;
 
@@ -25,6 +23,11 @@ mod univariate_ligero;
 pub use multilinear_ligero::MultilinearLigero;
 pub use univariate_ligero::UnivariateLigero;
 
+mod multilinear_brakedown;
+
+pub use multilinear_brakedown::MultilinearBrakedown;
+
+mod brakedown;
 mod data_structures;
 mod ligero;
 use data_structures::*;
@@ -46,10 +49,13 @@ where
     fn sec_param(&self) -> usize;
 
     /// Get the inverse of code rate
-    fn rho_inv(&self) -> (usize, usize);
+    fn distance(&self) -> (usize, usize);
 
     /// See whether there should be a well-formedness check
     fn check_well_formedness(&self) -> bool;
+
+    /// Compute
+    fn compute_dimensions(&self, n: usize) -> (usize, usize);
 
     /// Get LeafHash parameters
     fn leaf_hash_params(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters;
@@ -69,12 +75,14 @@ where
     H: CRHScheme,
     P: Polynomial<F>,
 {
-    /// For schemes like Breakdown and Ligero, PCCommiiterKey and
+    /// For schemes like Brakedown and Ligero, PCCommiiterKey and
     /// PCVerifierKey and PCUniversalParams are all the same.
     type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeInfo<C, H>;
 
     /// Does a default setup for the PCS.
     fn setup<R: RngCore>(
+        max_degree: usize,
+        num_vars: Option<usize>,
         rng: &mut R,
         leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
@@ -92,29 +100,12 @@ where
     /// Needed for appending to transcript.
     fn point_to_vec(point: P::Point) -> Vec<F>;
 
-    /// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
-    /// The return pair (n, m) corresponds to the dimensions n x m.
-    fn compute_dimensions(n: usize) -> (usize, usize) {
-        assert_eq!(
-            (n as f64) as usize,
-            n,
-            "n cannot be converted to f64: aborting"
-        );
-
-        let aux = (n as f64).sqrt().ceil() as usize;
-        let n_cols = GeneralEvaluationDomain::<F>::new(aux)
-            .expect("Field F does not admit FFT with m elements")
-            .size();
-
-        (ceil_div(n, n_cols), n_cols)
-    }
-
     /// Compute the matrices for the polynomial
     fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
         let mut coeffs = Self::poly_repr(polynomial);
 
         // 1. Computing parameters and initial matrix
-        let (n_rows, n_cols) = Self::compute_dimensions(coeffs.len()); // for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+        let (n_rows, n_cols) = param.compute_dimensions(coeffs.len()); // TODO for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
 
         // padding the coefficient vector with zeroes
         // TODO is this the most efficient/safest way to do it?
@@ -183,7 +174,7 @@ where
     /// see the documentation for `LigeroPCUniversalParams`.
     fn setup<R: RngCore>(
         max_degree: usize,
-        _num_vars: Option<usize>,
+        num_vars: Option<usize>,
         rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
         let leaf_hash_params = <C::LeafHash as CRHScheme>::setup(rng).unwrap();
@@ -191,7 +182,14 @@ where
             .unwrap()
             .clone();
         let col_hash_params = <H as CRHScheme>::setup(rng).unwrap();
-        let pp = L::setup::<R>(rng, leaf_hash_params, two_to_one_params, col_hash_params);
+        let pp = L::setup::<R>(
+            max_degree,
+            num_vars,
+            rng,
+            leaf_hash_params,
+            two_to_one_params,
+            col_hash_params,
+        );
         let real_max_degree = <Self::UniversalParams as PCUniversalParams>::max_degree(&pp);
         if max_degree > real_max_degree || real_max_degree == 0 {
             return Err(Error::InvalidParameters(FIELD_SIZE_ERROR.to_string()));
@@ -363,7 +361,7 @@ where
                 // compute the opening proof and append b.M to the transcript
                 opening: generate_proof(
                     ck.sec_param(),
-                    ck.rho_inv(),
+                    ck.distance(),
                     &b,
                     &mat,
                     &ext_mat,
@@ -413,7 +411,7 @@ where
             let n_cols = commitment.metadata.n_cols;
             let n_ext_cols = commitment.metadata.n_ext_cols;
             let root = &commitment.root;
-            let t = calculate_t::<F>(vk.sec_param(), vk.rho_inv(), n_ext_cols)?;
+            let t = calculate_t::<F>(vk.sec_param(), vk.distance(), n_ext_cols)?;
 
             let mut transcript = IOPTranscript::new(b"transcript");
             transcript
@@ -569,7 +567,7 @@ where
 
 fn generate_proof<F, C>(
     sec_param: usize,
-    rho_inv: (usize, usize),
+    distance: (usize, usize),
     b: &[F],
     mat: &Matrix<F>,
     ext_mat: &Matrix<F>,
@@ -580,7 +578,7 @@ where
     F: PrimeField,
     C: Config,
 {
-    let t = calculate_t::<F>(sec_param, rho_inv, ext_mat.n)?;
+    let t = calculate_t::<F>(sec_param, distance, ext_mat.m)?;
 
     // 1. left-multiply the matrix by `b`, where for a requested query point `z`,
     // `b = [1, z^m, z^(2m), ..., z^((m-1)m)]`

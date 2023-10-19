@@ -29,7 +29,7 @@ macro_rules! to_bytes {
 }
 
 /// Entropy function
-fn _ent(x: f64) -> f64 {
+pub(crate) fn ent(x: f64) -> f64 {
     assert!(0f64 <= x && x <= 1f64);
     if x == 0f64 || x == 1f64 {
         0f64
@@ -40,7 +40,7 @@ fn _ent(x: f64) -> f64 {
 
 /// ceil of a * b, where a is integer and b is a rational number
 #[inline]
-fn _ceil_mul(a: usize, b: (usize, usize)) -> usize {
+pub(crate) fn ceil_mul(a: usize, b: (usize, usize)) -> usize {
     (a * b.0 + b.1 - 1) / b.1
 }
 
