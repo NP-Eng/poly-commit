@@ -1,7 +1,7 @@
+use super::utils::SprsMat;
 use crate::{
     PCCommitment, PCPreparedCommitment, PCPreparedVerifierKey, PCRandomness, PCVerifierKey,
 };
-
 use ark_crypto_primitives::{
     crh::CRHScheme,
     merkle_tree::{Config, LeafParam, Path, TwoToOneParam},
@@ -21,6 +21,50 @@ pub struct LigeroPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     pub(crate) sec_param: usize,
     /// The inverse of the code rate.
     pub(crate) rho_inv: usize,
+    /// This is a flag which determines if the random linear combination is done.
+    pub(crate) check_well_formedness: bool,
+    /// Parameters for hash function of Merkle tree leaves
+    #[derivative(Debug = "ignore")]
+    pub(crate) leaf_hash_params: LeafParam<C>,
+    /// Parameters for hash function of Merke tree combining two nodes into one
+    #[derivative(Debug = "ignore")]
+    pub(crate) two_to_one_params: TwoToOneParam<C>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) col_hash_params: H::Parameters,
+}
+
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Clone(bound = ""), Debug(bound = ""))]
+/// The public parameters for Ligero PCS.
+pub struct BrakedownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
+    /// The security parameter
+    pub(crate) sec_param: usize,
+    /// alpha in the paper
+    pub(crate) alpha: (usize, usize),
+    /// beta in the paper
+    pub(crate) beta: (usize, usize),
+    /// The inverse of the code rate.
+    pub(crate) rho_inv: (usize, usize),
+    /// Size of the base case to encode with RS
+    pub(crate) base_len: usize,
+    /// Number of rows in polynomial matrix
+    pub(crate) n: usize,
+    /// Number of columns in polynomial matrix
+    pub(crate) m: usize,
+    /// Length of codeword
+    pub(crate) m_ext: usize,
+    /// Size and sparsity of all of matrices A
+    pub(crate) a_dims: Vec<(usize, usize, usize)>,
+    /// Size and sparsity of all of matrices B
+    pub(crate) b_dims: Vec<(usize, usize, usize)>,
+    /// Start indices of the middle chunks during encoding
+    pub(crate) start: Vec<usize>,
+    /// End indices of the middle chunks during encoding
+    pub(crate) end: Vec<usize>,
+    /// Matrices
+    pub(crate) a_mats: Vec<SprsMat<F>>,
+    /// Matrices
+    pub(crate) b_mats: Vec<SprsMat<F>>,
     /// This is a flag which determines if the random linear combination is done.
     pub(crate) check_well_formedness: bool,
     /// Parameters for hash function of Merkle tree leaves

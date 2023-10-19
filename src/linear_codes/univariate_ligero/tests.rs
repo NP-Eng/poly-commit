@@ -142,19 +142,19 @@ mod tests {
 
     #[test]
     fn test_calculate_t_with_good_parameters() {
-        assert!(calculate_t::<Fq>(128, (4, 1), 2_usize.pow(32)).unwrap() < 200);
-        assert!(calculate_t::<Fq>(256, (4, 1), 2_usize.pow(32)).unwrap() < 400);
+        assert!(calculate_t::<Fq>(128, (3, 4), 2_usize.pow(32)).unwrap() < 200);
+        assert!(calculate_t::<Fq>(256, (3, 4), 2_usize.pow(32)).unwrap() < 400);
     }
 
     #[test]
     fn test_calculate_t_with_bad_parameters() {
         calculate_t::<Fq>(
             (Fq::MODULUS_BIT_SIZE - 60) as usize,
-            (4, 1),
+            (3, 4),
             2_usize.pow(60),
         )
         .unwrap_err();
-        calculate_t::<Fq>(400, (4, 1), 2_usize.pow(32)).unwrap_err();
+        calculate_t::<Fq>(400, (3, 4), 2_usize.pow(32)).unwrap_err();
     }
 
     fn rand_point<F: Field>(_: Option<usize>, rng: &mut ChaCha20Rng) -> F {
