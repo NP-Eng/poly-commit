@@ -1,23 +1,18 @@
-//#![cfg(feature = "benches")]
+#![cfg(feature = "benches")]
 
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{sponge::poseidon::PoseidonSponge, crh::sha256::Sha256};
 use ark_ec::AffineRepr;
-use ark_ff::PrimeField;
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_poly::DenseMultilinearExtension;
 use ark_poly_commit::bench_templates::{commitment_size, proof_size};
 use ark_poly_commit::linear_codes::{FieldToBytesColHasher, LinearCodePCS, MultilinearLigero};
-use ark_poly_commit::{hyrax::HyraxPC, PolynomialCommitment, LabeledPolynomial, challenge::ChallengeGenerator, linear_codes::LeafIdentityHasher};
-use ark_std::UniformRand;
-use ark_crypto_primitives::sponge::{poseidon::PoseidonConfig, CryptographicSponge};
+use ark_poly_commit::{hyrax::HyraxPC, linear_codes::LeafIdentityHasher};
 use ark_crypto_primitives::merkle_tree::{Config, ByteDigestConverter};
 
 use ark_bls12_381::{Fr as Fr381, G1Affine as G1Affine381};
 use ark_bn254::{Fr as Fr254, G1Affine as G1Affine254};
-use ark_std::test_rng;
 use blake2::Blake2s256;
 
-use std::mem::size_of_val;
 
 const MIN_NUM_VARS: usize = 10;
 const MAX_NUM_VARS: usize = 22;
