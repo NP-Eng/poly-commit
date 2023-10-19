@@ -1,3 +1,4 @@
+use super::utils::tensor_vec;
 use super::{BrakedownPCParams, LinearEncode};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
@@ -99,7 +100,7 @@ where
         let split = log2(left_len) as usize;
         let left = &point[..split];
         let right = &point[split..];
-        (tensor_inner(left), tensor_inner(right))
+        (tensor_vec(left), tensor_vec(right))
     }
 }
 
@@ -115,24 +116,4 @@ fn naive_reed_solomon<F: Field>(cw: &mut [F], s: usize, ie: usize, oe: usize) {
         x += F::one();
     }
     cw[s..oe].copy_from_slice(&res);
-}
-
-fn tensor_inner<F: PrimeField>(values: &[F]) -> Vec<F> {
-    let one = F::one();
-    let anti_values: Vec<F> = values.iter().map(|v| one - *v).collect();
-
-    let mut layer: Vec<F> = vec![one];
-
-    for i in 0..values.len() {
-        let mut new_layer = Vec::new();
-        for v in &layer {
-            new_layer.push(*v * anti_values[i]);
-        }
-        for v in &layer {
-            new_layer.push(*v * values[i]);
-        }
-        layer = new_layer;
-    }
-
-    layer
 }
