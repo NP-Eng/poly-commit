@@ -102,23 +102,6 @@ where
     /// Needed for appending to transcript.
     fn point_to_vec(point: P::Point) -> Vec<F>;
 
-    /// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
-    /// The return pair (n, m) corresponds to the dimensions n x m.
-    // fn compute_dimensions(n: usize, _pp: &Self::LinCodePCParams) -> (usize, usize) {
-    //     assert_eq!(
-    //         (n as f64) as usize,
-    //         n,
-    //         "n cannot be converted to f64: aborting"
-    //     );
-
-    //     let aux = (n as f64).sqrt().ceil() as usize;
-    //     let n_cols = GeneralEvaluationDomain::<F>::new(aux)
-    //         .expect("Field F does not admit FFT with m elements")
-    //         .size();
-
-    //     (ceil_div(n, n_cols), n_cols)
-    // }
-
     /// Compute the matrices for the polynomial
     fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
         let mut coeffs = Self::poly_repr(polynomial);
