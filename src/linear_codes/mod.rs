@@ -24,10 +24,8 @@ pub use multilinear_ligero::MultilinearLigero;
 pub use univariate_ligero::UnivariateLigero;
 
 mod multilinear_brakedown;
-mod univariate_brakedown;
 
 pub use multilinear_brakedown::MultilinearBrakedown;
-pub use univariate_brakedown::UnivariateBrakedown;
 
 mod brakedown;
 mod data_structures;

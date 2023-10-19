@@ -45,13 +45,8 @@ where
         two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
         col_hash_params: H::Parameters,
     ) -> Self::LinCodePCParams {
-        Self::LinCodePCParams::new(
+        Self::LinCodePCParams::default(
             rng,
-            128,
-            (1, 5),
-            (41, 500),
-            (41, 25),
-            30,
             1 << num_vars.unwrap(),
             true,
             leaf_hash_params,
@@ -61,47 +56,25 @@ where
     }
 
     fn encode(msg: &[F], pp: &Self::LinCodePCParams) -> Vec<F> {
-        assert!(msg.len() == pp.n); // TODO Make it error
-        let cw_len = pp.codeword_len();
+        assert!(msg.len() == pp.m); // TODO Make it error
+        let cw_len = pp.m_ext;
         let mut cw = vec![F::zero(); cw_len];
         cw[..msg.len()].copy_from_slice(msg);
 
-        // istart and iend are two arrays which keep the indices of the encoding in each step
-        let start = pp
-            .a_dims
-            .iter()
-            .scan(0, |acc, &(x, _, _)| {
-                *acc += x;
-                Some(*acc)
-            })
-            .collect::<Vec<_>>();
-        let end = pp
-            .b_dims
-            .iter()
-            .scan(cw_len, |acc, &(_, x, _)| {
-                *acc -= x;
-                Some(*acc)
-            })
-            .collect::<Vec<_>>();
-
         // Multiply by matrices A
-        for (i, &s) in start.iter().enumerate() {
+        for (i, &s) in pp.start.iter().enumerate() {
             let src = &pp.a_mats[i].row_mul(&cw[s - pp.a_dims[i].0..s]);
             cw[s..s + pp.a_dims[i].1].copy_from_slice(src);
         }
 
         // RS encode the last one
-        let rss = if let Some(s) = start.last() { *s } else { 0 };
-        let rsie = if let Some(e) = pp.a_dims.last() {
-            rss + e.1
-        } else {
-            pp.n
-        };
-        let rsoe = if let Some(e) = end.last() { *e } else { cw_len };
+        let rss = *pp.start.last().unwrap_or(&0);
+        let rsie = rss + pp.a_dims.last().unwrap_or(&(0, pp.m, 0)).1;
+        let rsoe = *pp.end.last().unwrap_or(&cw_len);
         naive_reed_solomon(&mut cw, rss, rsie, rsoe);
 
         // Come back
-        for (i, (&s, e)) in start.iter().zip(end).enumerate() {
+        for (i, (&s, &e)) in pp.start.iter().zip(&pp.end).enumerate() {
             let src = &pp.b_mats[i].row_mul(&cw[s..e]);
             cw[e..e + pp.b_dims[i].1].copy_from_slice(src);
         }

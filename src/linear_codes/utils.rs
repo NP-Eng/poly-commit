@@ -21,7 +21,7 @@ use num_traits::Float;
 /// This is CSR format
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-pub(crate) struct SprsMat<F: Field> {
+pub struct SprsMat<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,
     pub(crate) d: usize,
@@ -31,7 +31,7 @@ pub(crate) struct SprsMat<F: Field> {
 }
 
 impl<F: Field> SprsMat<F> {
-    /// Calulates M.v
+    /// Calulates v.M
     pub(crate) fn row_mul(&self, v: &[F]) -> Vec<F> {
         (0..self.m)
             .map(|j| {
@@ -45,7 +45,7 @@ impl<F: Field> SprsMat<F> {
             .collect::<Vec<_>>()
     }
     /// m is nrow, n is ncol, d is NNZ in each column
-    pub(crate) fn new_from_flat(n: usize, m: usize, d: usize, list: &[F]) -> Self {
+    pub fn new_from_flat(n: usize, m: usize, d: usize, list: &[F]) -> Self {
         let nnz = d * n;
         let mut ind_ptr = vec![0; m + 1];
         let mut col_ind = Vec::<usize>::with_capacity(nnz);

@@ -47,14 +47,20 @@ pub struct BrakedownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     pub(crate) rho_inv: (usize, usize),
     /// Size of the base case to encode with RS
     pub(crate) base_len: usize,
-    /// Number of columns
+    /// Number of rows in polynomial matrix
     pub(crate) n: usize,
-    /// Number of rows
-    pub(crate) n_row: usize,
-    /// Size of all of matrices
+    /// Number of columns in polynomial matrix
+    pub(crate) m: usize,
+    /// Length of codeword
+    pub(crate) m_ext: usize,
+    /// Size and sparsity of all of matrices A
     pub(crate) a_dims: Vec<(usize, usize, usize)>,
-    /// Size of all of matrices
+    /// Size and sparsity of all of matrices B
     pub(crate) b_dims: Vec<(usize, usize, usize)>,
+    /// Start indices of the middle chunks during encoding
+    pub(crate) start: Vec<usize>,
+    /// End indices of the middle chunks during encoding
+    pub(crate) end: Vec<usize>,
     /// Matrices
     pub(crate) a_mats: Vec<SprsMat<F>>,
     /// Matrices

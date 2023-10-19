@@ -95,19 +95,15 @@ mod tests {
         let col_hash_params = <ColHasher<Fr, Blake2s256> as CRHScheme>::setup(&mut rng).unwrap();
         let check_well_formedness = true;
 
-        let pp: BrakedownPCParams<Fr, MTConfig, ColHasher<Fr, Blake2s256>> = BrakedownPCParams::new(
-            rng,
-            128,
-            (1, 5),
-            (41, 500),
-            (41, 25),
-            30,
-            1 << num_vars,
-            check_well_formedness,
-            leaf_hash_params,
-            two_to_one_params,
-            col_hash_params,
-        );
+        let pp: BrakedownPCParams<Fr, MTConfig, ColHasher<Fr, Blake2s256>> =
+            BrakedownPCParams::default(
+                rng,
+                1 << num_vars,
+                check_well_formedness,
+                leaf_hash_params,
+                two_to_one_params,
+                col_hash_params,
+            );
 
         let (ck, vk) = BrakedownPCS::<Fr>::trim(&pp, 0, 0, None).unwrap();
 

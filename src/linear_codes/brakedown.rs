@@ -75,7 +75,7 @@ where
     }
 
     fn compute_dimensions(&self, _n: usize) -> (usize, usize) {
-        (self.n_row, self.n)
+        (self.n, self.m)
     }
 
     fn leaf_hash_params(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters {
@@ -97,71 +97,101 @@ where
     C: Config,
     H: CRHScheme,
 {
-    /// Create new UniversalParams
-    pub fn new<R: RngCore>(
+    /// Create a default UniversalParams, with the values from Fig. 2 from the paper.
+    pub fn default<R: RngCore>(
         rng: &mut R,
-        sec_param: usize,
-        alpha: (usize, usize),
-        beta: (usize, usize),
-        rho_inv: (usize, usize),
-        base_len: usize,
         poly_len: usize,
         check_well_formedness: bool,
         leaf_hash_params: LeafParam<C>,
         two_to_one_params: TwoToOneParam<C>,
         col_hash_params: H::Parameters,
     ) -> Self {
-        let t = calculate_t::<F>(
-            sec_param,
-            (beta.0 * rho_inv.0, beta.1 * rho_inv.1),
-            poly_len,
-        )
-        .unwrap(); // we want to get a rough idea what t is
-        let n_row = 1 << log2((ceil_div(2 * poly_len, t) as f64).sqrt().ceil() as usize);
-        let (n_row, n) = (n_row, ceil_div(poly_len, n_row));
-        let a = alpha;
-        let b = beta;
-        let r = rho_inv;
+        let sec_param = 128;
+        let a = (1, 5);
+        let b = (41, 500);
+        let r = (41, 25);
+        let base_len = 30;
+        let t = calculate_t::<F>(sec_param, (b.0 * r.0, b.1 * r.1), poly_len).unwrap(); // we want to get a rough idea what t is
+        let n = 1 << log2((ceil_div(2 * poly_len, t) as f64).sqrt().ceil() as usize);
+        let m = ceil_div(poly_len, n);
         let c = Self::cn_const(a, b);
         let d = Self::dn_const(a, b, r);
         let ct = Constants { a, b, r, c, d };
-        let (a_dims, b_dims) = Self::mat_size(n, base_len, &ct);
-        // let (a_mats, b_mats) = a_dims
-        //     .iter()
-        //     .zip(b_dims.iter())
-        //     .map(|((n, m, d), (np, mp, dp))| {
-        //         (
-        //             Self::make_mat(*n, *m, *d, rng),
-        //             Self::make_mat(*np, *mp, *dp, rng),
-        //         )
-        //     })
-        //     .unzip();
-
-        // let a_mats = {
-        //     a_dims
-        //         .iter()
-        //         .map(|(n, m, d)| Self::make_mat(*n, *m, *d, rng))
-        //         .collect::<Vec<Matrix<F>>>()
-        // };
-        // let b_mats = {
-        //     b_dims
-        //         .iter()
-        //         .map(|(n, m, d)| Self::make_mat(*n, *m, *d, rng))
-        //         .collect::<Vec<Matrix<F>>>()
-        // };
+        let (a_dims, b_dims) = Self::mat_size(m, base_len, &ct);
         let a_mats = Self::make_all(rng, &a_dims);
         let b_mats = Self::make_all(rng, &b_dims);
 
-        Self {
+        Self::new(
             sec_param,
-            alpha,
-            beta,
-            rho_inv,
+            a,
+            b,
+            r,
             base_len,
             n,
-            n_row,
+            m,
             a_dims,
             b_dims,
+            a_mats,
+            b_mats,
+            check_well_formedness,
+            leaf_hash_params,
+            two_to_one_params,
+            col_hash_params,
+        )
+    }
+
+    /// This function creates a UniversalParams.
+    // TODO There should be a sanity check on the input.
+    pub fn new(
+        sec_param: usize,
+        a: (usize, usize),
+        b: (usize, usize),
+        r: (usize, usize),
+        base_len: usize,
+        n: usize,
+        m: usize,
+        a_dims: Vec<(usize, usize, usize)>,
+        b_dims: Vec<(usize, usize, usize)>,
+        a_mats: Vec<SprsMat<F>>,
+        b_mats: Vec<SprsMat<F>>,
+        check_well_formedness: bool,
+        leaf_hash_params: LeafParam<C>,
+        two_to_one_params: TwoToOneParam<C>,
+        col_hash_params: H::Parameters,
+    ) -> Self {
+        let m_ext = if a_dims.is_empty() {
+            ceil_mul(m, r)
+        } else {
+            Self::codeword_len(&a_dims, &b_dims)
+        };
+        let start = a_dims
+            .iter()
+            .scan(0, |acc, &(row, _, _)| {
+                *acc += row;
+                Some(*acc)
+            })
+            .collect::<Vec<_>>();
+        let end = b_dims
+            .iter()
+            .scan(m_ext, |acc, &(_, col, _)| {
+                *acc -= col;
+                Some(*acc)
+            })
+            .collect::<Vec<_>>();
+
+        Self {
+            sec_param,
+            alpha: a,
+            beta: b,
+            rho_inv: r,
+            base_len,
+            n,
+            m,
+            m_ext,
+            a_dims,
+            b_dims,
+            start,
+            end,
             a_mats,
             b_mats,
             check_well_formedness,
@@ -240,7 +270,7 @@ where
         let a = ct.a;
         let r = ct.r;
 
-        while n > base_len {
+        while n >= base_len {
             let m = ceil_mul(n, a);
             let cn = Self::cn(n, ct);
             let cn = if cn < m { cn } else { m }; // can't generate more nonzero entries than there are columns
@@ -261,11 +291,12 @@ where
         (a_dims, b_dims)
     }
 
-    pub(crate) fn codeword_len(&self) -> usize {
-        if self.a_dims.is_empty() {
-            return ceil_mul(self.n, self.rho_inv);
-        }
-        let (a_dims, b_dims) = (&self.a_dims, &self.b_dims);
+    /// This function computes the codeword length
+    /// Notice that it assumes the input is bigger than base_len (i.e., a_dim is not empty)
+    pub(crate) fn codeword_len(
+        a_dims: &[(usize, usize, usize)],
+        b_dims: &[(usize, usize, usize)],
+    ) -> usize {
         b_dims.iter().map(|(_, m, _)| m).sum::<usize>() + // Output v of the recursive encoding
         a_dims.iter().map(|(n, _, _)| n).sum::<usize>() + // Input x to the recursive encoding
         b_dims.last().unwrap().0 // Output z of the last step of recursion
@@ -286,7 +317,12 @@ where
             };
             for j in idxs {
                 // This puts columns together
-                mat[i + n * j] = F::rand(rng);
+                mat[i + n * j] = loop {
+                    let r = F::rand(rng);
+                    if r != F::zero() {
+                        break r; // Break out of the loop and assign the non-zero value to mat[i + n * j]
+                    }
+                };
             }
         }
         // Notice that it is transposed now
