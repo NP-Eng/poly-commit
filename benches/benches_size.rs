@@ -51,134 +51,6 @@ type Ligero<F> = LinearCodePCS<
     ColHasher<F>,
 >;
 
-/********************** Auxiliary functions *********************/
-
-pub(crate) fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
-
-    let full_rounds = 8;
-    let partial_rounds = 31;
-    let alpha = 17;
-
-    let mds = vec![
-        vec![F::one(), F::zero(), F::one()],
-        vec![F::one(), F::one(), F::zero()],
-        vec![F::zero(), F::one(), F::one()],
-    ];
-
-    let mut v = Vec::new();
-    let mut ark_rng = test_rng();
-
-    for _ in 0..(full_rounds + partial_rounds) {
-        let mut res = Vec::new();
-
-        for _ in 0..3 {
-            res.push(F::rand(&mut ark_rng));
-        }
-        v.push(res);
-    }
-    let config = PoseidonConfig::new(full_rounds, partial_rounds, alpha, mds, v, 2, 1);
-    PoseidonSponge::new(&config)
-}
-
-/********************** Size functions *********************/
-
-fn hyrax_commitment_size<G: AffineRepr>(num_vars: usize) -> usize {
-
-    let rng = &mut test_rng();
-    let pp = Hyrax::<G>::setup(1, Some(num_vars), rng).unwrap();
-    let (ck, _) = Hyrax::<G>::trim(&pp, 1, 1, None).unwrap();
-    let labeled_poly = LabeledPolynomial::new("test".to_string(), 
-        DenseMultilinearExtension::<G::ScalarField>::rand(num_vars, rng), None, None);
-
-    let (coms, _) = Hyrax::<G>::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-
-    size_of_val(&*coms[0].commitment().row_coms)
-}
-
-fn hyrax_proof_size<G: AffineRepr>(num_vars: usize) -> usize {
-
-    let rng = &mut test_rng();
-    let pp = Hyrax::<G>::setup(1, Some(num_vars), rng).unwrap();
-    let (ck, _) = Hyrax::<G>::trim(&pp, 1, 1, None).unwrap();
-    let labeled_poly = LabeledPolynomial::new("test".to_string(), 
-        DenseMultilinearExtension::<G::ScalarField>::rand(num_vars, rng), None, None);
-
-    let (coms, randomness) = Hyrax::<G>::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-    let point = (0..num_vars).map(|_| G::ScalarField::rand(rng)).collect();
-
-    let proofs = Hyrax::<G>::open(
-        &ck,
-        [&labeled_poly],
-        &coms,
-        &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
-        &randomness,
-        Some(rng),
-    )
-    .unwrap();
-
-    let proof = proofs[0].clone();
-
-    size_of_val(&proof) - size_of_val(&proof.z) + size_of_val(&*proof.z)
-}
-
-fn ligero_commitment_size<F: PrimeField>(num_vars: usize) -> usize {
-
-    let rng = &mut test_rng();
-    let pp = Ligero::<F>::setup(1, Some(num_vars), rng).unwrap();
-    let (ck, _) = Ligero::<F>::trim(&pp, 1, 1, None).unwrap();
-    let labeled_poly = LabeledPolynomial::new("test".to_string(), 
-        DenseMultilinearExtension::<F>::rand(num_vars, rng), None, None);
-
-    let (coms, _) = Ligero::<F>::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-
-    size_of_val(&*coms[0].commitment().root)
-}
-
-fn ligero_proof_size<F: PrimeField>(num_vars: usize) -> usize {
-
-    let rng = &mut test_rng();
-    let pp = Ligero::<F>::setup(1, Some(num_vars), rng).unwrap();
-    let (ck, _) = Ligero::<F>::trim(&pp, 1, 1, None).unwrap();
-    let labeled_poly = LabeledPolynomial::new("test".to_string(), 
-        DenseMultilinearExtension::<F>::rand(num_vars, rng), None, None);
-
-    let (coms, randomness) = Ligero::<F>::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-    let point = (0..num_vars).map(|_| F::rand(rng)).collect();
-
-    let proofs = Ligero::<F>::open(
-        &ck,
-        [&labeled_poly],
-        &coms,
-        &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
-        &randomness,
-        Some(rng),
-    )
-    .unwrap();
-
-    let proof = proofs[0].clone();
-
-    let mut size = 0;
-
-    for p in proof.opening.paths {
-        // TODO: probably incorrect
-        size += size_of_val(&p);
-    }
-
-    for f in proof.opening.v {
-        size += size_of_val(&f);
-    }
-    
-    for col in proof.opening.columns {
-        for f in col {
-            size += size_of_val(&f);
-        }
-    }
-
-    size
-}
-
 /********************** Main *********************/
 
 fn main() {
@@ -187,46 +59,44 @@ fn main() {
 
     println!("\nHyrax on BLS12-381: Commitment size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, hyrax_commitment_size::<G1Affine381>(num_vars));
         println!("\tser: {} B", commitment_size::<_, Hyrax<G1Affine381>>(num_vars));
-    }
-
-    println!("\nHyrax on BN-254: Commitment size");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, hyrax_commitment_size::<G1Affine254>(num_vars));
     }
 
     println!("\nLigero on BLS12-381::Fr: Commitment size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, ligero_commitment_size::<Fr381>(num_vars));
+        println!("\tnum_vars: {}, size: {} B", num_vars, commitment_size::<_, Ligero<Fr381>>(num_vars));
+    }
+
+    println!("\nHyrax on BN-254: Commitment size");
+    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
+        println!("\tnum_vars: {}, size: {} B", num_vars, commitment_size::<_, Hyrax<G1Affine254>>(num_vars));
     }
 
     println!("\nLigero on BN-254::Fr: Commitment size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, ligero_commitment_size::<Fr254>(num_vars));
+        println!("\tnum_vars: {}, size: {} B", num_vars, commitment_size::<_, Ligero<Fr254>>(num_vars));
     }
 
     println!("\n---------------- Proof size ----------------");
 
     println!("\nHyrax on BLS12-381: Proof size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, hyrax_proof_size::<G1Affine381>(num_vars));
         println!("\tser: {} B", proof_size::<_, Hyrax<G1Affine381>>(num_vars));
+    }
+
+    println!("\nLigero on BLS12-381::Fr: Proof size");
+    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
+        println!("\tnum_vars: {}, size: {} B", num_vars, proof_size::<_, Ligero<Fr381>>(num_vars));
     }
 
     println!("\nHyrax on BN-254: Proof size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, hyrax_proof_size::<G1Affine254>(num_vars));
+        println!("\tnum_vars: {}, size: {} B", num_vars, proof_size::<_, Hyrax<G1Affine254>>(num_vars));
     }
 
-    println!("\nLigero on BLS12-381: Proof size");
+    println!("\nLigero on BN-254::Fr: Proof size");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, ligero_proof_size::<Fr381>(num_vars));
-    }
-
-    println!("\nLigero on BN-254: Proof size");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        println!("\tnum_vars: {}, size: {} B", num_vars, ligero_proof_size::<Fr254>(num_vars));
+        println!("\tnum_vars: {}, size: {} B", num_vars, proof_size::<_, Ligero<Fr254>>(num_vars));
     }
 
 }
