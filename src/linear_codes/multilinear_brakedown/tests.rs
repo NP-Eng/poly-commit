@@ -73,7 +73,6 @@ mod tests {
         num_vars: Option<usize>,
         rng: &mut ChaCha20Rng,
     ) -> SparseMultilinearExtension<Fr> {
-        // f1 = (1-x1)(1-x2)(1-x3)(1-x5)[(1-x6)*x4 + 2(1-x4)*x6]
         match num_vars {
             Some(n) => {
                 let points = vec![(1, Fr::rand(rng))];
