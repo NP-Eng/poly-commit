@@ -112,7 +112,7 @@ where
         self.sec_param
     }
 
-    /// Compute the dimensions of an FFT-friendly (over F) matrix with at least n entries.
+    /// Compute the a suitable (for instance, FFT-friendly over F) matrix with at least n entries.
     /// The return pair (n, m) corresponds to the dimensions n x m.
     fn compute_dimensions(&self, n: usize) -> (usize, usize) {
         assert_eq!(
