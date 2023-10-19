@@ -59,15 +59,17 @@ where
     fn encode(msg: &[F], pp: &Self::LinCodePCParams) -> Vec<F> {
         assert!(msg.len() == pp.m); // TODO Make it error
         let cw_len = pp.m_ext;
-        let mut cw = vec![F::zero(); cw_len];
-        cw[..msg.len()].copy_from_slice(msg);
+        let mut cw = Vec::with_capacity(cw_len);
+        cw.extend_from_slice(msg);
 
         // Multiply by matrices A
         for (i, &s) in pp.start.iter().enumerate() {
-            let src = &pp.a_mats[i].row_mul(&cw[s - pp.a_dims[i].0..s]);
-            cw[s..s + pp.a_dims[i].1].copy_from_slice(src);
+            let mut src = pp.a_mats[i].row_mul(&cw[s - pp.a_dims[i].0..s]);
+            cw.append(&mut src);
         }
 
+        // later we don't necessarily mutate in order, so we need the full vec now.
+        cw.resize(cw_len, F::zero());
         // RS encode the last one
         let rss = *pp.start.last().unwrap_or(&0);
         let rsie = rss + pp.a_dims.last().unwrap_or(&(0, pp.m, 0)).1;
