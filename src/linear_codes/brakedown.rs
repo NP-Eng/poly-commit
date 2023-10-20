@@ -67,7 +67,7 @@ where
     }
 
     fn distance(&self) -> (usize, usize) {
-        (self.rho_inv.0 * self.beta.0, self.rho_inv.1 * self.beta.1)
+        (self.rho_inv.1 * self.beta.0, self.rho_inv.0 * self.beta.1)
     }
 
     fn sec_param(&self) -> usize {
@@ -107,11 +107,11 @@ where
         col_hash_params: H::Parameters,
     ) -> Self {
         let sec_param = 128;
-        let a = (1, 5);
-        let b = (41, 500);
-        let r = (41, 25);
+        let a = (178, 1000);
+        let b = (61, 1000);
+        let r = (1521, 1000);
         let base_len = 30;
-        let t = calculate_t::<F>(sec_param, (b.0 * r.0, b.1 * r.1), poly_len).unwrap(); // we want to get a rough idea what t is
+        let t = calculate_t::<F>(sec_param, (b.0 * r.1, b.1 * r.0), poly_len).unwrap(); // we want to get a rough idea what t is
         let n = 1 << log2((ceil_div(2 * poly_len, t) as f64).sqrt().ceil() as usize);
         let m = ceil_div(poly_len, n);
         let c = Self::cn_const(a, b);
