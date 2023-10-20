@@ -4,6 +4,7 @@ use ark_crypto_primitives::sponge::{
 };
 use ark_ff::PrimeField;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_serialize::{CanonicalSerialize, Compress};
 use ark_std::{rand::Rng, test_rng};
 
 /// type alias for DenseMultilinearExtension
@@ -70,6 +71,26 @@ pub fn commit<
     start.elapsed()
 }
 
+/// Report the size of a commitment
+pub fn commitment_size<
+    F: PrimeField,
+    PCS: PolynomialCommitment<F, DenseMultilinearExtension<F>, PoseidonSponge<F>>,
+>(
+    num_vars: usize,
+) -> usize {
+    let rng = &mut test_rng();
+    let pp = PCS::setup(1, Some(num_vars), rng).unwrap();
+
+    let (ck, _) = PCS::trim(&pp, 1, 1, None).unwrap();
+
+    let labeled_poly =
+        LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
+
+    let (coms, _) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
+
+    coms[0].commitment().serialized_size(Compress::No)
+}
+
 /// Report the time cost of an opening
 pub fn open<
     F: PrimeField,
@@ -98,6 +119,39 @@ pub fn open<
     )
     .unwrap();
     start.elapsed()
+}
+
+/// Report the size of a proof
+pub fn proof_size<
+    F: PrimeField,
+    PCS: PolynomialCommitment<F, DenseMultilinearExtension<F>, PoseidonSponge<F>>,
+>(
+    num_vars: usize,
+) -> usize {
+    let rng = &mut test_rng();
+    let pp = PCS::setup(1, Some(num_vars), rng).unwrap();
+
+    let (ck, _) = PCS::trim(&pp, 1, 1, None).unwrap();
+    let labeled_poly =
+        LabeledPolynomial::new("test".to_string(), rand_ml_poly(num_vars, rng), None, None);
+
+    let (coms, randomness) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
+    let point = rand_mv_point(num_vars, rng);
+
+    let proofs = PCS::open(
+        &ck,
+        [&labeled_poly],
+        &coms,
+        &point,
+        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        &randomness,
+        Some(rng),
+    )
+    .unwrap();
+
+    let bproof: PCS::BatchProof = vec![proofs].into();
+
+    bproof.serialized_size(Compress::No)
 }
 
 /// Report the time cost of a verification

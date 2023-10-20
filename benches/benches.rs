@@ -13,7 +13,10 @@ use ark_crypto_primitives::{
 use ark_poly_commit::{
     bench_templates::{bench_pcs_method, commit, open, verify, MLE},
     hyrax::HyraxPC,
-    linear_codes::{FieldToBytesColHasher, LeafIdentityHasher, LinearCodePCS, MultilinearLigero, MultilinearBrakedown},
+    linear_codes::{
+        FieldToBytesColHasher, LeafIdentityHasher, LinearCodePCS, MultilinearBrakedown,
+        MultilinearLigero,
+    },
 };
 
 use ark_bls12_381::{Fr as Fr381, G1Affine as G1Affine381};
