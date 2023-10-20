@@ -97,7 +97,7 @@ pub(crate) struct Metadata {
 pub struct LinCodePCCommitment<C: Config> {
     // number of rows resp. columns of the square matrix containing the coefficients of the polynomial
     pub(crate) metadata: Metadata,
-    pub root: C::InnerDigest,
+    pub(crate) root: C::InnerDigest,
 }
 
 impl<C: Config> PCCommitment for LinCodePCCommitment<C> {
@@ -140,18 +140,18 @@ impl PCRandomness for LinCodePCRandomness {
 /// Proof of an individual linear code well-formedness check or opening
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub struct LinCodePCProofSingle<F, C>
+pub(crate) struct LinCodePCProofSingle<F, C>
 where
     F: PrimeField,
     C: Config,
 {
     /// For each of the indices in q, `paths` contains the path from the root of the merkle tree to the leaf
-    pub paths: Vec<Path<C>>,
+    pub(crate) paths: Vec<Path<C>>,
 
     /// v, s.t. E(v) = w
-    pub v: Vec<F>,
+    pub(crate) v: Vec<F>,
 
-    pub columns: Vec<Vec<F>>,
+    pub(crate) columns: Vec<Vec<F>>,
 }
 
 /// The Proof type for linear code PCS, which amounts to an array of individual proofs
@@ -163,9 +163,9 @@ where
     C: Config,
 {
     /// Proof of evaluation
-    pub opening: LinCodePCProofSingle<F, C>,
+    pub(crate) opening: LinCodePCProofSingle<F, C>,
     /// Proof of validity of commitment
-    pub well_formedness: Option<Vec<F>>,
+    pub(crate) well_formedness: Option<Vec<F>>,
 }
 
 // Multiple poly at one point
