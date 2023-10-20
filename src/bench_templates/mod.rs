@@ -4,8 +4,8 @@ use ark_crypto_primitives::sponge::{
 };
 use ark_ff::PrimeField;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
-use ark_std::{rand::Rng, test_rng};
 use ark_serialize::{CanonicalSerialize, Compress};
+use ark_std::{rand::Rng, test_rng};
 
 /// type alias for DenseMultilinearExtension
 pub type MLE<F> = DenseMultilinearExtension<F>;
@@ -78,7 +78,6 @@ pub fn commitment_size<
 >(
     num_vars: usize,
 ) -> usize {
-
     let rng = &mut test_rng();
     let pp = PCS::setup(1, Some(num_vars), rng).unwrap();
 
@@ -129,7 +128,6 @@ pub fn proof_size<
 >(
     num_vars: usize,
 ) -> usize {
-
     let rng = &mut test_rng();
     let pp = PCS::setup(1, Some(num_vars), rng).unwrap();
 
@@ -152,7 +150,7 @@ pub fn proof_size<
     .unwrap();
 
     let bproof: PCS::BatchProof = vec![proofs].into();
-    
+
     bproof.serialized_size(Compress::No)
 }
 
