@@ -162,9 +162,7 @@ where
     F: PrimeField,
     C: Config,
 {
-    /// Proof of evaluation
     pub(crate) opening: LinCodePCProofSingle<F, C>,
-    /// Proof of validity of commitment
     pub(crate) well_formedness: Option<Vec<F>>,
 }
 
