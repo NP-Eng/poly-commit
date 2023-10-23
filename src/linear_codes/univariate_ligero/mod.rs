@@ -60,7 +60,7 @@ where
     }
 
     /// For a univariate polynomial, we simply return the list of coefficients.ś
-    fn poly_repr(polynomial: &P) -> Vec<F> {
+    fn poly_to_vec(polynomial: &P) -> Vec<F> {
         polynomial.coeffs().to_vec()
     }
 

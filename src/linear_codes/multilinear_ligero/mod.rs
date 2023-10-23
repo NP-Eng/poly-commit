@@ -65,7 +65,7 @@ where
         reed_solomon(msg, param.rho_inv)
     }
 
-    fn poly_repr(polynomial: &P) -> Vec<F> {
+    fn poly_to_vec(polynomial: &P) -> Vec<F> {
         polynomial.to_evaluations()
     }
 

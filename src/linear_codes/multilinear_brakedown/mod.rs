@@ -84,7 +84,7 @@ where
         cw.to_vec()
     }
 
-    fn poly_repr(polynomial: &P) -> Vec<F> {
+    fn poly_to_vec(polynomial: &P) -> Vec<F> {
         polynomial.to_evaluations()
     }
 
