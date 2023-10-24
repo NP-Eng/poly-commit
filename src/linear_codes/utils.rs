@@ -1,6 +1,5 @@
 use core::borrow::Borrow;
 
-use crate::to_bytes;
 use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
 
@@ -9,14 +8,18 @@ use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::marker::PhantomData;
-use ark_std::rand::RngCore;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
-use digest::Digest;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
+
+#[cfg(any(feature = "benches", test))]
+use {
+    crate::to_bytes,
+    ark_std::{marker::PhantomData, rand::RngCore},
+    digest::Digest,
+};
 
 /// This is CSR format
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
@@ -167,8 +170,10 @@ pub(crate) fn calculate_t<F: PrimeField>(
 }
 
 /// Only needed for benches and tests
+#[cfg(any(feature = "benches", test))]
 pub struct LeafIdentityHasher;
 
+#[cfg(any(feature = "benches", test))]
 impl CRHScheme for LeafIdentityHasher {
     type Input = Vec<u8>;
     type Output = Vec<u8>;
@@ -187,6 +192,7 @@ impl CRHScheme for LeafIdentityHasher {
 }
 
 /// Only needed for benches and tests
+#[cfg(any(feature = "benches", test))]
 pub struct FieldToBytesColHasher<F, D>
 where
     F: PrimeField + CanonicalSerialize,
@@ -195,6 +201,7 @@ where
     _phantom: PhantomData<(F, D)>,
 }
 
+#[cfg(any(feature = "benches", test))]
 impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
 where
     F: PrimeField + CanonicalSerialize,
