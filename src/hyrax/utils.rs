@@ -1,6 +1,9 @@
 use ark_ff::Field;
 use ark_std::vec::Vec;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Transforms a flat vector into a matrix in column-major order. The latter is
 /// given as a list of rows.
 /// 
@@ -32,8 +35,8 @@ pub(crate) fn tensor_prime<F: Field>(values: &[F]) -> Vec<F> {
     let tail = tensor_prime(&values[1..]);
     let val = values[0];
 
-    tail.iter()
+    cfg_iter!(tail)
         .map(|v| *v * (F::one() - val))
-        .chain(tail.iter().map(|v| *v * val))
+        .chain(cfg_iter!(tail).map(|v| *v * val))
         .collect()
 }
