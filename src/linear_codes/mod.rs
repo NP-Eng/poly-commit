@@ -130,10 +130,9 @@ where
     }
 
     /// Tensor the query point z in the following sense:
-    /// For a polynomial p(X) = \sum_{k=0}^{n*m-1} p_k X^k,
-    /// represented by a matrix M with n rows and m columns
-    /// such that M_{i,j} = p_{i + n*j}, we define the tensoring of `z`
-    /// (a, b) = tensor(z, n, m) such that:
+    /// For a polynomial p(X) represented by a matrix M
+    /// with n rows and m columns such that M_{i,j} = p_{i + n*j},
+    /// we define the tensoring of `z`: (a, b) = tensor(z, n, m) such that:
     /// p(z) = b^T.M.a
     /// returns the evaluation of p at z.
     fn tensor(z: &P::Point, n: usize, m: usize) -> (Vec<F>, Vec<F>);
