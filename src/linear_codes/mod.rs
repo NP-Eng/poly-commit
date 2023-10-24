@@ -114,10 +114,9 @@ where
         let mut coeffs = Self::poly_to_vec(polynomial);
 
         // 1. Computing the matrix dimensions.
-        let (n_rows, n_cols) = param.compute_dimensions(coeffs.len()); // TODO for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+        let (n_rows, n_cols) = param.compute_dimensions(coeffs.len());
 
         // padding the coefficient vector with zeroes
-        // TODO is this the most efficient/safest way to do it?
         coeffs.resize(n_rows * n_cols, F::zero());
 
         let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
