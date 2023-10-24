@@ -45,11 +45,11 @@ pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
 /// commitment to said evaluation - this is what the SNARK proposed therein
 /// necessitates. However, the Arkworks framework requies the verifier to
 /// actually learn that value, which is why we have added the opening of
-/// the commitment at the end of the protocol. This might not result in an
-/// optimal non-hiding PCS, but we feel it is the most faithful adaptation of
-/// original PCS that can be implemented with the current restrictions.
+/// the commitment at the end of the protocol. This likely does not result in
+/// an optimal non-hiding PCS, but we feel it is the most faithful adaptation
+/// of the original PCS that can be implemented with the current restrictions.
 pub struct HyraxPC<
-    // The curve used for Pedersen commitments (only EC groups are
+    // The elliptic curve used for Pedersen commitments (only EC groups are
     // supported as of now).
     G: AffineRepr,
     // A polynomial type representing multilinear polynomials
@@ -257,7 +257,10 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             let label = l_poly.label();
             let poly = l_poly.polynomial();
 
-            // TODO re-introduce
+            // This assertions, with questionable meaningfulness due to the
+            // univariate-oriented nature of some fields and methods, make the
+            // current automatic tests fails and have therefore been commented
+            // out for the time being
             // assert_eq!(
             //     l_poly.degree_bound().unwrap_or(1),
             //     1,
