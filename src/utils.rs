@@ -51,7 +51,7 @@ pub(crate) fn ceil_div(x: usize, y: usize) -> usize {
 }
 
 #[derive(Debug)]
-pub struct Matrix<F: Field> {
+pub(crate) struct Matrix<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,
     entries: Vec<Vec<F>>,
