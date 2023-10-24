@@ -73,7 +73,7 @@ impl<F: Field> SprsMat<F> {
 }
 
 /// Apply reed-solomon encoding to msg.
-/// Assumes msg.len() is equal to the order of an FFT domain in F.
+/// Assumes msg.len() is equal to the order of some FFT domain in F.
 /// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * RHO_INV.
 pub(crate) fn reed_solomon<F: FftField>(
     // msg, of length m, is interpreted as a vector of coefficients of a polynomial of degree m - 1
@@ -112,7 +112,8 @@ where
         .map(|x| x.into())
 }
 
-/// Generate `t` (not necessarily distinct) random points in `[0, n)` using the current state of `transcript`
+/// Generate `t` (not necessarily distinct) random points in `[0, n)`
+/// using the current state of the `transcript`.
 pub(crate) fn get_indices_from_transcript<F: PrimeField>(
     n: usize,
     t: usize,
