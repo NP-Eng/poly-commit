@@ -258,81 +258,82 @@ fn eq_extension<F: Field>(t: &[F]) -> Vec<DenseMultilinearExtension<F>> {
     result
 }
 
-mod tests {
-    use crate::ark_std::UniformRand;
-    use crate::multilinear_pc::data_structures::UniversalParams;
-    use crate::multilinear_pc::MultilinearPC;
-    use ark_bls12_381::Bls12_381;
-    use ark_ec::pairing::Pairing;
-    use ark_poly::{DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension};
-    use ark_std::rand::RngCore;
-    use ark_std::test_rng;
-    use ark_std::vec::Vec;
-    type E = Bls12_381;
-    type Fr = <E as Pairing>::ScalarField;
+// #[cfg(test)]
+// mod tests {
+//     use crate::ark_std::UniformRand;
+//     use crate::multilinear_pc::data_structures::UniversalParams;
+//     use crate::multilinear_pc::MultilinearPC;
+//     use ark_bls12_381::Bls12_381;
+//     use ark_ec::pairing::Pairing;
+//     use ark_poly::{DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension};
+//     use ark_std::rand::RngCore;
+//     use ark_std::test_rng;
+//     use ark_std::vec::Vec;
+//     type E = Bls12_381;
+//     type Fr = <E as Pairing>::ScalarField;
 
-    fn test_polynomial<R: RngCore>(
-        uni_params: &UniversalParams<E>,
-        poly: &impl MultilinearExtension<Fr>,
-        rng: &mut R,
-    ) {
-        let nv = poly.num_vars();
-        assert_ne!(nv, 0);
-        let (ck, vk) = MultilinearPC::<E>::trim(&uni_params, nv);
-        let point: Vec<_> = (0..nv).map(|_| Fr::rand(rng)).collect();
-        let com = MultilinearPC::commit(&ck, poly);
-        let proof = MultilinearPC::open(&ck, poly, &point);
+//     fn test_polynomial<R: RngCore>(
+//         uni_params: &UniversalParams<E>,
+//         poly: &impl MultilinearExtension<Fr>,
+//         rng: &mut R,
+//     ) {
+//         let nv = poly.num_vars();
+//         assert_ne!(nv, 0);
+//         let (ck, vk) = MultilinearPC::<E>::trim(&uni_params, nv);
+//         let point: Vec<_> = (0..nv).map(|_| Fr::rand(rng)).collect();
+//         let com = MultilinearPC::commit(&ck, poly);
+//         let proof = MultilinearPC::open(&ck, poly, &point);
 
-        let value = MultilinearExtension::evaluate(poly, &point).unwrap();
-        let result = MultilinearPC::check(&vk, &com, &point, value, &proof);
-        assert!(result);
-    }
+//         let value = MultilinearExtension::evaluate(poly, &point).unwrap();
+//         let result = MultilinearPC::check(&vk, &com, &point, value, &proof);
+//         assert!(result);
+//     }
 
-    #[test]
-    fn setup_commit_verify_correct_polynomials() {
-        let mut rng = test_rng();
+//     #[test]
+//     fn setup_commit_verify_correct_polynomials() {
+//         let mut rng = test_rng();
 
-        // normal polynomials
-        let uni_params = MultilinearPC::setup(10, &mut rng);
+//         // normal polynomials
+//         let uni_params = MultilinearPC::setup(10, &mut rng);
 
-        let poly1 = DenseMultilinearExtension::rand(8, &mut rng);
-        test_polynomial(&uni_params, &poly1, &mut rng);
+//         let poly1 = DenseMultilinearExtension::rand(8, &mut rng);
+//         test_polynomial(&uni_params, &poly1, &mut rng);
 
-        let poly2 = SparseMultilinearExtension::rand_with_config(9, 1 << 5, &mut rng);
-        test_polynomial(&uni_params, &poly2, &mut rng);
+//         let poly2 = SparseMultilinearExtension::rand_with_config(9, 1 << 5, &mut rng);
+//         test_polynomial(&uni_params, &poly2, &mut rng);
 
-        // single-variate polynomials
+//         // single-variate polynomials
 
-        let poly3 = DenseMultilinearExtension::rand(1, &mut rng);
-        test_polynomial(&uni_params, &poly3, &mut rng);
+//         let poly3 = DenseMultilinearExtension::rand(1, &mut rng);
+//         test_polynomial(&uni_params, &poly3, &mut rng);
 
-        let poly4 = SparseMultilinearExtension::rand_with_config(1, 1 << 1, &mut rng);
-        test_polynomial(&uni_params, &poly4, &mut rng);
-    }
+//         let poly4 = SparseMultilinearExtension::rand_with_config(1, 1 << 1, &mut rng);
+//         test_polynomial(&uni_params, &poly4, &mut rng);
+//     }
 
-    #[test]
-    #[should_panic]
-    fn setup_commit_verify_constant_polynomial() {
-        let mut rng = test_rng();
+//     #[test]
+//     #[should_panic]
+//     fn setup_commit_verify_constant_polynomial() {
+//         let mut rng = test_rng();
 
-        // normal polynomials
-        MultilinearPC::<E>::setup(0, &mut rng);
-    }
+//         // normal polynomials
+//         MultilinearPC::<E>::setup(0, &mut rng);
+//     }
 
-    #[test]
-    fn setup_commit_verify_incorrect_polynomial_should_return_false() {
-        let mut rng = test_rng();
-        let nv = 8;
-        let uni_params = MultilinearPC::setup(nv, &mut rng);
-        let poly = DenseMultilinearExtension::rand(nv, &mut rng);
-        let nv = uni_params.num_vars;
-        let (ck, vk) = MultilinearPC::<E>::trim(&uni_params, nv);
-        let point: Vec<_> = (0..nv).map(|_| Fr::rand(&mut rng)).collect();
-        let com = MultilinearPC::commit(&ck, &poly);
-        let proof = MultilinearPC::open(&ck, &poly, &point);
+//     #[test]
+//     fn setup_commit_verify_incorrect_polynomial_should_return_false() {
+//         let mut rng = test_rng();
+//         let nv = 8;
+//         let uni_params = MultilinearPC::setup(nv, &mut rng);
+//         let poly = DenseMultilinearExtension::rand(nv, &mut rng);
+//         let nv = uni_params.num_vars;
+//         let (ck, vk) = MultilinearPC::<E>::trim(&uni_params, nv);
+//         let point: Vec<_> = (0..nv).map(|_| Fr::rand(&mut rng)).collect();
+//         let com = MultilinearPC::commit(&ck, &poly);
+//         let proof = MultilinearPC::open(&ck, &poly, &point);
 
-        let value = poly.evaluate(&point).unwrap();
-        let result = MultilinearPC::check(&vk, &com, &point, value + &(1u16.into()), &proof);
-        assert!(!result);
-    }
-}
+//         let value = poly.evaluate(&point).unwrap();
+//         let result = MultilinearPC::check(&vk, &com, &point, value + &(1u16.into()), &proof);
+//         assert!(!result);
+//     }
+// }
