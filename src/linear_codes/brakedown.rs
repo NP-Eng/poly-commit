@@ -302,31 +302,38 @@ where
         b_dims.last().unwrap().0 // Output z of the last step of recursion
     }
 
+    /// Create a matrix with `n` rows and `m` columns and `d` non-zero entries in each row.
+    /// This function creates a list for entries of each columns and calls the constructor
+    /// from `SprsMat`. It leverages Fisher–Yates shuffle for choosing `d` indices in each
+    /// row.
     fn make_mat<R: RngCore>(n: usize, m: usize, d: usize, rng: &mut R) -> SprsMat<F> {
-        let mut array: Vec<usize> = (0..m).collect();
-        let mut mat = vec![F::zero(); n * m]; // TODO is this ok?
+        let mut tmp: Vec<usize> = (0..m).collect();
+        let mut mat: Vec<Vec<(usize, F)>> = vec![vec![]; m];
         for i in 0..n {
+            // Fisher–Yates shuffle algorithm
             let idxs = {
                 (0..d)
                     .map(|j| {
                         let r = rng.next_u64() as usize % (m - j);
-                        array.swap(r, m - 1 - j);
-                        array[m - 1 - j]
+                        tmp.swap(r, m - 1 - j);
+                        tmp[m - 1 - j]
                     })
                     .collect::<Vec<usize>>()
             };
+            // Sampling values for each non-zero entry
             for j in idxs {
-                // This puts columns together
-                mat[i + n * j] = loop {
-                    let r = F::rand(rng);
-                    if r != F::zero() {
-                        break r; // Break out of the loop and assign the non-zero value to mat[i + n * j]
-                    }
-                };
+                mat[j].push((
+                    i,
+                    loop {
+                        let r = F::rand(rng);
+                        if r != F::zero() {
+                            break r;
+                        }
+                    },
+                ))
             }
         }
-        // Notice that it is transposed now
-        SprsMat::<F>::new_from_flat(n, m, d, &mat)
+        SprsMat::<F>::new_from_columns(n, m, d, &mat)
     }
 
     fn make_all<R: RngCore>(rng: &mut R, dims: &[(usize, usize, usize)]) -> Vec<SprsMat<F>> {

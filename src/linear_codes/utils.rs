@@ -61,6 +61,7 @@ impl<F: Field> SprsMat<F> {
         let mut ind_ptr = vec![0; m + 1];
         let mut col_ind = Vec::<usize>::with_capacity(nnz);
         let mut val = Vec::<F>::with_capacity(nnz);
+        assert!(list.len() == m * n, "The dimension is incorrect.");
         for i in 0..m {
             for (c, &v) in list[i * n..(i + 1) * n].iter().enumerate() {
                 if v != F::zero() {
@@ -69,9 +70,34 @@ impl<F: Field> SprsMat<F> {
                     val.push(v);
                 }
             }
-            ind_ptr[i + 1] += ind_ptr[i]
+            ind_ptr[i + 1] += ind_ptr[i];
         }
-        assert!(ind_ptr[m] <= nnz);
+        assert!(ind_ptr[m] <= nnz, "The dimension or NNZ is incorrect.");
+        Self {
+            n,
+            m,
+            d,
+            ind_ptr,
+            col_ind,
+            val,
+        }
+    }
+    pub fn new_from_columns(n: usize, m: usize, d: usize, list: &[Vec<(usize, F)>]) -> Self {
+        let nnz = d * n;
+        let mut ind_ptr = vec![0; m + 1];
+        let mut col_ind = Vec::<usize>::with_capacity(nnz);
+        let mut val = Vec::<F>::with_capacity(nnz);
+        assert!(list.len() == m, "The dimension is incorrect.");
+        for j in 0..m {
+            for (i, v) in list[j].iter() {
+                ind_ptr[j + 1] += 1;
+                col_ind.push(*i);
+                val.push(*v);
+            }
+            assert!(list[j].len() <= n, "The dimension is incorrect.");
+            ind_ptr[j + 1] += ind_ptr[j];
+        }
+        assert!(ind_ptr[m] <= nnz, "The dimension or NNZ is incorrect.");
         Self {
             n,
             m,
@@ -269,9 +295,27 @@ pub(crate) mod tests {
 
     #[test]
     fn test_sprs_row_mul() {
+        // The columns major representation of a matrix.
         let mat: Vec<Fr> = to_field(vec![10, 23, 55, 100, 1, 58, 4, 0, 9]);
 
         let mat = SprsMat::new_from_flat(3, 3, 3, &mat);
+        let v: Vec<Fr> = to_field(vec![12, 41, 55]);
+        // by giving the result in the integers and then converting to Fr
+        // we ensure the test will still pass even if Fr changes
+        assert_eq!(mat.row_mul(&v), to_field::<Fr>(vec![4088, 4431, 543]));
+    }
+
+    #[test]
+    fn test_sprs_row_mul_sparse_mat() {
+        // The columns major representation of a matrix.
+        let mat: Vec<Fr> = to_field(vec![10, 23, 55, 100, 1, 58, 4, 0, 9]);
+        let mat = vec![
+            vec![(0usize, mat[0]), (1usize, mat[1]), (2usize, mat[2])],
+            vec![(0usize, mat[3]), (1usize, mat[4]), (2usize, mat[5])],
+            vec![(0usize, mat[6]), (1usize, mat[7]), (2usize, mat[8])],
+        ];
+
+        let mat = SprsMat::new_from_columns(3, 3, 3, &mat);
         let v: Vec<Fr> = to_field(vec![12, 41, 55]);
         // by giving the result in the integers and then converting to Fr
         // we ensure the test will still pass even if Fr changes
