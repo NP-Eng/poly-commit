@@ -166,10 +166,10 @@ pub(crate) fn calculate_t<F: PrimeField>(
         ));
     }
     let t = (nom / denom).ceil() as usize;
-    Ok(if t < codeword_len { t } else { codeword_len }) // This is the `t`
+    Ok(if t < codeword_len { t } else { codeword_len })
 }
 
-/// Only needed for benches and tests
+/// Only needed for benches and tests.
 #[cfg(any(feature = "benches", test))]
 pub struct LeafIdentityHasher;
 
@@ -191,7 +191,7 @@ impl CRHScheme for LeafIdentityHasher {
     }
 }
 
-/// Only needed for benches and tests
+/// Only needed for benches and tests.
 #[cfg(any(feature = "benches", test))]
 pub struct FieldToBytesColHasher<F, D>
 where
@@ -259,8 +259,6 @@ pub(crate) mod tests {
     use ark_std::test_rng;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    // Define some shared testing hashers for univariate & multilinear ligero.
-
     #[test]
     fn test_sprs_row_mul() {
         let mat: Vec<Fr> = to_field(vec![10, 23, 55, 100, 1, 58, 4, 0, 9]);
@@ -274,8 +272,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_encoding() {
-        // we use this polynomial to generate the the values we will ask the fft to interpolate
-
         let rho_inv = 3;
         // `i` is the min number of evaluations we need to interpolate a poly of degree `i - 1`
         for i in 1..10 {
