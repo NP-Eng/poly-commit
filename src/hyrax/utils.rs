@@ -30,9 +30,10 @@ pub(crate) fn tensor_prime<F: Field>(values: &[F]) -> Vec<F> {
     }
 
     let tail = tensor_prime(&values[1..]);
-    let v = values[0];
+    let val = values[0];
+
     tail.iter()
-        .map(|v| *v * (F::one() - v))
-        .chain(tail.iter().map(|v| *v * v))
+        .map(|v| *v * (F::one() - val))
+        .chain(tail.iter().map(|v| *v * val))
         .collect()
 }
