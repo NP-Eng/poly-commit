@@ -1,6 +1,5 @@
 use core::borrow::Borrow;
 
-use crate::to_bytes;
 use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
 
@@ -9,24 +8,34 @@ use ark_ff::{FftField, Field, PrimeField};
 
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::marker::PhantomData;
-use ark_std::rand::RngCore;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
-use digest::Digest;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-/// This is CSR format
+#[cfg(any(feature = "benches", test))]
+use {
+    crate::to_bytes,
+    ark_std::{marker::PhantomData, rand::RngCore},
+    digest::Digest,
+};
+
+/// This is CSC format https://shorturl.at/fpL17
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 pub struct SprsMat<F: Field> {
+    /// Number of rows.
     pub(crate) n: usize,
+    /// Number of columns.
     pub(crate) m: usize,
+    /// Number of non-zero entries in each row.
     pub(crate) d: usize,
+    /// Numbers of non-zero elements in each columns.
     ind_ptr: Vec<usize>,
+    /// The indices in each columns where exists a non-zero element.
     col_ind: Vec<usize>,
+    // The values of non-zero entries.
     val: Vec<F>,
 }
 
@@ -44,7 +53,9 @@ impl<F: Field> SprsMat<F> {
             })
             .collect::<Vec<_>>()
     }
-    /// m is nrow, n is ncol, d is NNZ in each column
+    /// Create a new `SprsMat` from list of elements that represents the
+    /// matrix in column major order. `n` is the number of rows, `m` is
+    /// the number of columns, and `d` is NNZ in each row.
     pub fn new_from_flat(n: usize, m: usize, d: usize, list: &[F]) -> Self {
         let nnz = d * n;
         let mut ind_ptr = vec![0; m + 1];
@@ -73,7 +84,7 @@ impl<F: Field> SprsMat<F> {
 }
 
 /// Apply reed-solomon encoding to msg.
-/// Assumes msg.len() is equal to the order of an FFT domain in F.
+/// Assumes msg.len() is equal to the order of some FFT domain in F.
 /// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * RHO_INV.
 pub(crate) fn reed_solomon<F: FftField>(
     // msg, of length m, is interpreted as a vector of coefficients of a polynomial of degree m - 1
@@ -112,7 +123,8 @@ where
         .map(|x| x.into())
 }
 
-/// Generate `t` (not necessarily distinct) random points in `[0, n)` using the current state of `transcript`
+/// Generate `t` (not necessarily distinct) random points in `[0, n)`
+/// using the current state of the `transcript`.
 pub(crate) fn get_indices_from_transcript<F: PrimeField>(
     n: usize,
     t: usize,
@@ -162,12 +174,14 @@ pub(crate) fn calculate_t<F: PrimeField>(
         ));
     }
     let t = (nom / denom).ceil() as usize;
-    Ok(if t < codeword_len { t } else { codeword_len }) // This is the `t`
+    Ok(if t < codeword_len { t } else { codeword_len })
 }
 
-/// Only needed for benches and tests
+/// Only needed for benches and tests.
+#[cfg(any(feature = "benches", test))]
 pub struct LeafIdentityHasher;
 
+#[cfg(any(feature = "benches", test))]
 impl CRHScheme for LeafIdentityHasher {
     type Input = Vec<u8>;
     type Output = Vec<u8>;
@@ -185,7 +199,8 @@ impl CRHScheme for LeafIdentityHasher {
     }
 }
 
-/// Only needed for benches and tests
+/// Only needed for benches and tests.
+#[cfg(any(feature = "benches", test))]
 pub struct FieldToBytesColHasher<F, D>
 where
     F: PrimeField + CanonicalSerialize,
@@ -194,6 +209,7 @@ where
     _phantom: PhantomData<(F, D)>,
 }
 
+#[cfg(any(feature = "benches", test))]
 impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
 where
     F: PrimeField + CanonicalSerialize,
@@ -251,8 +267,6 @@ pub(crate) mod tests {
     use ark_std::test_rng;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-    // Define some shared testing hashers for univariate & multilinear ligero.
-
     #[test]
     fn test_sprs_row_mul() {
         let mat: Vec<Fr> = to_field(vec![10, 23, 55, 100, 1, 58, 4, 0, 9]);
@@ -266,8 +280,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_encoding() {
-        // we use this polynomial to generate the the values we will ask the fft to interpolate
-
         let rho_inv = 3;
         // `i` is the min number of evaluations we need to interpolate a poly of degree `i - 1`
         for i in 1..10 {

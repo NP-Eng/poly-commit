@@ -33,41 +33,45 @@ mod ligero;
 use data_structures::*;
 
 pub use data_structures::{LigeroPCParams, LinCodePCProof};
+#[cfg(any(feature = "benches", test))]
 pub use utils::{FieldToBytesColHasher, LeafIdentityHasher};
 
 use utils::{calculate_t, get_indices_from_transcript, hash_column};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
-/// This trait is another kir for this kiri interface
-pub trait LinCodeInfo<C, H>
+/// For linear code PC schemes, the universal paramters, committer key
+/// and verifier key are all the same. This trait abstracts the common
+/// information contained in these.
+pub trait LinCodeParametersInfo<C, H>
 where
     C: Config,
     H: CRHScheme,
 {
-    /// Get security parameter
+    /// Get the security parameter.
     fn sec_param(&self) -> usize;
 
-    /// Get the inverse of code rate
+    /// Get the distance of the code.
     fn distance(&self) -> (usize, usize);
 
-    /// See whether there should be a well-formedness check
+    /// See whether there should be a well-formedness check.
     fn check_well_formedness(&self) -> bool;
 
-    /// Compute
+    /// Compute the dimensions of the coefficient matrix.
     fn compute_dimensions(&self, n: usize) -> (usize, usize);
 
-    /// Get LeafHash parameters
+    /// Get the hash parameters for obtaining leaf digest from leaf value.
     fn leaf_hash_params(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters;
 
-    /// Get TwoToOneHash paramters
+    /// Get the parameters for hashing nodes in the merkle tree.
     fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters;
 
-    /// Get column hashing parameters
+    /// Get the parameters for hashing a vector of values,
+    /// representing a column of the coefficient matrix, into a leaf value.
     fn col_hash_params(&self) -> &H::Parameters;
 }
 
-/// A trait for linear encoding a messsage.
+/// A trait for linear codes.
 pub trait LinearEncode<F, C, P, H>
 where
     F: PrimeField,
@@ -77,7 +81,10 @@ where
 {
     /// For schemes like Brakedown and Ligero, PCCommiiterKey and
     /// PCVerifierKey and PCUniversalParams are all the same.
-    type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeInfo<C, H>;
+    type LinCodePCParams: PCUniversalParams
+        + PCCommitterKey
+        + PCVerifierKey
+        + LinCodeParametersInfo<C, H>;
 
     /// Does a default setup for the PCS.
     fn setup<R: RngCore>(
@@ -93,35 +100,42 @@ where
     /// of a polynomial of degree m - 1.
     fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Vec<F>;
 
-    /// Get the representation of the polynomial
-    fn poly_repr(polynomial: &P) -> Vec<F>;
+    /// Represent the polynomial as either coefficients,
+    /// in the univariate case, or evaluations over
+    /// the Boolean hypercube, in the multilinear case.
+    fn poly_to_vec(polynomial: &P) -> Vec<F>;
 
-    /// How we choose to split the query point into a Vec of Field elements.
-    /// Needed for appending to transcript.
+    /// Represent the query point as a vector of Field elements.
     fn point_to_vec(point: P::Point) -> Vec<F>;
 
-    /// Compute the matrices for the polynomial
+    /// Arrange the coefficients of the polynomial into a matrix,
+    /// and apply encoding to each row.
+    /// Returns the tuple (original_matrix, encoded_matrix).
     fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
-        let mut coeffs = Self::poly_repr(polynomial);
+        let mut coeffs = Self::poly_to_vec(polynomial);
 
-        // 1. Computing parameters and initial matrix
-        let (n_rows, n_cols) = param.compute_dimensions(coeffs.len()); // TODO for 6 coefficients, this is returning 4 x 2 with a row of 0s: fix
+        // 1. Computing the matrix dimensions.
+        let (n_rows, n_cols) = param.compute_dimensions(coeffs.len());
 
         // padding the coefficient vector with zeroes
-        // TODO is this the most efficient/safest way to do it?
         coeffs.resize(n_rows * n_cols, F::zero());
 
         let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
 
-        // 2. Apply Reed-Solomon encoding row-wise
+        // 2. Apply encoding row-wise
         let ext_mat =
             Matrix::new_from_rows(mat.rows().iter().map(|r| Self::encode(r, param)).collect());
 
         (mat, ext_mat)
     }
 
-    /// Tensor the point
-    fn tensor(point: &P::Point, left_len: usize, right_len: usize) -> (Vec<F>, Vec<F>);
+    /// Tensor the query point z in the following sense:
+    /// For a polynomial p(X) represented by a matrix M
+    /// with n rows and m columns such that M_{i,j} = p_{i + n*j},
+    /// we define the tensoring of `z`: (a, b) = tensor(z, n, m) such that:
+    /// p(z) = b^T.M.a
+    /// returns the evaluation of p at z.
+    fn tensor(z: &P::Point, n: usize, m: usize) -> (Vec<F>, Vec<F>);
 }
 
 /// Any linear-code-based commitment scheme.
@@ -229,7 +243,7 @@ where
             let polynomial = labeled_polynomial.polynomial();
 
             // 1. Arrange the coefficients of the polynomial into a matrix,
-            // and apply Reed-Solomon encoding to get `ext_mat`.
+            // and apply encoding to get `ext_mat`.
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck);
 
             // 2. Create the Merkle tree from the hashes of each column.
@@ -309,7 +323,7 @@ where
             let root = &commitment.root;
 
             // 1. Arrange the coefficients of the polynomial into a matrix,
-            // and apply Reed-Solomon encoding to get `ext_mat`.
+            // and apply encoding to get `ext_mat`.
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck);
 
             // 2. Create the Merkle tree from the hashes of each column.
@@ -320,9 +334,7 @@ where
                 ck.col_hash_params(),
             )?;
 
-            // 3. Generate vector `b = [1, z^m, z^(2m), ..., z^((m-1)m)]`
-            // This could potentially fail when n_cols > 1<<64, but `ck` won't allow commiting to such polynomials.
-            // let point_pow = point.pow([n_cols as u64]);
+            // 3. Generate vector `b` to left-multiply the matrix.
             let (_, b) = L::tensor(point, n_cols, n_rows);
 
             let mut transcript = IOPTranscript::new(b"transcript");
@@ -358,7 +370,7 @@ where
             }
 
             proof_array.push(LinCodePCProof {
-                // compute the opening proof and append b.M to the transcript
+                // Compute the opening proof and append b.M to the transcript.
                 opening: generate_proof(
                     ck.sec_param(),
                     ck.distance(),
@@ -432,7 +444,7 @@ where
                             .map_err(|_| Error::TranscriptError)?,
                     );
                 }
-                // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M
+                // Upon sending `v` to the Verifier, add it to the sponge. The claim is that v = r.M.
                 transcript
                     .append_serializable_element(b"v", well_formedness)
                     .map_err(|_| Error::TranscriptError)?;
@@ -454,10 +466,10 @@ where
                 .append_serializable_element(b"v", &proof_array[i].opening.v)
                 .map_err(|_| Error::TranscriptError)?;
 
-            // 2. Ask random oracle for the `t` indices where the checks happen
+            // 2. Ask random oracle for the `t` indices where the checks happen.
             let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
 
-            // 3. Hash the received columns into leaf hashes
+            // 3. Hash the received columns into leaf hashes.
             let col_hashes: Vec<C::Leaf> = proof_array[i]
                 .opening
                 .columns
@@ -467,7 +479,7 @@ where
 
             // 4. Verify the paths for each of the leaf hashes - this is only run once,
             // even if we have a well-formedness check (i.e., we save sending and checking the columns).
-            // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf)
+            // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf).
             for (j, (leaf, q_j)) in col_hashes.iter().zip(indices.iter()).enumerate() {
                 let path = &proof_array[i].opening.paths[j];
                 if path.leaf_index != *q_j {
@@ -478,7 +490,7 @@ where
                     .map_err(|_| Error::InvalidCommitment)?;
             }
 
-            // helper closure: checks if a.b = c
+            // Helper closure: checks if a.b = c.
             let check_inner_product = |a, b, c| -> Result<(), Error> {
                 if inner_product(a, b) != c {
                     return Err(Error::InvalidCommitment);
@@ -487,15 +499,11 @@ where
                 Ok(())
             };
 
-            // 5. Compute the encoding w = E(v)
+            // 5. Compute the encoding w = E(v).
             let w = L::encode(&proof_array[i].opening.v, vk);
 
-            // 6. Compute a = [1, z, z^2, ..., z^(n_cols_1)]
-            // where z denotes the query `point`.
+            // 6. Compute `a`, `b` to right- and left- multiply with the matrix `M`.
             let (a, b) = L::tensor(point, n_cols, n_rows);
-
-            // Compute b = [1, z^n_cols, z^(2*n_cols), ..., z^((n_rows-1)*n_cols)]
-            let coeffs: &[F] = &b;
 
             // 7. Probabilistic checks that whatever the prover sent,
             // matches with what the verifier computed for himself.
@@ -509,7 +517,7 @@ where
                         w_well_formedness[*matrix_index],
                     )?;
                     check_inner_product(
-                        coeffs,
+                        &b,
                         &proof_array[i].opening.columns[transcript_index],
                         w[*matrix_index],
                     )?;
@@ -517,7 +525,7 @@ where
             } else {
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     check_inner_product(
-                        coeffs,
+                        &b,
                         &proof_array[i].opening.columns[transcript_index],
                         w[*matrix_index],
                     )?;
@@ -580,18 +588,17 @@ where
 {
     let t = calculate_t::<F>(sec_param, distance, ext_mat.m)?;
 
-    // 1. left-multiply the matrix by `b`, where for a requested query point `z`,
-    // `b = [1, z^m, z^(2m), ..., z^((m-1)m)]`
+    // 1. left-multiply the matrix by `b`.
     let v = mat.row_mul(b);
 
     transcript
         .append_serializable_element(b"v", &v)
         .map_err(|_| Error::TranscriptError)?;
 
-    // 2. Generate t column indices to test the linear combination on
+    // 2. Generate t column indices to test the linear combination on.
     let indices = get_indices_from_transcript(ext_mat.m, t, transcript)?;
 
-    // 3. Compute Merkle tree paths for the requested columns
+    // 3. Compute Merkle tree paths for the requested columns.
     let mut queried_columns = Vec::with_capacity(t);
     let mut paths = Vec::with_capacity(t);
 

@@ -84,7 +84,7 @@ where
         cw.to_vec()
     }
 
-    fn poly_repr(polynomial: &P) -> Vec<F> {
+    fn poly_to_vec(polynomial: &P) -> Vec<F> {
         polynomial.to_evaluations()
     }
 
@@ -92,6 +92,8 @@ where
         point.into()
     }
 
+    /// For a multilinear polynomial in n+m variables it returns a tuple for k={n,m}:
+    /// ((1-z_1)*(1-z_2)*...*(1_z_k), z_1*(1-z_2)*...*(1-z_k), ..., z_1*z_2*...*z_k)
     fn tensor(
         point: &<P as Polynomial<F>>::Point,
         left_len: usize,
