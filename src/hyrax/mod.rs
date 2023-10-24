@@ -48,12 +48,12 @@ pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
 /// the commitment at the end of the protocol. This likely does not result in
 /// an optimal non-hiding PCS, but we feel it is the most faithful adaptation
 /// of the original PCS that can be implemented with the current restrictions.
-/// 
+///
 /// ### Future optimisations
-/// 
+///
 /// - Due to the homomorphic nature of Pedersen commitments, it is likely some
 ///   of the following methods can be designed more efficiently than their
-///   default implementations: batch_open, batch_check, open_combinations, 
+///   default implementations: batch_open, batch_check, open_combinations,
 ///   check_combinations. This is not discussed in the reference article, but
 ///   the IPA and KZG modules might be a good starting point.
 /// - On a related note to the previous point, there might be a more efficient
@@ -149,7 +149,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         num_vars: Option<usize>,
         _rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
-
         if num_vars.is_none() {
             return Err(Error::InvalidNumberOfVariables);
         }
@@ -250,7 +249,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
                 // Only polynomials with an even number of variables are
                 // supported in this implementation
                 return Err(Error::InvalidNumberOfVariables);
-            }    
+            }
 
             if n > ck.com_key.len() {
                 return Err(Error::InvalidNumberOfVariables);
@@ -348,12 +347,10 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         {
             let label = l_poly.label();
             if label != l_com.label() {
-                return Err(
-                    Error::MismatchedLabels {
-                        commitment_label: l_com.label().to_string(),
-                        polynomial_label: label.to_string(),
-                    }
-                )
+                return Err(Error::MismatchedLabels {
+                    commitment_label: l_com.label().to_string(),
+                    polynomial_label: label.to_string(),
+                });
             }
 
             let poly = l_poly.polynomial();
@@ -512,12 +509,14 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             if row_coms.len() != 1 << n / 2 {
                 return Err(Error::IncorrectCommitmentSize {
                     encountered: row_coms.len(),
-                    expected: 1 << n / 2
-                })
+                    expected: 1 << n / 2,
+                });
             }
 
             // Computing t_prime with a multi-exponentiation
-            let l_bigint = cfg_iter!(l).map(|chi| chi.into_bigint()).collect::<Vec<_>>();
+            let l_bigint = cfg_iter!(l)
+                .map(|chi| chi.into_bigint())
+                .collect::<Vec<_>>();
             let t_prime: G = <G::Group as VariableBaseMSM>::msm_bigint(&row_coms, &l_bigint).into();
 
             // Construct transcript and squeeze the challenge c from it

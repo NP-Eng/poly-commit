@@ -6,15 +6,11 @@ use rayon::prelude::*;
 
 /// Transforms a flat vector into a matrix in column-major order. The latter is
 /// given as a list of rows.
-/// 
+///
 /// For example, if flat = [1, 2, 3, 4, 5, 6] and n = 2, m = 3, then
 /// the output is [[1, 3, 5], [2, 4, 6]].
 pub(crate) fn flat_to_matrix_column_major<T: Copy>(flat: &[T], n: usize, m: usize) -> Vec<Vec<T>> {
-    assert_eq!(
-        flat.len(),
-        n * m,
-        "n * m should coincide with flat.len()"
-    );
+    assert_eq!(flat.len(), n * m, "n * m should coincide with flat.len()");
     let mut res = Vec::new();
 
     for row in 0..n {

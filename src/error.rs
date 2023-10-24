@@ -100,7 +100,7 @@ pub enum Error {
     /// This means during opening or verification, a commitment of incorrect
     /// size (for example, with an insufficient number of entries) was
     /// encountered
-    IncorrectCommitmentSize{
+    IncorrectCommitmentSize {
         /// Encountered commitment size
         encountered: usize,
         /// Expected commitment size
@@ -234,12 +234,12 @@ impl core::fmt::Display for Error {
             Error::TranscriptError => write!(f, "Incorrect transcript manipulation"),
             Error::InvalidParameters(err) => write!(f, "{}", err),
             Error::HashingError => write!(f, "Error resulting from hashing"),
-            Error::MismatchedLabels { commitment_label, polynomial_label } => 
+            Error::MismatchedLabels { commitment_label, polynomial_label } =>
                 write!(f, "Mismatched labels: commitment label: {}, polynomial label: {}",
                     commitment_label,
                     polynomial_label
                 ),
-            Error::MismatchedNumVars { poly_nv, point_nv } => 
+            Error::MismatchedNumVars { poly_nv, point_nv } =>
                 write!(f, "Mismatched number of variables: polynomial has {}, point has {}",
                     poly_nv,
                     point_nv,
