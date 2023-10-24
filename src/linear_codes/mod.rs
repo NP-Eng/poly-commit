@@ -128,14 +128,14 @@ where
         (mat, ext_mat)
     }
 
-    /// Tensor the point.
-    ///
-    /// For a univariate polynomial it returns a tuple:
-    /// ((1, z, z^2, ..., z^n), (1, z^n, z^(2n), ..., z^((m-1)n)))
-    ///
-    /// For a multilinear polynomial in n+m variables it returns a tuple for k={n,m}:
-    /// ((1-z_1)*(1-z_2)*...*(1_z_k), z_1*(1-z_2)*...*(1-z_k), ..., z_1*z_2*...*z_k)
-    fn tensor(point: &P::Point, n: usize, m: usize) -> (Vec<F>, Vec<F>);
+    /// Tensor the query point z in the following sense:
+    /// For a polynomial p(X) = \sum_{k=0}^{n*m-1} p_k X^k,
+    /// represented by a matrix M with n rows and m columns
+    /// such that M_{i,j} = p_{i + n*j}, we define the tensoring of `z`
+    /// (a, b) = tensor(z, n, m) such that:
+    /// p(z) = b^T.M.a
+    /// returns the evaluation of p at z.
+    fn tensor(z: &P::Point, n: usize, m: usize) -> (Vec<F>, Vec<F>);
 }
 
 /// Any linear-code-based commitment scheme.
