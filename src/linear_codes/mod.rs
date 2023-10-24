@@ -39,7 +39,7 @@ use utils::{calculate_t, get_indices_from_transcript, hash_column};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
-/// For linear code PC schemes, the universal paramters, committer key 
+/// For linear code PC schemes, the universal paramters, committer key
 /// and verifier key are all the same. This trait abstracts the common
 /// information contained in these.
 pub trait LinCodeParametersInfo<C, H>
@@ -65,7 +65,7 @@ where
     /// Get the parameters for hashing nodes in the merkle tree.
     fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters;
 
-    /// Get the parameters for hashing a vector of values, 
+    /// Get the parameters for hashing a vector of values,
     /// representing a column of the coefficient matrix, into a leaf value.
     fn col_hash_params(&self) -> &H::Parameters;
 }
@@ -80,7 +80,10 @@ where
 {
     /// For schemes like Brakedown and Ligero, PCCommiiterKey and
     /// PCVerifierKey and PCUniversalParams are all the same.
-    type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeParametersInfo<C, H>;
+    type LinCodePCParams: PCUniversalParams
+        + PCCommitterKey
+        + PCVerifierKey
+        + LinCodeParametersInfo<C, H>;
 
     /// Does a default setup for the PCS.
     fn setup<R: RngCore>(
