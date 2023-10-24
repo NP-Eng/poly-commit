@@ -68,7 +68,8 @@ where
         vec![point]
     }
 
-    /// Compute out = [1, z, z^2, ..., z^(n_cols_1)]
+    /// For a univariate polynomial it returns a tuple:
+    /// ((1, z, z^2, ..., z^n), (1, z^n, z^(2n), ..., z^((m-1)n)))
     fn tensor(z: &F, left: usize, right: usize) -> (Vec<F>, Vec<F>) {
         let mut left_out = Vec::with_capacity(left);
         let mut pow_a = F::one();
