@@ -29,31 +29,31 @@ type Hyrax377 = HyraxPC<G1Affine, DenseMultilinearExtension<Fq>>;
 // ******** auxiliary test functions ********
 
 fn rand_poly<Fr: PrimeField>(
-    _: usize, // degree
+    _: usize, // degree: unused
     num_vars: Option<usize>,
     rng: &mut ChaCha20Rng,
 ) -> DenseMultilinearExtension<Fr> {
     match num_vars {
         Some(n) => DenseMultilinearExtension::rand(n, rng),
-        None => panic!("Must specify number of variables"),
+        None => panic!("Must specify the number of variables"),
     }
 }
 
 fn constant_poly<Fr: PrimeField>(
-    _: usize, // degree
+    _: usize, // degree: unused
     num_vars: Option<usize>,
     rng: &mut ChaCha20Rng,
 ) -> DenseMultilinearExtension<Fr> {
     match num_vars {
         Some(0) => DenseMultilinearExtension::rand(0, rng),
-        _ => panic!("Must specify number of variables: 0"),
+        _ => panic!("Must specify the number of variables: 0"),
     }
 }
 
 fn rand_point<F: PrimeField>(num_vars: Option<usize>, rng: &mut ChaCha20Rng) -> Vec<F> {
     match num_vars {
         Some(n) => (0..n).map(|_| F::rand(rng)).collect(),
-        None => panic!("Must specify number of variables"),
+        None => panic!("Must specify the number of variables"),
     }
 }
 
