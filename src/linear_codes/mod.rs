@@ -370,7 +370,7 @@ where
             }
 
             proof_array.push(LinCodePCProof {
-                // compute the opening proof and append b.M to the transcript.
+                // Compute the opening proof and append b.M to the transcript.
                 opening: generate_proof(
                     ck.sec_param(),
                     ck.distance(),
@@ -444,7 +444,7 @@ where
                             .map_err(|_| Error::TranscriptError)?,
                     );
                 }
-                // Upon sending `v` to the Verifier, add it to the sponge. Claim is that v = r.M.
+                // Upon sending `v` to the Verifier, add it to the sponge. The claim is that v = r.M.
                 transcript
                     .append_serializable_element(b"v", well_formedness)
                     .map_err(|_| Error::TranscriptError)?;
@@ -490,7 +490,7 @@ where
                     .map_err(|_| Error::InvalidCommitment)?;
             }
 
-            // helper closure: checks if a.b = c.
+            // Helper closure: checks if a.b = c.
             let check_inner_product = |a, b, c| -> Result<(), Error> {
                 if inner_product(a, b) != c {
                     return Err(Error::InvalidCommitment);
