@@ -36,7 +36,7 @@ pub struct LigeroPCParams<F: PrimeField, C: Config, H: CRHScheme> {
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
-/// The public parameters for Brakdown PCS.
+/// The public parameters for Brakedown PCS.
 pub struct BrakedownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     /// The security parameter
     pub(crate) sec_param: usize,
