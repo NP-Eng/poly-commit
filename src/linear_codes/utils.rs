@@ -21,15 +21,21 @@ use {
     digest::Digest,
 };
 
-/// This is CSR format
+/// This is CSC format https://shorturl.at/fpL17
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 pub struct SprsMat<F: Field> {
+    /// Number of rows.
     pub(crate) n: usize,
+    /// Number of columns.
     pub(crate) m: usize,
+    /// Number of non-zero entries in each row.
     pub(crate) d: usize,
+    /// Numbers of non-zero elements in each columns.
     ind_ptr: Vec<usize>,
+    /// The indices in each columns where exists a non-zero element.
     col_ind: Vec<usize>,
+    // The values of non-zero entries.
     val: Vec<F>,
 }
 
@@ -47,7 +53,9 @@ impl<F: Field> SprsMat<F> {
             })
             .collect::<Vec<_>>()
     }
-    /// m is nrow, n is ncol, d is NNZ in each column
+    /// Create a new `SprsMat` from list of elements that represents the
+    /// matrix in column major order. `n` is the number of rows, `m` is
+    /// the number of columns, and `d` is NNZ in each row.
     pub fn new_from_flat(n: usize, m: usize, d: usize, list: &[F]) -> Self {
         let nnz = d * n;
         let mut ind_ptr = vec![0; m + 1];
