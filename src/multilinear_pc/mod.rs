@@ -258,7 +258,6 @@ fn eq_extension<F: Field>(t: &[F]) -> Vec<DenseMultilinearExtension<F>> {
     result
 }
 
-#[cfg(test)]
 mod tests {
     use crate::ark_std::UniformRand;
     use crate::multilinear_pc::data_structures::UniversalParams;

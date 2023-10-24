@@ -8,7 +8,7 @@ use crate::{
     PCUniversalParams, PCVerifierKey,
 };
 
-/// `UniversalParams` amount to a Pederson commitment key
+/// `UniversalParams` amounts to a Pederson commitment key of sufficient length
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
 pub struct HyraxUniversalParams<G: AffineRepr> {
@@ -43,10 +43,11 @@ impl<G: AffineRepr> PCCommitterKey for HyraxCommitterKey<G> {
 }
 
 impl<G: AffineRepr> PCVerifierKey for HyraxVerifierKey<G> {
+    // Only MLEs are supported
     fn max_degree(&self) -> usize {
         1
     }
-
+    // Only MLEs are supported
     fn supported_degree(&self) -> usize {
         1
     }
@@ -67,7 +68,7 @@ impl<G: AffineRepr> PCPreparedVerifierKey<HyraxVerifierKey<G>> for HyraxPrepared
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
 pub struct HyraxCommitment<G: AffineRepr> {
-    /// A list of multi-commits to each row of the matrix containing the
+    /// A list of multi-commits to each row of the matrix representing the
     /// polynomial.
     pub row_coms: Vec<G>,
 }
@@ -123,9 +124,9 @@ impl<F: PrimeField> PCRandomness for HyraxRandomness<F> {
 pub struct HyraxProof<G: AffineRepr> {
     /// Commitment to the evaluation of the polynomial at the requested point
     pub com_eval: G,
-    /// Commitment to auxiliary random vector d
+    /// Commitment to auxiliary random vector `d`
     pub com_d: G,
-    /// Commitment to auxiliary random scalar b
+    /// Commitment to auxiliary random scalar `b`
     pub com_b: G,
     /// Auxiliary random vector
     pub z: Vec<G::ScalarField>,
@@ -133,8 +134,8 @@ pub struct HyraxProof<G: AffineRepr> {
     pub z_d: G::ScalarField,
     /// Auxiliary random scalar
     pub z_b: G::ScalarField,
-    /// The seed r_eval is not part of a Hyrax PCS proof as described in the
-    /// reference article. Cf. the "Modification note" at the beginning of
-    /// mod.rs
+    /// The hiding scalar r_eval is not part of a Hyrax PCS proof as described
+    /// in the reference article. Cf. the "Modification note" at the beginning
+    /// of `mod.rs`
     pub r_eval: G::ScalarField,
 }
