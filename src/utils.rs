@@ -28,22 +28,6 @@ macro_rules! to_bytes {
     }};
 }
 
-/// Entropy function
-pub(crate) fn ent(x: f64) -> f64 {
-    assert!(0f64 <= x && x <= 1f64);
-    if x == 0f64 || x == 1f64 {
-        0f64
-    } else {
-        -x * x.log2() - (1.0 - x) * (1.0 - x).log2()
-    }
-}
-
-/// ceil of a * b, where a is integer and b is a rational number
-#[inline]
-pub(crate) fn ceil_mul(a: usize, b: (usize, usize)) -> usize {
-    (a * b.0 + b.1 - 1) / b.1
-}
-
 /// Return ceil(x / y).
 pub(crate) fn ceil_div(x: usize, y: usize) -> usize {
     // XXX. warning: this expression can overflow.
@@ -58,29 +42,6 @@ pub(crate) struct Matrix<F: Field> {
 }
 
 impl<F: Field> Matrix<F> {
-    /// Returns a Matrix of dimensions n x m given a list of n * m field elements.
-    /// The list should be ordered row-first, i.e. [a11, ..., a1m, a21, ..., a2m, ...].
-    ///
-    /// # Panics
-    /// Panics if the dimensions do not match the length of the list
-    pub(crate) fn new_from_flat(n: usize, m: usize, entry_list: &[F]) -> Self {
-        assert_eq!(
-            entry_list.len(),
-            n * m,
-            "Invalid matrix construction: dimensions are {} x {} but entry vector has {} entries",
-            n,
-            m,
-            entry_list.len()
-        );
-
-        // TODO more efficient to run linearly?
-        let entries: Vec<Vec<F>> = (0..n)
-            .map(|row| (0..m).map(|col| entry_list[m * row + col]).collect())
-            .collect();
-
-        Self { n, m, entries }
-    }
-
     /// Returns a Matrix given a list of its rows, each in turn represented as a list of field elements.
     ///
     /// # Panics
@@ -111,18 +72,6 @@ impl<F: Field> Matrix<F> {
     #[cfg(test)]
     pub(crate) fn entry(&self, i: usize, j: usize) -> F {
         self.entries[i][j]
-    }
-
-    /// Returns self as a list of rows
-    pub(crate) fn rows(&self) -> Vec<Vec<F>> {
-        self.entries.clone()
-    }
-
-    /// Returns self as a list of columns
-    pub(crate) fn cols(&self) -> Vec<Vec<F>> {
-        (0..self.m)
-            .map(|col| (0..self.n).map(|row| self.entries[row][col]).collect())
-            .collect()
     }
 
     /// Returns the product v * self, where v is interpreted as a row vector. In other words,
@@ -230,26 +179,6 @@ impl<F: PrimeField> IOPTranscript<F> {
         self.append_serializable_element(label, &challenge)?;
         Ok(challenge)
     }
-
-    /// Generate the challenge from the current transcript
-    /// and append it to the transcript.
-    ///
-    /// Without exposing the internal field `transcript`,
-    /// this is a wrapper around getting bytes as opposed to field elements.
-    pub(crate) fn get_and_append_byte_challenge(
-        &mut self,
-        label: &'static [u8],
-        dest: &mut [u8],
-    ) -> Result<(), Error> {
-        //  we need to reject when transcript is empty
-        if self.is_empty {
-            return Err(Error::TranscriptError);
-        }
-
-        self.transcript.challenge_bytes(label, dest);
-        self.append_message(label, dest)?;
-        Ok(())
-    }
 }
 
 #[inline]
@@ -290,83 +219,4 @@ pub(crate) fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
     }
     let config = PoseidonConfig::new(full_rounds, partial_rounds, alpha, mds, v, 2, 1);
     PoseidonSponge::new(&config)
-}
-
-#[cfg(test)]
-pub(crate) mod tests {
-
-    use super::*;
-
-    use ark_bls12_377::Fr;
-
-    #[test]
-    fn test_matrix_constructor_flat() {
-        let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67, 44, 50]);
-        let mat = Matrix::new_from_flat(2, 3, &entries);
-        assert_eq!(mat.entry(1, 2), Fr::from(50));
-    }
-
-    #[test]
-    fn test_matrix_constructor_flat_square() {
-        let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67]);
-        let mat = Matrix::new_from_flat(2, 2, &entries);
-        assert_eq!(mat.entry(1, 1), Fr::from(67));
-    }
-
-    #[test]
-    #[should_panic(expected = "dimensions are 2 x 3 but entry vector has 5 entries")]
-    fn test_matrix_constructor_flat_panic() {
-        let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67, 44]);
-        Matrix::new_from_flat(2, 3, &entries);
-    }
-
-    #[test]
-    fn test_matrix_constructor_rows() {
-        let rows: Vec<Vec<Fr>> = vec![
-            to_field(vec![10, 100, 4]),
-            to_field(vec![23, 1, 0]),
-            to_field(vec![55, 58, 9]),
-        ];
-        let mat = Matrix::new_from_rows(rows);
-        assert_eq!(mat.entry(2, 0), Fr::from(55));
-    }
-
-    #[test]
-    #[should_panic(expected = "not all rows have the same length")]
-    fn test_matrix_constructor_rows_panic() {
-        let rows: Vec<Vec<Fr>> = vec![
-            to_field(vec![10, 100, 4]),
-            to_field(vec![23, 1, 0]),
-            to_field(vec![55, 58]),
-        ];
-        Matrix::new_from_rows(rows);
-    }
-
-    #[test]
-    fn test_cols() {
-        let rows: Vec<Vec<Fr>> = vec![
-            to_field(vec![4, 76]),
-            to_field(vec![14, 92]),
-            to_field(vec![17, 89]),
-        ];
-
-        let mat = Matrix::new_from_rows(rows);
-
-        assert_eq!(mat.cols()[1], to_field(vec![76, 92, 89]));
-    }
-
-    #[test]
-    fn test_row_mul() {
-        let rows: Vec<Vec<Fr>> = vec![
-            to_field(vec![10, 100, 4]),
-            to_field(vec![23, 1, 0]),
-            to_field(vec![55, 58, 9]),
-        ];
-
-        let mat = Matrix::new_from_rows(rows);
-        let v: Vec<Fr> = to_field(vec![12, 41, 55]);
-        // by giving the result in the integers and then converting to Fr
-        // we ensure the test will still pass even if Fr changes
-        assert_eq!(mat.row_mul(&v), to_field::<Fr>(vec![4088, 4431, 543]));
-    }
 }
