@@ -59,7 +59,7 @@ where
         reed_solomon(msg, param.rho_inv)
     }
 
-    /// For a univariate polynomial, we simply return the list of coefficients.ś
+    /// For a univariate polynomial, we simply return the list of coefficients.
     fn poly_to_vec(polynomial: &P) -> Vec<F> {
         polynomial.coeffs().to_vec()
     }
