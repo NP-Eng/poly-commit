@@ -149,14 +149,18 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         num_vars: Option<usize>,
         _rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
-        let n = num_vars.expect("Hyrax requires num_vars to be specified");
 
-        assert_eq!(
-            n % 2,
-            0,
-            "Only polynomials with an even number of variables \
-                    are supported in this implementation"
-        );
+        if num_vars.is_none() {
+            return Err(Error::InvalidNumberOfVariables);
+        }
+
+        let n = num_vars.unwrap();
+
+        if n % 2 == 1 {
+            // Only polynomials with an even number of variables are
+            // supported in this implementation
+            return Err(Error::InvalidNumberOfVariables);
+        }
 
         // Number of rows (or, equivalently, colums) of a square matrix
         // containing the coefficients of an n-variate ML polynomial
@@ -242,19 +246,15 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             let n = poly.num_vars();
             let dim = 1 << n / 2;
 
-            assert_eq!(
-                n % 2,
-                0,
-                "Only points with an even number of variables \
-                are supported in this implementation"
-            );
+            if n % 2 == 1 {
+                // Only polynomials with an even number of variables are
+                // supported in this implementation
+                return Err(Error::InvalidNumberOfVariables);
+            }    
 
-            assert!(
-                n <= ck.com_key.len(),
-                "Attempted to commit to a polynomial with {n} variables, but
-                this key only supports up to {} variables",
-                ck.com_key.len()
-            );
+            if n > ck.com_key.len() {
+                return Err(Error::InvalidNumberOfVariables);
+            }
 
             let m = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
 
@@ -318,12 +318,11 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     {
         let n = point.len();
 
-        assert_eq!(
-            n % 2,
-            0,
-            "Only points with an even number of variables \
-            are supported in this implementation"
-        );
+        if n % 2 == 1 {
+            // Only polynomials with an even number of variables are
+            // supported in this implementation
+            return Err(Error::InvalidNumberOfVariables);
+        }
 
         let dim = 1 << n / 2;
 
@@ -348,23 +347,24 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             .zip(commitments.into_iter().zip(rands.into_iter()))
         {
             let label = l_poly.label();
-            assert_eq!(
-                label,
-                l_com.label(),
-                "Mismatching labels: {label} and {}",
-                l_com.label()
-            );
+            if label != l_com.label() {
+                return Err(
+                    Error::MismatchedLabels {
+                        commitment_label: l_com.label().to_string(),
+                        polynomial_label: label.to_string(),
+                    }
+                )
+            }
 
             let poly = l_poly.polynomial();
             let com = l_com.commitment();
 
-            assert_eq!(
-                poly.num_vars(),
-                n,
-                "The committed polynomial has {} variables, but \
-                the point has {n} variables",
-                poly.num_vars()
-            );
+            if poly.num_vars() != n {
+                return Err(Error::MismatchedNumVars {
+                    poly_nv: poly.num_vars(),
+                    point_nv: n,
+                });
+            }
 
             // Initialising the transcript
             let mut transcript: IOPTranscript<G::ScalarField> = IOPTranscript::new(b"transcript");
@@ -474,12 +474,11 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     {
         let n = point.len();
 
-        assert_eq!(
-            n % 2,
-            0,
-            "Only points with an even number of variables \
-            are supported in this implementation"
-        );
+        if n % 2 == 1 {
+            // Only polynomials with an even number of variables are
+            // supported in this implementation
+            return Err(Error::InvalidNumberOfVariables);
+        }
 
         // Reversing the point is necessary because the MLE interface returns
         // evaluations in little-endian order
@@ -510,14 +509,12 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
                 r_eval,
             } = h_proof;
 
-            assert_eq!(
-                row_coms.len(),
-                1 << n / 2,
-                "The commitment should have 2^(n/2) = has {} entries, but \
-                it has {} instead",
-                1 << n / 2,
-                row_coms.len()
-            );
+            if row_coms.len() != 1 << n / 2 {
+                return Err(Error::IncorrectCommitmentSize {
+                    encountered: row_coms.len(),
+                    expected: 1 << n / 2
+                })
+            }
 
             // Computing t_prime with a multi-exponentiation
             let l_bigint = cfg_iter!(l).map(|chi| chi.into_bigint()).collect::<Vec<_>>();
