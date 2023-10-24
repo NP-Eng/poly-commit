@@ -1,14 +1,16 @@
 use ark_ff::Field;
 use ark_std::vec::Vec;
 
-/// Transforms a flat vector into a matrix in column major order.
+/// Transforms a flat vector into a matrix in column-major order. The latter is
+/// given as a list of rows.
+/// 
 /// For example, if flat = [1, 2, 3, 4, 5, 6] and n = 2, m = 3, then
 /// the output is [[1, 3, 5], [2, 4, 6]].
 pub(crate) fn flat_to_matrix_column_major<T: Copy>(flat: &[T], n: usize, m: usize) -> Vec<Vec<T>> {
     assert_eq!(
         flat.len(),
         n * m,
-        "n * m should coincide with the length of flat"
+        "n * m should coincide with flat.len()"
     );
     let mut res = Vec::new();
 
@@ -20,7 +22,7 @@ pub(crate) fn flat_to_matrix_column_major<T: Copy>(flat: &[T], n: usize, m: usiz
 
 // This function computes all evaluations of the MLE EQ(i, values) for i
 // between 0...0 and 1...1 (n-bit strings). This results in essentially
-// the same as the tensor_inner function in the multilinear_ligero module,
+// the same as the tensor_vec function in the `linear_codes/utils.rs`,
 // the difference being the endianness of the order of the output.
 pub(crate) fn tensor_prime<F: Field>(values: &[F]) -> Vec<F> {
     if values.len() == 0 {
@@ -28,9 +30,9 @@ pub(crate) fn tensor_prime<F: Field>(values: &[F]) -> Vec<F> {
     }
 
     let tail = tensor_prime(&values[1..]);
-
+    let v = values[0];
     tail.iter()
-        .map(|v| *v * (F::one() - values[0]))
-        .chain(tail.iter().map(|v| *v * values[0]))
+        .map(|v| *v * (F::one() - v))
+        .chain(tail.iter().map(|v| *v * v))
         .collect()
 }
