@@ -1,6 +1,6 @@
 use super::utils::SprsMat;
 use super::BrakedownPCParams;
-use super::LinCodeInfo;
+use super::LinCodeParametersInfo;
 use crate::linear_codes::utils::calculate_t;
 use crate::utils::ceil_div;
 use crate::utils::{ceil_mul, ent};
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl<F, C, H> LinCodeInfo<C, H> for BrakedownPCParams<F, C, H>
+impl<F, C, H> LinCodeParametersInfo<C, H> for BrakedownPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,

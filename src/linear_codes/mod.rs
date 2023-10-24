@@ -39,8 +39,10 @@ use utils::{calculate_t, get_indices_from_transcript, hash_column};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
-/// This trait is another kir for this kiri interface
-pub trait LinCodeInfo<C, H>
+/// For linear code PC schemes, the universal paramters, committer key 
+/// and verifier key are all the same. This trait abstracts the common
+/// information contained in these.
+pub trait LinCodeParametersInfo<C, H>
 where
     C: Config,
     H: CRHScheme,
@@ -77,7 +79,7 @@ where
 {
     /// For schemes like Brakedown and Ligero, PCCommiiterKey and
     /// PCVerifierKey and PCUniversalParams are all the same.
-    type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeInfo<C, H>;
+    type LinCodePCParams: PCUniversalParams + PCCommitterKey + PCVerifierKey + LinCodeParametersInfo<C, H>;
 
     /// Does a default setup for the PCS.
     fn setup<R: RngCore>(

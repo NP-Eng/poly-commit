@@ -1,5 +1,5 @@
 use super::LigeroPCParams;
-use super::LinCodeInfo;
+use super::LinCodeParametersInfo;
 use crate::utils::ceil_div;
 use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
 
@@ -94,7 +94,7 @@ where
     }
 }
 
-impl<F, C, H> LinCodeInfo<C, H> for LigeroPCParams<F, C, H>
+impl<F, C, H> LinCodeParametersInfo<C, H> for LigeroPCParams<F, C, H>
 where
     F: PrimeField,
     C: Config,
