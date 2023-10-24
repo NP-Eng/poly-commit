@@ -284,7 +284,7 @@ mod tests {
         let com = MultilinearPC::commit(&ck, poly);
         let proof = MultilinearPC::open(&ck, poly, &point);
 
-        let value = MultilinearExtension::evaluate(poly, &point).unwrap();
+        let value = poly.evaluate(&point).unwrap();
         let result = MultilinearPC::check(&vk, &com, &point, value, &proof);
         assert!(result);
     }
