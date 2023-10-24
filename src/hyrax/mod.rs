@@ -68,11 +68,6 @@ pub struct HyraxPC<
 // - Is it safe to open several polynomials at once, and if so, is there a
 //   more efficient way than what is done below? (which simply shares the
 //   computation of L and R across all polynomials)
-// - Decide whether to re-introduce the assertions marked with
-//   `// TODO re-introduce`. These deal with arguments related to degree bounds,
-//   which do not meaningfully apply to multilinear polynomials. However,
-//   including those checks makes some of the tests provided by the test suite
-//   panic.
 // - Implement optimisation from section `Reducing the cost of
 //   proof-of-dot-prod` in the reference article.
 
@@ -153,9 +148,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     ) -> Result<Self::UniversalParams, Self::Error> {
         let n = num_vars.expect("Hyrax requires num_vars to be specified");
 
-        // TODO re-introduce
-        // assert_eq!(max_degree, 1, "Hyrax only supports multilinear polynomials");
-
         assert_eq!(
             n % 2,
             0,
@@ -209,19 +201,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         _supported_hiding_bound: usize,
         _enforced_degree_bounds: Option<&[usize]>,
     ) -> Result<(Self::CommitterKey, Self::VerifierKey), Self::Error> {
-        // TODO re-introduce
-        // assert!(
-        //     supported_degree == 1 && supported_hiding_bound == 1,
-        //     "Hyrax only supports multilinear polynomials: \
-        //     the passed degrees should be 1"
-        // );
-
-        // assert!(
-        //     enforced_degree_bounds.is_none(),
-        //     "Hyrax only supports multilinear polynomials: \
-        //     enforced_degree_bounds should be `None`"
-        // );
-
         Ok((pp.clone(), pp.clone()))
     }
 
@@ -256,22 +235,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
 
             let label = l_poly.label();
             let poly = l_poly.polynomial();
-
-            // This assertions, with questionable meaningfulness due to the
-            // univariate-oriented nature of some fields and methods, make the
-            // current automatic tests fails and have therefore been commented
-            // out for the time being
-            // assert_eq!(
-            //     l_poly.degree_bound().unwrap_or(1),
-            //     1,
-            //     "Hyrax only supports ML polynomials: the degree bound should \
-            //     be Some(1) or None"
-            // );
-
-            // assert!(
-            //     l_poly.hiding_bound().is_none(),
-            //     "Hiding bounds are not part of the Hyrax PCS"
-            // );
 
             let n = poly.num_vars();
             let dim = 1 << n / 2;
