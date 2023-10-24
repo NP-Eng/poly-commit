@@ -58,9 +58,7 @@ pub struct HyraxPC<
     _phantom: PhantomData<(G, P)>,
 }
 
-// TODO Outstanding issues
-// - Will ark_std::cfg_iter! lead to any performance gains?
-//   currently only used in the performance bottleneck: multiexponentiation
+
 // - Do any of the following methods have a natural implementation which is
 //   more efficient than the default?
 //   batch_check, batch_open, open_combinations check_combinations
@@ -102,8 +100,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> {
         let mut points_ext = key.com_key[0..scalars.len()].to_vec();
         points_ext.push(key.h);
 
-        let scalars_bigint = scalars_ext
-            .iter()
+        let scalars_bigint = ark_std::cfg_iter!(scalars)
             .map(|s| s.into_bigint())
             .collect::<Vec<_>>();
 
@@ -383,9 +380,8 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
 
             // t_prime coincides witht he Pedersen commitment to lt with the
             // randomnes r_lt computed here
-            let r_lt = l
-                .iter()
-                .zip(randomness.iter())
+            let r_lt = cfg_iter!(l)
+                .zip(cfg_iter!(randomness))
                 .map(|(l, r)| *l * r)
                 .sum::<G::ScalarField>();
 
@@ -518,7 +514,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             );
 
             // Computing t_prime with a multi-exponentiation
-            let l_bigint = l.iter().map(|chi| chi.into_bigint()).collect::<Vec<_>>();
+            let l_bigint = cfg_iter!(l).map(|chi| chi.into_bigint()).collect::<Vec<_>>();
             let t_prime: G = <G::Group as VariableBaseMSM>::msm_bigint(&row_coms, &l_bigint).into();
 
             // Construct transcript and squeeze the challenge c from it
