@@ -65,7 +65,8 @@ where
     /// Get the parameters for hashing nodes in the merkle tree.
     fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters;
 
-    /// Get the parameters for hashing a vector of values, representing a column of the coefficient matrix, into a leaf value.
+    /// Get the parameters for hashing a vector of values, 
+    /// representing a column of the coefficient matrix, into a leaf value.
     fn col_hash_params(&self) -> &H::Parameters;
 }
 
