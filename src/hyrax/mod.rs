@@ -37,7 +37,7 @@ pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
 ///
 /// [hyrax]: https://eprint.iacr.org/2017/1132.pdf
 ///
-/// * Modification note *
+/// ### Modification note
 ///
 /// In the PCS contained in the cited article, the verifier never learns the
 /// actual evaluation of the polynomial at the requested point, but is instead
@@ -48,6 +48,23 @@ pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
 /// the commitment at the end of the protocol. This likely does not result in
 /// an optimal non-hiding PCS, but we feel it is the most faithful adaptation
 /// of the original PCS that can be implemented with the current restrictions.
+/// 
+/// ### Future optimisations
+/// 
+/// - Due to the homomorphic nature of Pedersen commitments, it is likely some
+///   of the following methods can be designed more efficiently than their
+///   default implementations: batch_open, batch_check, open_combinations, 
+///   check_combinations. This is not discussed in the reference article, but
+///   the IPA and KZG modules might be a good starting point.
+/// - On a related note to the previous point, there might be a more efficient
+///   way to open several polynomials at a single point than the currently
+///   implemented method, where only the computation of the vectors L and R is
+///   shared across polynomials.
+/// - The cited article proposes an optimisation in the section `Reducing the
+///   cost of proof-of-dot-prod`. It allows for non-square matrices (and hence
+///   removes the requirement for the number of variables to be even) and
+///   introduces a tradeoff between proof size and verifier time. It is
+///   probably worth pursuing.
 pub struct HyraxPC<
     // The elliptic curve used for Pedersen commitments (only EC groups are
     // supported as of now).
@@ -57,17 +74,6 @@ pub struct HyraxPC<
 > {
     _phantom: PhantomData<(G, P)>,
 }
-
-
-// - Do any of the following methods have a natural implementation which is
-//   more efficient than the default?
-//   batch_check, batch_open, open_combinations check_combinations
-//   The reference article does not mention this
-// - Is it safe to open several polynomials at once, and if so, is there a
-//   more efficient way than what is done below? (which simply shares the
-//   computation of L and R across all polynomials)
-// - Implement optimisation from section `Reducing the cost of
-//   proof-of-dot-prod` in the reference article.
 
 impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> {
     /// Pedersen commitment to a vector of scalars as described in appendix A.1
