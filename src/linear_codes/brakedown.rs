@@ -140,8 +140,7 @@ where
         )
     }
 
-    /// This function creates a UniversalParams.
-    // TODO There should be a sanity check on the input.
+    /// This function creates a UniversalParams. It does not check if the paramters are consistent/correct.
     pub fn new(
         sec_param: usize,
         a: (usize, usize),
@@ -246,20 +245,15 @@ where
     }
     /// dn
     fn dn(n: usize, ct: &Constants) -> usize {
+        use ark_std::cmp::min;
         let b = ct.b;
         let r = ct.r;
         let d = ct.d;
-        let v1 = {
-            ceil_mul(n, (2 * b.0, b.1)) + // 2 * beta * n 
-            ((ceil_mul(n, r) - n + 110) // n * (r - 1 + 110/n)
-            as f64 / F::MODULUS_BIT_SIZE as f64).ceil() as usize
-        };
-        let v2 = ((110f64 / (n as f64) + d.0) / d.1).ceil() as usize;
-        if v1 < v2 {
-            v1
-        } else {
-            v2
-        }
+        min(
+            ceil_mul(n, (2 * b.0, b.1))
+                + ((ceil_mul(n, r) - n + 110) as f64 / F::MODULUS_BIT_SIZE as f64).ceil() as usize, // 2 * beta * n  + n * (r - 1 + 110/n)
+            ((110f64 / (n as f64) + d.0) / d.1).ceil() as usize,
+        )
     }
     fn mat_size(
         mut n: usize,
@@ -297,8 +291,8 @@ where
         a_dims: &[(usize, usize, usize)],
         b_dims: &[(usize, usize, usize)],
     ) -> usize {
-        b_dims.iter().map(|(_, m, _)| m).sum::<usize>() + // Output v of the recursive encoding
-        a_dims.iter().map(|(n, _, _)| n).sum::<usize>() + // Input x to the recursive encoding
+        b_dims.iter().map(|(_, col, _)| col).sum::<usize>() + // Output v of the recursive encoding
+        a_dims.iter().map(|(row, _, _)| row).sum::<usize>() + // Input x to the recursive encoding
         b_dims.last().unwrap().0 // Output z of the last step of recursion
     }
 

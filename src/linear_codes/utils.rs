@@ -4,9 +4,8 @@ use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
 
 use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
-use ark_ff::{FftField, Field, PrimeField};
+use ark_ff::{Field, PrimeField};
 
-use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
@@ -107,26 +106,6 @@ impl<F: Field> SprsMat<F> {
             val,
         }
     }
-}
-
-/// Apply reed-solomon encoding to msg.
-/// Assumes msg.len() is equal to the order of some FFT domain in F.
-/// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * RHO_INV.
-pub(crate) fn reed_solomon<F: FftField>(
-    // msg, of length m, is interpreted as a vector of coefficients of a polynomial of degree m - 1
-    msg: &[F],
-    rho_inv: usize,
-) -> Vec<F> {
-    let m = msg.len();
-
-    let extended_domain = GeneralEvaluationDomain::<F>::new(m * rho_inv).unwrap_or_else(|| {
-        panic!(
-            "The field F cannot accomodate FFT for msg.len() * RHO_INV = {} elements (too many)",
-            m * rho_inv
-        )
-    });
-
-    extended_domain.fft(msg)
 }
 
 #[inline]
@@ -286,12 +265,6 @@ pub(crate) mod tests {
 
     use super::*;
     use ark_bls12_377::Fr;
-    use ark_poly::{
-        domain::general::GeneralEvaluationDomain, univariate::DensePolynomial, DenseUVPolynomial,
-        Polynomial,
-    };
-    use ark_std::test_rng;
-    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
     #[test]
     fn test_sprs_row_mul() {
@@ -320,36 +293,6 @@ pub(crate) mod tests {
         // by giving the result in the integers and then converting to Fr
         // we ensure the test will still pass even if Fr changes
         assert_eq!(mat.row_mul(&v), to_field::<Fr>(vec![4088, 4431, 543]));
-    }
-
-    #[test]
-    fn test_encoding() {
-        let rho_inv = 3;
-        // `i` is the min number of evaluations we need to interpolate a poly of degree `i - 1`
-        for i in 1..10 {
-            let deg = (1 << i) - 1;
-
-            let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-            let mut pol = DensePolynomial::rand(deg, rand_chacha);
-
-            while pol.degree() != deg {
-                pol = DensePolynomial::rand(deg, rand_chacha);
-            }
-
-            let coeffs = &pol.coeffs;
-
-            // size of evals might be larger than deg + 1 (the min. number of evals needed to interpolate): we could still do R-S encoding on smaller evals, but the resulting polynomial will differ, so for this test to work we should pass it in full
-            let m = deg + 1;
-
-            let encoded = reed_solomon(&coeffs, rho_inv);
-
-            let large_domain = GeneralEvaluationDomain::<Fr>::new(m * rho_inv).unwrap();
-
-            // the encoded elements should agree with the evaluations of the polynomial in the larger domain
-            for j in 0..(rho_inv * m) {
-                assert_eq!(pol.evaluate(&large_domain.element(j)), encoded[j]);
-            }
-        }
     }
 
     #[test]

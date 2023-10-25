@@ -1,3 +1,5 @@
+use crate::Error;
+
 use super::utils::tensor_vec;
 use super::{BrakedownPCParams, LinearEncode};
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
@@ -56,8 +58,10 @@ where
         )
     }
 
-    fn encode(msg: &[F], pp: &Self::LinCodePCParams) -> Vec<F> {
-        assert!(msg.len() == pp.m); // TODO Make it error
+    fn encode(msg: &[F], pp: &Self::LinCodePCParams) -> Result<Vec<F>, Error> {
+        if msg.len() != pp.m {
+            return Err(Error::EncodingError);
+        }
         let cw_len = pp.m_ext;
         let mut cw = Vec::with_capacity(cw_len);
         cw.extend_from_slice(msg);
@@ -81,7 +85,7 @@ where
             let src = &pp.b_mats[i].row_mul(&cw[s..e]);
             cw[e..e + pp.b_dims[i].1].copy_from_slice(src);
         }
-        cw.to_vec()
+        Ok(cw.to_vec())
     }
 
     fn poly_to_vec(polynomial: &P) -> Vec<F> {
@@ -89,7 +93,7 @@ where
     }
 
     fn point_to_vec(point: <P as Polynomial<F>>::Point) -> Vec<F> {
-        point.into()
+        point
     }
 
     /// For a multilinear polynomial in n+m variables it returns a tuple for k={n,m}:

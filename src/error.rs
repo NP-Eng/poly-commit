@@ -107,6 +107,9 @@ pub enum Error {
 
     /// Error resulting from hashing in linear code - based PCS.
     HashingError,
+
+    /// Shows that encoding is not feasible
+    EncodingError,
 }
 
 impl core::fmt::Display for Error {
@@ -196,7 +199,8 @@ impl core::fmt::Display for Error {
             Error::InvalidCommitment => write!(f, "Failed to verify the commitment"),
             Error::TranscriptError => write!(f, "Incorrect transcript manipulation"),
             Error::InvalidParameters(err) => write!(f, "{}", err),
-            Error::HashingError => write!(f, "Error resulting from hashing")
+            Error::HashingError => write!(f, "Error resulting from hashing"),
+            Error::EncodingError => write!(f, "Encoding failed"),
         }
     }
 }

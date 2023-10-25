@@ -159,19 +159,6 @@ pub(crate) fn inner_product<F: Field>(v1: &[F], v2: &[F]) -> F {
         .sum()
 }
 
-#[inline]
-pub(crate) fn scalar_by_vector<F: Field>(s: F, v: &[F]) -> Vec<F> {
-    ark_std::cfg_iter!(v).map(|x| *x * s).collect()
-}
-
-#[inline]
-pub(crate) fn vector_sum<F: Field>(v1: &[F], v2: &[F]) -> Vec<F> {
-    ark_std::cfg_iter!(v1)
-        .zip(v2)
-        .map(|(li, ri)| *li + ri)
-        .collect()
-}
-
 /// The following struct is taken from jellyfish repository. Once they change
 /// their dependency on `crypto-primitive`, we use their crate instead of
 /// a copy-paste. We needed the newer `crypto-primitive` for serializing.

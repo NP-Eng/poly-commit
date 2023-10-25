@@ -8,31 +8,8 @@ use ark_crypto_primitives::{
 };
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
-
-#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
-#[derivative(Clone(bound = ""), Debug(bound = ""))]
-/// The public parameters for Ligero PCS.
-pub struct LigeroPCParams<F: PrimeField, C: Config, H: CRHScheme> {
-    pub(crate) _field: PhantomData<F>,
-    /// The security parameter
-    pub(crate) sec_param: usize,
-    /// The inverse of the code rate.
-    pub(crate) rho_inv: usize,
-    /// This is a flag which determines if the random linear combination is done.
-    pub(crate) check_well_formedness: bool,
-    /// Parameters for hash function of Merkle tree leaves
-    #[derivative(Debug = "ignore")]
-    pub(crate) leaf_hash_params: LeafParam<C>,
-    /// Parameters for hash function of Merke tree combining two nodes into one
-    #[derivative(Debug = "ignore")]
-    pub(crate) two_to_one_params: TwoToOneParam<C>,
-    // Parameters for obtaining leaf digest from leaf value.
-    #[derivative(Debug = "ignore")]
-    pub(crate) col_hash_params: H::Parameters,
-}
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]

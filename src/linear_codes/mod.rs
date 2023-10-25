@@ -17,22 +17,15 @@ use ark_std::vec::Vec;
 
 mod utils;
 
-mod multilinear_ligero;
-mod univariate_ligero;
-
-pub use multilinear_ligero::MultilinearLigero;
-pub use univariate_ligero::UnivariateLigero;
-
 mod multilinear_brakedown;
 
 pub use multilinear_brakedown::MultilinearBrakedown;
 
 mod brakedown;
 mod data_structures;
-mod ligero;
 use data_structures::*;
 
-pub use data_structures::{LigeroPCParams, LinCodePCProof};
+pub use data_structures::LinCodePCProof;
 #[cfg(any(feature = "benches", test))]
 pub use utils::{FieldToBytesColHasher, LeafIdentityHasher};
 
@@ -98,7 +91,7 @@ where
 
     /// Encode a message, which is interpreted as a vector of coefficients
     /// of a polynomial of degree m - 1.
-    fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Vec<F>;
+    fn encode(msg: &[F], param: &Self::LinCodePCParams) -> Result<Vec<F>, Error>;
 
     /// Represent the polynomial as either coefficients,
     /// in the univariate case, or evaluations over
@@ -123,8 +116,12 @@ where
         let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
 
         // 2. Apply encoding row-wise
-        let ext_mat =
-            Matrix::new_from_rows(mat.rows().iter().map(|r| Self::encode(r, param)).collect());
+        let ext_mat = Matrix::new_from_rows(
+            mat.rows()
+                .iter()
+                .map(|r| Self::encode(r, param).unwrap()) // Since we just computed the dimension, the error does not happen
+                .collect(),
+        );
 
         (mat, ext_mat)
     }
@@ -185,7 +182,7 @@ where
 
     /// This is only a default setup with reasonable parameters.
     /// To create your own public parameters (from which vk/ck can be derived by `trim`),
-    /// see the documentation for `LigeroPCUniversalParams`.
+    /// see the documentation for `BrakedownPCUniversalParams`.
     fn setup<R: RngCore>(
         max_degree: usize,
         num_vars: Option<usize>,
@@ -474,7 +471,7 @@ where
                 .opening
                 .columns
                 .iter()
-                .map(|c| hash_column::<F, C, H>(c.clone(), &vk.col_hash_params()).unwrap())
+                .map(|c| hash_column::<F, C, H>(c.clone(), vk.col_hash_params()).unwrap())
                 .collect();
 
             // 4. Verify the paths for each of the leaf hashes - this is only run once,
@@ -500,7 +497,7 @@ where
             };
 
             // 5. Compute the encoding w = E(v).
-            let w = L::encode(&proof_array[i].opening.v, vk);
+            let w = L::encode(&proof_array[i].opening.v, vk)?;
 
             // 6. Compute `a`, `b` to right- and left- multiply with the matrix `M`.
             let (a, b) = L::tensor(point, n_cols, n_rows);
@@ -509,7 +506,7 @@ where
             // matches with what the verifier computed for himself.
             // Note: we sacrifice some code repetition in order not to repeat execution.
             if let (Some(well_formedness), Some(r)) = out {
-                let w_well_formedness = L::encode(well_formedness, vk);
+                let w_well_formedness = L::encode(well_formedness, vk)?;
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     check_inner_product(
                         &r,
@@ -561,7 +558,7 @@ where
     let ext_mat_cols = ext_mat.cols();
 
     for col in ext_mat_cols.into_iter() {
-        let col_digest = hash_column::<F, C, H>(col, &col_hash_params)?;
+        let col_digest = hash_column::<F, C, H>(col, col_hash_params)?;
         col_hashes.push(col_digest);
     }
 
