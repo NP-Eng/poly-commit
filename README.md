@@ -39,11 +39,6 @@ This library comes with some unit and integration tests. Run these tests with:
 cargo test
 ```
 
-There are also a number of benchmarks. Run these benchmarks with:
-```bash
-cargo bench --features "benches"
-```
-
 Lastly, this library is instrumented with profiling infrastructure that prints detailed traces of execution time. To enable this, compile with `cargo build --features print-trace`.
 
 ## Usage
@@ -186,7 +181,7 @@ Unless you explicitly state otherwise, any contribution that you submit to this 
 [aurora-light]: https://ia.cr/2019/601
 [pcd-acc]: https://ia.cr/2020/499
 [pst]: https://ia.cr/2011/587
-[ligero]: https://ia.cr/2022/1608
+[brakedown]: https://ia.cr/2021/1043
 
 ## Reference papers
 
