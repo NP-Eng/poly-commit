@@ -2,10 +2,7 @@ use std::{borrow::Borrow, marker::PhantomData};
 
 use ark_ff::PrimeField;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
-use ark_std::{
-    rand::{Rng, RngCore},
-    test_rng,
-};
+use ark_std::{rand::RngCore, test_rng};
 
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
@@ -51,6 +48,7 @@ pub fn poseidon_parameters_for_test<F: PrimeField>() -> PoseidonConfig<F> {
 }
 
 use ark_bn254::Fr as Fr254;
+use rand_chacha::ChaCha20Rng;
 
 // We introduce the wrapper only for the purpose of `setup` function not panicing with unimplemented
 struct PoseidonWrapper<F>(PhantomData<F>);
@@ -165,8 +163,15 @@ type Ligero<F> = LinearCodePCS<
 const MIN_NUM_VARS: usize = 12;
 const MAX_NUM_VARS: usize = 22;
 
-fn rand_ml_poly<F: PrimeField>(num_vars: usize, rng: &mut impl Rng) -> MLE<F> {
-    MLE::rand(num_vars, rng)
+fn rand_poly_ligero_ml<F: PrimeField>(
+    num_vars: usize,
+    rng: &mut ChaCha20Rng,
+) -> DenseMultilinearExtension<F> {
+    DenseMultilinearExtension::rand(num_vars, rng)
 }
 
-bench!(Ligero<Fr254>, rand_ml_poly);
+fn rand_point_ligero_ml<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng) -> Vec<F> {
+    (0..num_vars).map(|_| F::rand(rng)).collect()
+}
+
+bench!(Ligero<Fr254>, rand_poly_ligero_ml, rand_point_ligero_ml);
