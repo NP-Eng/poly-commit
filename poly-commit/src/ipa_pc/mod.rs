@@ -488,7 +488,7 @@ where
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<G::ScalarField, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -497,6 +497,9 @@ where
         Self::Randomness: 'a,
         P: 'a,
     {
+        let Some(opening_challenges) = opening_challenges else {
+            return Err(Error::MissingChallengeGenerator);
+        };
         let mut combined_polynomial = P::zero();
         let mut combined_rand = G::ScalarField::zero();
         let mut combined_commitment_proj = G::Group::zero();
@@ -739,12 +742,15 @@ where
         point: &'a P::Point,
         values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<G::ScalarField, S>>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
         Self::Commitment: 'a,
     {
+        let Some(opening_challenges) = opening_challenges else {
+            return Err(Error::MissingChallengeGenerator);
+        };
         let check_time = start_timer!(|| "Checking evaluations");
         let d = vk.supported_degree();
 
@@ -790,12 +796,16 @@ where
         query_set: &QuerySet<P::Point>,
         values: &Evaluations<G::ScalarField, P::Point>,
         proof: &Self::BatchProof,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<G::ScalarField, S>>,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where
         Self::Commitment: 'a,
     {
+        let Some(opening_challenges) = opening_challenges else {
+            return Err(Error::MissingChallengeGenerator);
+        };
+
         let commitments: BTreeMap<_, _> = commitments.into_iter().map(|c| (c.label(), c)).collect();
         let mut query_to_labels_map = BTreeMap::new();
 
@@ -876,7 +886,7 @@ where
         polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         query_set: &QuerySet<P::Point>,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<G::ScalarField, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<BatchLCProof<G::ScalarField, Self::BatchProof>, Self::Error>
@@ -987,7 +997,7 @@ where
         eqn_query_set: &QuerySet<P::Point>,
         eqn_evaluations: &Evaluations<P::Point, G::ScalarField>,
         proof: &BatchLCProof<G::ScalarField, Self::BatchProof>,
-        opening_challenges: &mut ChallengeGenerator<G::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<G::ScalarField, S>>,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where

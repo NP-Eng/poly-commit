@@ -227,7 +227,7 @@ where
         polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<E::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<PC::Commitment>>,
         query_set: &QuerySet<D>,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         rands: impl IntoIterator<Item = &'a PC::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<BatchLCProof<E::ScalarField, PC::BatchProof>, Error>
@@ -323,7 +323,7 @@ where
         query_set: &QuerySet<P::Point>,
         evaluations: &Evaluations<P::Point, E::ScalarField>,
         proof: &BatchLCProof<E::ScalarField, PC::BatchProof>,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         rng: &mut R,
     ) -> Result<bool, Error>
     where

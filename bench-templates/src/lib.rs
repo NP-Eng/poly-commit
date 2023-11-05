@@ -123,7 +123,7 @@ where
         [&labeled_poly],
         &coms,
         &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        Some(&mut ChallengeGenerator::new_univariate(&mut test_sponge())),
         &randomness,
         Some(rng),
     )
@@ -156,7 +156,7 @@ where
         [&labeled_poly],
         &coms,
         &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        Some(&mut ChallengeGenerator::new_univariate(&mut test_sponge())),
         &randomness,
         Some(rng),
     )
@@ -193,23 +193,24 @@ where
         [&labeled_poly],
         &coms,
         &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        Some(&mut ChallengeGenerator::new_univariate(&mut test_sponge())),
         &randomness,
         Some(rng),
     )
     .unwrap();
 
     let start = Instant::now();
-    PCS::check(
+    let result = PCS::check(
         &vk,
         &coms,
         &point,
         [claimed_eval],
         &proof,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        Some(&mut ChallengeGenerator::new_univariate(&mut test_sponge())),
         None,
     )
     .unwrap();
+    assert!(result);
     start.elapsed()
 }
 

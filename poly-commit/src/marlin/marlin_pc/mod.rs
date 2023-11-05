@@ -251,7 +251,7 @@ where
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<E::ScalarField, P>>,
         _commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -260,6 +260,9 @@ where
         Self::Randomness: 'a,
         Self::Commitment: 'a,
     {
+        let Some(opening_challenges) = opening_challenges else {
+            return Err(Error::MissingChallengeGenerator);
+        };
         let mut p = P::zero();
         let mut r = kzg10::Randomness::empty();
         let mut shifted_w = P::zero();
@@ -347,12 +350,16 @@ where
         point: &'a P::Point,
         values: impl IntoIterator<Item = E::ScalarField>,
         proof: &Self::Proof,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
         Self::Commitment: 'a,
     {
+        let Some(opening_challenges) = opening_challenges else {
+            return Err(Error::MissingChallengeGenerator);
+        };
+
         let check_time = start_timer!(|| "Checking evaluations");
         let (combined_comm, combined_value) =
             Marlin::<E, S, P, Self>::accumulate_commitments_and_values(
@@ -373,12 +380,16 @@ where
         query_set: &QuerySet<P::Point>,
         values: &Evaluations<E::ScalarField, P::Point>,
         proof: &Self::BatchProof,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where
         Self::Commitment: 'a,
     {
+        let Some(opening_challenges) = opening_challenges else {
+            return Err(Error::MissingChallengeGenerator);
+        };
+
         let (combined_comms, combined_queries, combined_evals) =
             Marlin::<E, S, P, Self>::combine_and_normalize(
                 commitments,
@@ -407,7 +418,7 @@ where
         polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<E::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         query_set: &QuerySet<P::Point>,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<BatchLCProof<E::ScalarField, Self::BatchProof>, Self::Error>
@@ -437,7 +448,7 @@ where
         query_set: &QuerySet<P::Point>,
         evaluations: &Evaluations<E::ScalarField, P::Point>,
         proof: &BatchLCProof<E::ScalarField, Self::BatchProof>,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where
@@ -462,7 +473,7 @@ where
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<E::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Commitment<E>>>,
         query_set: &QuerySet<P::Point>,
-        opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
+        opening_challenges: Option<&mut ChallengeGenerator<E::ScalarField, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Vec<kzg10::Proof<E>>, Error>
@@ -471,6 +482,10 @@ where
         Self::Randomness: 'a,
         Self::Commitment: 'a,
     {
+        let Some(opening_challenges) = opening_challenges else {
+            return Err(Error::MissingChallengeGenerator);
+        };
+
         let rng = &mut crate::optional_rng::OptionalRng(rng);
         let poly_rand_comm: BTreeMap<_, _> = labeled_polynomials
             .into_iter()
@@ -517,7 +532,7 @@ where
                 query_polys,
                 query_comms,
                 point,
-                opening_challenges,
+                Some(opening_challenges),
                 query_rands,
                 Some(rng),
             )?;

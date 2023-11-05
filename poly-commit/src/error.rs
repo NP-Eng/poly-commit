@@ -26,6 +26,9 @@ pub enum Error {
     /// The provided polynomial was meant to be hiding, but `rng` was `None`.
     MissingRng,
 
+    /// The challenge generator was not provided.
+    MissingChallengeGenerator,
+
     /// The degree provided in setup was too small; degree 0 polynomials
     /// are not supported.
     DegreeIsZero,
@@ -112,6 +115,7 @@ impl core::fmt::Display for Error {
                 write!(f, "Equation \"{}\" does not have a LHS.", label)
             },
             Error::MissingRng => write!(f, "hiding commitments require `Some(rng)`"),
+            Error::MissingChallengeGenerator => write!(f, "PCS with a homomorphic commitment requires a challenge generator"),
             Error::DegreeIsZero => write!(
                 f,
                 "this scheme does not support committing to degree 0 polynomials"

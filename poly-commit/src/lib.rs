@@ -216,7 +216,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        challenge_generator: Option<&mut ChallengeGenerator<F, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -232,7 +232,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         point: &'a P::Point,
         values: impl IntoIterator<Item = F>,
         proof: &Self::Proof,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        challenge_generator: Option<&mut ChallengeGenerator<F, S>>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
@@ -252,7 +252,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         query_set: &QuerySet<P::Point>,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        challenge_generator: Option<&mut ChallengeGenerator<F, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::BatchProof, Self::Error>
@@ -261,6 +261,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         Self::Randomness: 'a,
         Self::Commitment: 'a,
     {
+        let mut challenge_generator = challenge_generator;
         // The default implementation achieves proceeds by rearranging the queries in
         // order to gather (i.e. batch) all polynomials that should be queried at
         // the same point, then opening their commitments simultaneously with a
@@ -324,7 +325,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
                 query_polys,
                 query_comms,
                 &point,
-                challenge_generator,
+                challenge_generator.as_deref_mut(),
                 query_rands,
                 Some(rng),
             )?;
@@ -357,12 +358,13 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         query_set: &QuerySet<P::Point>,
         evaluations: &Evaluations<P::Point, F>,
         proof: &Self::BatchProof,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        challenge_generator: Option<&mut ChallengeGenerator<F, S>>,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where
         Self::Commitment: 'a,
     {
+        let mut challenge_generator = challenge_generator;
         // The default implementation proceeds by rearranging the queries in
         // order to gather (i.e. batch) the proofs of all polynomials that should
         // have been opened at the same point, then verifying those proofs
@@ -421,7 +423,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
                 &point,
                 values,
                 &proof,
-                challenge_generator,
+                challenge_generator.as_deref_mut(),
                 Some(rng),
             )?;
             end_timer!(proof_time);
@@ -437,7 +439,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         query_set: &QuerySet<P::Point>,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        challenge_generator: Option<&mut ChallengeGenerator<F, S>>,
         rands: impl IntoIterator<Item = &'a Self::Randomness>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<BatchLCProof<F, Self::BatchProof>, Self::Error>
@@ -482,7 +484,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         eqn_query_set: &QuerySet<P::Point>,
         eqn_evaluations: &Evaluations<P::Point, F>,
         proof: &BatchLCProof<F, Self::BatchProof>,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        challenge_generator: Option<&mut ChallengeGenerator<F, S>>,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where
@@ -732,7 +734,7 @@ pub mod tests {
                     &polynomials,
                     &comms,
                     &query_set,
-                    &mut (challenge_gen.clone()),
+                    Some(&mut (challenge_gen.clone())),
                     &rands,
                     Some(rng),
                 )?;
@@ -742,7 +744,7 @@ pub mod tests {
                     &query_set,
                     &values,
                     &proof,
-                    &mut (challenge_gen.clone()),
+                    Some(&mut (challenge_gen.clone())),
                     rng,
                 )?;
                 assert!(result, "proof was incorrect, Query set: {:#?}", query_set);
@@ -868,7 +870,7 @@ pub mod tests {
                     &polynomials,
                     &comms,
                     &query_set,
-                    &mut (challenge_gen.clone()),
+                    Some(&mut (challenge_gen.clone())),
                     &rands,
                     Some(rng),
                 )?;
@@ -878,7 +880,7 @@ pub mod tests {
                     &query_set,
                     &values,
                     &proof,
-                    &mut (challenge_gen.clone()),
+                    Some(&mut (challenge_gen.clone())),
                     rng,
                 )?;
                 if !result {
@@ -1047,7 +1049,7 @@ pub mod tests {
                     &polynomials,
                     &comms,
                     &query_set,
-                    &mut (challenge_gen.clone()),
+                    Some(&mut (challenge_gen.clone())),
                     &rands,
                     Some(rng),
                 )?;
@@ -1059,7 +1061,7 @@ pub mod tests {
                     &query_set,
                     &values,
                     &proof,
-                    &mut (challenge_gen.clone()),
+                    Some(&mut (challenge_gen.clone())),
                     rng,
                 )?;
                 if !result {
