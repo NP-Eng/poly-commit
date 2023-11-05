@@ -13,7 +13,7 @@ pub enum ChallengeGenerator<F: PrimeField, S: CryptographicSponge> {
     /// Each challenge is a power of one squeezed element from sponge.
     ///
     /// `Univariate(generator, next_element)`
-    Univariate(F, F),
+    Univariate(S, F, F),
 }
 
 impl<F: PrimeField, S: CryptographicSponge> ChallengeGenerator<F, S> {
@@ -27,7 +27,7 @@ impl<F: PrimeField, S: CryptographicSponge> ChallengeGenerator<F, S> {
     /// squeezed element from sponge.
     pub fn new_univariate(sponge: &mut S) -> Self {
         let gen = sponge.squeeze_field_elements(1)[0];
-        Self::Univariate(gen, gen)
+        Self::Univariate(sponge.to_owned(), gen, gen)
     }
 
     /// Returns a challenge of size `size`.
@@ -39,7 +39,7 @@ impl<F: PrimeField, S: CryptographicSponge> ChallengeGenerator<F, S> {
             // multivariate (full)
             Self::Multivariate(sponge) => sponge.squeeze_field_elements_with_sizes(&[size])[0],
             // univariate
-            Self::Univariate(gen, next) => {
+            Self::Univariate(_, gen, next) => {
                 let result = next.clone();
                 *next *= *gen;
                 result
@@ -52,10 +52,10 @@ impl<F: PrimeField, S: CryptographicSponge> ChallengeGenerator<F, S> {
     }
 
     /// Returns the sponge state if `self` is multivariate. Returns `None` otherwise.
-    pub fn into_sponge(self) -> Option<S> {
+    pub fn into_sponge(self) -> S {
         match self {
-            Self::Multivariate(s) => Some(s),
-            _ => None,
+            Self::Multivariate(s) => s,
+            Self::Univariate(s, _, _) => s,
         }
     }
 }
