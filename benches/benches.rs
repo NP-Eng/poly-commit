@@ -161,8 +161,8 @@ type Ligero<F> = LinearCodePCS<
     ColHasher<F>,
 >;
 
-const MIN_NUM_VARS: usize = 10;
-const MAX_NUM_VARS: usize = 20;
+const MIN_NUM_VARS: usize = 12;
+const MAX_NUM_VARS: usize = 22;
 
 fn ligero_bn254(c: &mut Criterion) {
     // only commit and open; verify is done in-circuit!
