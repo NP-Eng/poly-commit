@@ -24,8 +24,10 @@ use ark_poly_commit::{
 pub use criterion::*;
 pub use paste::paste;
 
+const SAMPLES: usize = 50;
+
 /// Measure the time cost of {commit/open/verify} across a range of num_vars
-pub fn bench_pcs_method<
+pub fn bench_commit<
     F: PrimeField,
     P: Polynomial<F>,
     PCS: PolynomialCommitment<F, P, PoseidonSponge<F>>,
@@ -33,13 +35,6 @@ pub fn bench_pcs_method<
     c: &mut Criterion,
     range: Vec<usize>,
     msg: &str,
-    method: impl Fn(
-        &PCS::CommitterKey,
-        &PCS::VerifierKey,
-        usize,
-        fn(usize, &mut ChaCha20Rng) -> P,
-        fn(usize, &mut ChaCha20Rng) -> P::Point,
-    ) -> Duration,
     rand_poly: fn(usize, &mut ChaCha20Rng) -> P,
     rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
 ) {
@@ -50,19 +45,19 @@ pub fn bench_pcs_method<
         let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
         let (ck, vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(num_vars),
-            &num_vars,
-            |b, num_vars| {
-                b.iter_custom(|i| {
-                    let mut time = Duration::from_nanos(0);
-                    for _ in 0..i {
-                        time += method(&ck, &vk, *num_vars, rand_poly, rand_point);
-                    }
-                    time
-                });
-            },
-        );
+        let labeled_polys = (0..SAMPLES)
+            .map(|_| {
+                LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None)
+            })
+            .collect::<Vec<_>>();
+
+        group.bench_function(BenchmarkId::from_parameter(num_vars), |b| {
+            let mut i = 0;
+            b.iter(|| {
+                i = (i + 1) % SAMPLES;
+                let (_, _) = PCS::commit(&ck, [&labeled_polys[i]], Some(rng)).unwrap();
+            });
+        });
     }
 
     group.finish();
@@ -263,11 +258,10 @@ macro_rules! bench_method {
     ($c:expr, $method:ident, $scheme_type:ty, $rand_poly:ident, $rand_point:ident) => {
         let scheme_type_str = stringify!($scheme_type);
         let bench_name = format!("{} {}", stringify!($method), scheme_type_str);
-        bench_pcs_method::<_, _, $scheme_type>(
+        $method::<_, _, $scheme_type>(
             $c,
             (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
             &bench_name,
-            $method::<_, _, $scheme_type>,
             $rand_poly::<_>,
             $rand_point::<_>,
         );
@@ -280,9 +274,9 @@ macro_rules! bench {
         $scheme_type:ty, $rand_poly:ident, $rand_point:ident
     ) => {
         fn bench_pcs(c: &mut Criterion) {
-            bench_method!(c, commit, $scheme_type, $rand_poly, $rand_point);
-            bench_method!(c, open, $scheme_type, $rand_poly, $rand_point);
-            bench_method!(c, verify, $scheme_type, $rand_poly, $rand_point);
+            bench_method!(c, bench_commit, $scheme_type, $rand_poly, $rand_point);
+            // bench_method!(c, open, $scheme_type, $rand_poly, $rand_point);
+            // bench_method!(c, verify, $scheme_type, $rand_poly, $rand_point);
         }
 
         criterion_group!(benches, bench_pcs);
