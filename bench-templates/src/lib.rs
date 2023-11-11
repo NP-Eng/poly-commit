@@ -36,14 +36,14 @@ pub fn bench_commit<
     range: Vec<usize>,
     msg: &str,
     rand_poly: fn(usize, &mut ChaCha20Rng) -> P,
-    rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
+    _rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
 ) {
     let mut group = c.benchmark_group(msg);
     let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
 
     for num_vars in range {
         let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
-        let (ck, vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
+        let (ck, _vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
 
         let labeled_polys = (0..SAMPLES)
             .map(|_| {
@@ -61,28 +61,6 @@ pub fn bench_commit<
     }
 
     group.finish();
-}
-
-/// Report the time cost of a commitment
-pub fn commit<
-    F: PrimeField,
-    P: Polynomial<F>,
-    PCS: PolynomialCommitment<F, P, PoseidonSponge<F>>,
->(
-    ck: &PCS::CommitterKey,
-    _vk: &PCS::VerifierKey,
-    num_vars: usize,
-    rand_poly: fn(usize, &mut ChaCha20Rng) -> P,
-    _rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
-) -> Duration {
-    let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-
-    let labeled_poly =
-        LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None);
-
-    let start = Instant::now();
-    let (_, _) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-    start.elapsed()
 }
 
 /// Report the size of a commitment
@@ -108,39 +86,59 @@ pub fn commitment_size<
     coms[0].commitment().serialized_size(Compress::No)
 }
 
-/// Report the time cost of an opening
-pub fn open<F, P, PCS>(
-    ck: &PCS::CommitterKey,
-    _vk: &PCS::VerifierKey,
-    num_vars: usize,
-    rand_poly: fn(usize, &mut ChaCha20Rng) -> P,
-    rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
-) -> Duration
-where
+/// Measure the time cost of {commit/open/verify} across a range of num_vars
+pub fn bench_open<
     F: PrimeField,
     P: Polynomial<F>,
     PCS: PolynomialCommitment<F, P, PoseidonSponge<F>>,
-{
+>(
+    c: &mut Criterion,
+    range: Vec<usize>,
+    msg: &str,
+    rand_poly: fn(usize, &mut ChaCha20Rng) -> P,
+    rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
+) {
+    let mut group = c.benchmark_group(msg);
     let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
 
-    let labeled_poly =
-        LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None);
+    for num_vars in range {
+        let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
+        let (ck, _vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
 
-    let (coms, randomness) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-    let point = rand_point(num_vars, rng);
+        let labeled_polys = (0..SAMPLES)
+            .map(|_| {
+                LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None)
+            })
+            .collect::<Vec<_>>();
 
-    let start = Instant::now();
-    let _ = PCS::open(
-        &ck,
-        [&labeled_poly],
-        &coms,
-        &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
-        &randomness,
-        Some(rng),
-    )
-    .unwrap();
-    start.elapsed()
+        // refactor the above but with a loop that commits to the right poly
+        let (coms, randomness): (Vec<_>, Vec<_>) = (0..SAMPLES)
+            .map(|i| PCS::commit(&ck, [&labeled_polys[i]], Some(rng)).unwrap())
+            .unzip();
+
+        let points = (0..SAMPLES)
+            .map(|_| rand_point(num_vars, rng))
+            .collect::<Vec<_>>();
+
+        group.bench_function(BenchmarkId::from_parameter(num_vars), |b| {
+            let mut i = 0;
+            b.iter(|| {
+                i = (i + 1) % SAMPLES;
+                let _ = PCS::open(
+                    &ck,
+                    [&labeled_polys[i]],
+                    &coms[i],
+                    &points[i],
+                    &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+                    &randomness[i],
+                    Some(rng),
+                )
+                .unwrap();
+            });
+        });
+    }
+
+    group.finish();
 }
 
 /// Report the size of a proof
@@ -177,6 +175,79 @@ where
     let bproof: PCS::BatchProof = vec![proofs].into();
 
     bproof.serialized_size(Compress::No)
+}
+
+pub fn bench_verify<
+    F: PrimeField,
+    P: Polynomial<F>,
+    PCS: PolynomialCommitment<F, P, PoseidonSponge<F>>,
+>(
+    c: &mut Criterion,
+    range: Vec<usize>,
+    msg: &str,
+    rand_poly: fn(usize, &mut ChaCha20Rng) -> P,
+    rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
+) {
+    let mut group = c.benchmark_group(msg);
+    let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+
+    for num_vars in range {
+        let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
+        let (ck, vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
+
+        let labeled_polys = (0..SAMPLES)
+            .map(|_| {
+                LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None)
+            })
+            .collect::<Vec<_>>();
+
+        // refactor the above but with a loop that commits to the right poly
+        let (coms, randomness): (Vec<_>, Vec<_>) = (0..SAMPLES)
+            .map(|i| PCS::commit(&ck, [&labeled_polys[i]], Some(rng)).unwrap())
+            .unzip();
+
+        let points = (0..SAMPLES)
+            .map(|_| rand_point(num_vars, rng))
+            .collect::<Vec<_>>();
+
+        let claimed_evals = (0..SAMPLES)
+            .map(|i| labeled_polys[i].evaluate(&points[i]))
+            .collect::<Vec<_>>();
+
+        let proofs = (0..SAMPLES)
+            .map(|i| {
+                PCS::open(
+                    &ck,
+                    [&labeled_polys[i]],
+                    &coms[i],
+                    &points[i],
+                    &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+                    &randomness[i],
+                    Some(rng),
+                )
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        group.bench_function(BenchmarkId::from_parameter(num_vars), |b| {
+            let mut i = 0;
+            b.iter(|| {
+                i = (i + 1) % SAMPLES;
+                PCS::check(
+                    &vk,
+                    &coms[i],
+                    &points[i],
+                    [claimed_evals[i]],
+                    &proofs[i],
+                    &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+                    None,
+                )
+                .unwrap();
+            });
+        });
+    }
+
+    group.finish();
 }
 
 /// Report the time cost of a verification
@@ -275,8 +346,8 @@ macro_rules! bench {
     ) => {
         fn bench_pcs(c: &mut Criterion) {
             bench_method!(c, bench_commit, $scheme_type, $rand_poly, $rand_point);
-            // bench_method!(c, open, $scheme_type, $rand_poly, $rand_point);
-            // bench_method!(c, verify, $scheme_type, $rand_poly, $rand_point);
+            bench_method!(c, bench_open, $scheme_type, $rand_poly, $rand_point);
+            bench_method!(c, bench_verify, $scheme_type, $rand_poly, $rand_point);
         }
 
         criterion_group!(benches, bench_pcs);
