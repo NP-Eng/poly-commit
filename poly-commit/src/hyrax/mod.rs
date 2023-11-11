@@ -253,8 +253,6 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         let rng_inner = rng.expect("Committing to polynomials requires a random generator");
 
         for l_poly in polynomials {
-            // let mut com_rands = Vec::new();
-
             let label = l_poly.label();
             let poly = l_poly.polynomial();
 
