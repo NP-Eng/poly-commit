@@ -3,7 +3,7 @@ use core::borrow::Borrow;
 use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
 
-use ark_crypto_primitives::{crh::CRHScheme, merkle_tree::Config};
+use ark_crypto_primitives::crh::CRHScheme;
 use ark_ff::{Field, PrimeField};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -114,18 +114,14 @@ pub(crate) fn get_num_bytes(n: usize) -> usize {
 }
 
 #[inline]
-pub(crate) fn hash_column<F, C, H>(array: Vec<F>, params: &H::Parameters) -> Result<C::Leaf, Error>
+pub(crate) fn hash_column<F, H>(array: Vec<F>, params: &H::Parameters) -> Result<H::Output, Error>
 where
     F: PrimeField,
-    C: Config,
     H: CRHScheme,
     Vec<F>: Borrow<<H as CRHScheme>::Input>,
-    C::Leaf: Sized,
-    H::Output: Into<C::Leaf>,
 {
-    H::evaluate(params, array)
-        .map_err(|_| Error::HashingError)
-        .map(|x| x.into())
+    H::evaluate(params, array).map_err(|_| Error::HashingError)
+    // .map(|x| x.into())
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`

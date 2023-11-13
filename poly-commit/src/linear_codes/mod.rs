@@ -171,7 +171,7 @@ where
 
     type Commitment = LinCodePCCommitment<C>;
 
-    type Randomness = LinCodePCRandomness;
+    type CommitmentState = LinCodePCCommitmentState;
 
     type Proof = LPCPArray<F, C>;
 
@@ -226,7 +226,7 @@ where
     ) -> Result<
         (
             Vec<LabeledCommitment<Self::Commitment>>,
-            Vec<Self::Randomness>,
+            Vec<Self::CommitmentState>,
         ),
         Self::Error,
     >
@@ -243,11 +243,18 @@ where
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck);
 
             // 2. Create the Merkle tree from the hashes of each column.
-            let col_tree = create_merkle_tree::<F, C, H>(
-                &ext_mat,
+            let ext_mat_cols = ext_mat.cols();
+            let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
+                .map(|col| {
+                    hash_column::<F, H>(col, &ck.col_hash_params())
+                        .unwrap()
+                        .into()
+                })
+                .collect();
+            let col_tree = create_merkle_tree::<F, C>(
+                &mut col_hashes,
                 ck.leaf_hash_params(),
                 ck.two_to_one_params(),
-                ck.col_hash_params(),
             )?;
 
             // 3. Obtain the MT root and add it to the transcript.
@@ -289,12 +296,12 @@ where
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
         _challenge_generator: &mut crate::challenge::ChallengeGenerator<F, S>,
-        _rands: impl IntoIterator<Item = &'a Self::Randomness>,
+        _rands: impl IntoIterator<Item = &'a Self::CommitmentState>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
     where
         P: 'a,
-        Self::Randomness: 'a,
+        Self::CommitmentState: 'a,
         Self::Commitment: 'a,
     {
         let mut proof_array = LPCPArray::default();
@@ -323,11 +330,18 @@ where
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck);
 
             // 2. Create the Merkle tree from the hashes of each column.
-            let col_tree = create_merkle_tree::<F, C, H>(
-                &ext_mat,
+            let ext_mat_cols = ext_mat.cols();
+            let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
+                .map(|col| {
+                    hash_column::<F, H>(col, &ck.col_hash_params())
+                        .unwrap()
+                        .into()
+                })
+                .collect();
+            let col_tree = create_merkle_tree::<F, C>(
+                &mut col_hashes,
                 ck.leaf_hash_params(),
                 ck.two_to_one_params(),
-                ck.col_hash_params(),
             )?;
 
             // 3. Generate vector `b` to left-multiply the matrix.
@@ -470,7 +484,11 @@ where
                 .opening
                 .columns
                 .iter()
-                .map(|c| hash_column::<F, C, H>(c.clone(), vk.col_hash_params()).unwrap())
+                .map(|c| {
+                    hash_column::<F, H>(c.clone(), vk.col_hash_params())
+                        .unwrap()
+                        .into()
+                })
                 .collect();
 
             // 4. Verify the paths for each of the leaf hashes - this is only run once,
@@ -539,25 +557,20 @@ where
 }
 
 // TODO maybe this can go to utils
-fn create_merkle_tree<F, C, H>(
-    ext_mat: &Matrix<F>,
+fn create_merkle_tree<F, C>(
+    col_hashes: &mut Vec<C::Leaf>,
     leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters,
     two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
-    col_hash_params: &H::Parameters,
 ) -> Result<MerkleTree<C>, Error>
 where
     F: PrimeField,
     C: Config,
-    H: CRHScheme,
-    Vec<F>: Borrow<<H as CRHScheme>::Input>,
-    H::Output: Into<C::Leaf>,
     C::Leaf: Default + Clone + Send,
 {
-    let ext_mat_cols = ext_mat.cols();
-
-    let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
-        .map(|col| hash_column::<F, C, H>(col, &col_hash_params).unwrap())
-        .collect();
+    // let ext_mat_cols = ext_mat.cols();
+    // let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
+    //     .map(|col| hash_column::<F, C, H>(col, &col_hash_params).unwrap())
+    //     .collect();
 
     // pad the column hashes with zeroes
     let next_pow_of_two = col_hashes.len().next_power_of_two();

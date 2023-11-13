@@ -1,5 +1,5 @@
 use super::utils::SprsMat;
-use crate::{PCCommitment, PCRandomness};
+use crate::{PCCommitment, PCCommitmentState};
 use ark_crypto_primitives::{
     crh::CRHScheme,
     merkle_tree::{Config, LeafParam, Path, TwoToOneParam},
@@ -88,9 +88,9 @@ impl<C: Config> PCCommitment for LinCodePCCommitment<C> {
     }
 }
 
-pub(crate) type LinCodePCRandomness = ();
+pub(crate) type LinCodePCCommitmentState = ();
 
-impl PCRandomness for LinCodePCRandomness {
+impl PCCommitmentState for LinCodePCCommitmentState {
     fn empty() -> Self {
         unimplemented!()
     }
