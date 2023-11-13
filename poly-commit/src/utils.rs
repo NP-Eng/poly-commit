@@ -54,7 +54,8 @@ pub(crate) fn ceil_div(x: usize, y: usize) -> usize {
 pub struct Matrix<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,
-    entries: Vec<Vec<F>>,
+    row_major: Vec<Vec<F>>,
+    col_major: Vec<Vec<F>>,
 }
 
 impl<F: Field> Matrix<F> {
@@ -74,32 +75,48 @@ impl<F: Field> Matrix<F> {
         );
 
         // TODO more efficient to run linearly?
-        let entries: Vec<Vec<F>> = (0..n)
+        let row_major: Vec<Vec<F>> = (0..n)
             .map(|row| (0..m).map(|col| entry_list[m * row + col]).collect())
             .collect();
+        let col_major = (0..m)
+            .map(|col| (0..n).map(|row| row_major[row][col]).collect())
+            .collect();
 
-        Self { n, m, entries }
+        Self {
+            n,
+            m,
+            row_major,
+            col_major,
+        }
     }
 
     /// Returns a Matrix given a list of its rows, each in turn represented as a list of field elements.
     ///
     /// # Panics
     /// Panics if the sub-lists do not all have the same length.
-    pub(crate) fn new_from_rows(row_list: Vec<Vec<F>>) -> Self {
-        let m = row_list[0].len();
+    pub(crate) fn new_from_rows(row_major: Vec<Vec<F>>) -> Self {
+        let m = row_major[0].len();
 
-        for row in row_list.iter().skip(1) {
+        for row in row_major.iter().skip(1) {
             assert_eq!(
                 row.len(),
                 m,
                 "Invalid matrix construction: not all rows have the same length"
             );
         }
+        let col_major = (0..m)
+            .map(|col| {
+                (0..row_major.len())
+                    .map(|row| row_major[row][col])
+                    .collect()
+            })
+            .collect();
 
         Self {
-            n: row_list.len(),
+            n: row_major.len(),
             m,
-            entries: row_list,
+            row_major,
+            col_major,
         }
     }
 
@@ -110,19 +127,17 @@ impl<F: Field> Matrix<F> {
     /// Index bound checks are waived for efficiency and behaviour under invalid indexing is undefined
     #[cfg(test)]
     pub(crate) fn entry(&self, i: usize, j: usize) -> F {
-        self.entries[i][j]
+        self.row_major[i][j]
     }
 
     /// Returns self as a list of rows
-    pub(crate) fn rows(&self) -> Vec<Vec<F>> {
-        self.entries.clone()
+    pub(crate) fn rows(&self) -> &Vec<Vec<F>> {
+        &self.row_major
     }
 
     /// Returns self as a list of columns
-    pub(crate) fn cols(&self) -> Vec<Vec<F>> {
-        (0..self.m)
-            .map(|col| (0..self.n).map(|row| self.entries[row][col]).collect())
-            .collect()
+    pub(crate) fn cols(&self) -> &Vec<Vec<F>> {
+        &self.col_major
     }
 
     /// Returns the product v * self, where v is interpreted as a row vector. In other words,
@@ -142,9 +157,7 @@ impl<F: Field> Matrix<F> {
             .map(|col| {
                 inner_product(
                     v,
-                    &(0..self.n)
-                        .map(|row| self.entries[row][col])
-                        .collect::<Vec<F>>(),
+                    &self.col_major[col],
                 )
             })
             .collect()

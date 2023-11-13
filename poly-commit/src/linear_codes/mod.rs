@@ -553,10 +553,15 @@ where
     H::Output: Into<C::Leaf>,
     C::Leaf: Default + Clone + Send,
 {
-    let ext_mat_cols = ext_mat.cols();
+    let ext_mat_cols = ext_mat.cols().clone();
 
     let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
-        .map(|col| hash_column::<F, C, H>(col, &col_hash_params).unwrap())
+        .map(|col| {
+            H::evaluate(col_hash_params, col)
+                .map_err(|_| Error::HashingError)
+                .map(|x| x.into())
+                .unwrap()
+        })
         .collect();
 
     // pad the column hashes with zeroes
