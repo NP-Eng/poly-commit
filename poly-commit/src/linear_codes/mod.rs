@@ -159,9 +159,9 @@ where
     S: CryptographicSponge,
     C: Config + 'static,
     Vec<F>: Borrow<<H as CRHScheme>::Input>,
-    H::Output: Into<C::Leaf>,
+    H::Output: Into<C::Leaf> + Send,
     C::Leaf: Sized + Clone + Default + Send,
-    H: CRHScheme,
+    H: CRHScheme + 'static,
 {
     type UniversalParams = L::LinCodePCParams;
 
@@ -171,7 +171,7 @@ where
 
     type Commitment = LinCodePCCommitment<C>;
 
-    type CommitmentState = LinCodePCCommitmentState;
+    type CommitmentState = LinCodePCCommitmentState<F, H>;
 
     type Proof = LPCPArray<F, C>;
 
@@ -234,6 +234,7 @@ where
         P: 'a,
     {
         let mut commitments = Vec::new();
+        let mut states = Vec::new();
 
         for labeled_polynomial in polynomials.into_iter() {
             let polynomial = labeled_polynomial.polynomial();
@@ -244,13 +245,15 @@ where
 
             // 2. Create the Merkle tree from the hashes of each column.
             let ext_mat_cols = ext_mat.cols();
-            let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
-                .map(|col| {
-                    hash_column::<F, H>(col, &ck.col_hash_params())
-                        .unwrap()
-                        .into()
-                })
+            let col_hashes: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
+                .map(|col| hash_column::<F, H>(col, &ck.col_hash_params()).unwrap())
                 .collect();
+            states.push(Self::CommitmentState {
+                mat: mat.rows(),
+                ext_mat: ext_mat.rows(),
+                col_hashes: col_hashes.clone(),
+            });
+            let mut col_hashes: Vec<C::Leaf> = col_hashes.into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
             let col_tree = create_merkle_tree::<F, C>(
                 &mut col_hashes,
                 ck.leaf_hash_params(),
@@ -286,8 +289,7 @@ where
                 None,
             ));
         }
-        let com_len = &commitments.len();
-        Ok((commitments, vec![(); *com_len]))
+        Ok((commitments, states))
     }
 
     fn open<'a>(
@@ -296,7 +298,7 @@ where
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
         _challenge_generator: &mut crate::challenge::ChallengeGenerator<F, S>,
-        _rands: impl IntoIterator<Item = &'a Self::CommitmentState>,
+        states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
     where
@@ -309,6 +311,7 @@ where
             commitments.into_iter().collect();
         let labeled_polynomials: Vec<&'a LabeledPolynomial<F, P>> =
             labeled_polynomials.into_iter().collect();
+        let states: Vec<&'a Self::CommitmentState> = states.into_iter().collect();
 
         if labeled_commitments.len() != labeled_polynomials.len() {
             return Err(Error::IncorrectInputLength(format!(
@@ -319,25 +322,23 @@ where
         }
 
         for i in 0..labeled_polynomials.len() {
-            let polynomial = labeled_polynomials[i].polynomial();
             let commitment = labeled_commitments[i].commitment();
             let n_rows = commitment.metadata.n_rows;
             let n_cols = commitment.metadata.n_cols;
             let root = &commitment.root;
-
+            
             // 1. Arrange the coefficients of the polynomial into a matrix,
             // and apply encoding to get `ext_mat`.
-            let (mat, ext_mat) = L::compute_matrices(polynomial, ck);
-
             // 2. Create the Merkle tree from the hashes of each column.
-            let ext_mat_cols = ext_mat.cols();
-            let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
-                .map(|col| {
-                    hash_column::<F, H>(col, &ck.col_hash_params())
-                        .unwrap()
-                        .into()
-                })
-                .collect();
+            let Self::CommitmentState {
+                mat,
+                ext_mat,
+                col_hashes,
+            } = states[i].clone();
+            let mat = Matrix::new_from_rows(mat);
+            let ext_mat = Matrix::new_from_rows(ext_mat);
+            let mut col_hashes: Vec<C::Leaf> = col_hashes.into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
+            
             let col_tree = create_merkle_tree::<F, C>(
                 &mut col_hashes,
                 ck.leaf_hash_params(),

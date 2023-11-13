@@ -88,9 +88,23 @@ impl<C: Config> PCCommitment for LinCodePCCommitment<C> {
     }
 }
 
-pub(crate) type LinCodePCCommitmentState = ();
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
+pub struct LinCodePCCommitmentState<F, H>
+where
+    F: PrimeField,
+    H: CRHScheme,
+{
+    pub(crate) mat: Vec<Vec<F>>,
+    pub(crate) ext_mat: Vec<Vec<F>>,
+    pub(crate) col_hashes: Vec<H::Output>,
+}
 
-impl PCCommitmentState for LinCodePCCommitmentState {
+impl<F, H> PCCommitmentState for LinCodePCCommitmentState<F, H>
+where
+    F: PrimeField,
+    H: CRHScheme,
+{
     fn empty() -> Self {
         unimplemented!()
     }
