@@ -1,11 +1,6 @@
-use core::borrow::Borrow;
-
 use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
-
-use ark_crypto_primitives::crh::CRHScheme;
 use ark_ff::{Field, PrimeField};
-
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
@@ -16,7 +11,8 @@ use num_traits::Float;
 #[cfg(any(feature = "benches", test))]
 use {
     crate::to_bytes,
-    ark_std::{marker::PhantomData, rand::RngCore},
+    ark_crypto_primitives::crh::CRHScheme,
+    ark_std::{borrow::Borrow, marker::PhantomData, rand::RngCore},
     digest::Digest,
 };
 
@@ -111,16 +107,6 @@ impl<F: Field> SprsMat<F> {
 #[inline]
 pub(crate) fn get_num_bytes(n: usize) -> usize {
     ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
-}
-
-#[inline]
-pub(crate) fn hash_column<F, H>(array: Vec<F>, params: &H::Parameters) -> Result<H::Output, Error>
-where
-    F: PrimeField,
-    H: CRHScheme,
-    Vec<F>: Borrow<<H as CRHScheme>::Input>,
-{
-    H::evaluate(params, array).map_err(|_| Error::HashingError)
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`

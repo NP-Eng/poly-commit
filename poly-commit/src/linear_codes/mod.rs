@@ -32,7 +32,7 @@ pub use data_structures::LinCodePCProof;
 #[cfg(any(feature = "benches", test))]
 pub use utils::{FieldToBytesColHasher, LeafIdentityHasher};
 
-use utils::{calculate_t, get_indices_from_transcript, hash_column};
+use utils::{calculate_t, get_indices_from_transcript};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
@@ -57,10 +57,12 @@ where
     fn compute_dimensions(&self, n: usize) -> (usize, usize);
 
     /// Get the hash parameters for obtaining leaf digest from leaf value.
-    fn leaf_hash_params(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters;
+    fn leaf_hash_param(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters;
 
     /// Get the parameters for hashing nodes in the merkle tree.
-    fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters;
+    fn two_to_one_hash_param(
+        &self,
+    ) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters;
 
     /// Get the parameters for hashing a vector of values,
     /// representing a column of the coefficient matrix, into a leaf value.
@@ -242,22 +244,30 @@ where
             // 1. Arrange the coefficients of the polynomial into a matrix,
             // and apply encoding to get `ext_mat`.
             let (mat, ext_mat) = L::compute_matrices(polynomial, ck);
+            let n_rows = mat.n;
+            let n_cols = mat.m;
+            let n_ext_cols = ext_mat.m;
 
             // 2. Create the Merkle tree from the hashes of each column.
             let ext_mat_cols = ext_mat.cols();
-            let col_hashes: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
-                .map(|col| hash_column::<F, H>(col, &ck.col_hash_params()).unwrap())
+            let leaves: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
+                .map(|col| {
+                    H::evaluate(ck.col_hash_params(), col)
+                        .map_err(|_| Error::HashingError)
+                        .unwrap()
+                })
                 .collect();
-            states.push(Self::CommitmentState {
-                mat: mat.rows(),
-                ext_mat: ext_mat.rows(),
-                col_hashes: col_hashes.clone(),
-            });
-            let mut col_hashes: Vec<C::Leaf> = col_hashes.into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
-            let col_tree = create_merkle_tree::<F, C>(
-                &mut col_hashes,
-                ck.leaf_hash_params(),
-                ck.two_to_one_params(),
+            let state = Self::CommitmentState {
+                mat,
+                ext_mat,
+                leaves,
+            };
+            let mut leaves: Vec<C::Leaf> =
+                state.leaves.clone().into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
+            let col_tree = create_merkle_tree::<C>(
+                &mut leaves,
+                ck.leaf_hash_param(),
+                ck.two_to_one_hash_param(),
             )?;
 
             // 3. Obtain the MT root and add it to the transcript.
@@ -268,10 +278,6 @@ where
             transcript
                 .append_serializable_element(b"root", &root)
                 .map_err(|_| Error::TranscriptError)?;
-
-            let n_rows = mat.n;
-            let n_cols = mat.m;
-            let n_ext_cols = ext_mat.m;
 
             // 4. The commitment is just the root, but since each commitment could be to a differently-sized polynomial, we also add some metadata.
             let commitment = LinCodePCCommitment {
@@ -288,6 +294,7 @@ where
                 commitment,
                 None,
             ));
+            states.push(state);
         }
         Ok((commitments, states))
     }
@@ -333,16 +340,15 @@ where
             let Self::CommitmentState {
                 mat,
                 ext_mat,
-                col_hashes,
-            } = states[i].clone();
-            let mat = Matrix::new_from_rows(mat);
-            let ext_mat = Matrix::new_from_rows(ext_mat);
-            let mut col_hashes: Vec<C::Leaf> = col_hashes.into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
+                leaves: col_hashes,
+            } = states[i];
+            let mut col_hashes: Vec<C::Leaf> =
+                col_hashes.clone().into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
 
-            let col_tree = create_merkle_tree::<F, C>(
+            let col_tree = create_merkle_tree::<C>(
                 &mut col_hashes,
-                ck.leaf_hash_params(),
-                ck.two_to_one_params(),
+                ck.leaf_hash_param(),
+                ck.two_to_one_hash_param(),
             )?;
 
             // 3. Generate vector `b` to left-multiply the matrix.
@@ -424,9 +430,9 @@ where
             ));
         }
         let leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
-            vk.leaf_hash_params();
+            vk.leaf_hash_param();
         let two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
-            vk.two_to_one_params();
+            vk.two_to_one_hash_param();
 
         for (i, labeled_commitment) in labeled_commitments.iter().enumerate() {
             let commitment = labeled_commitment.commitment();
@@ -486,7 +492,8 @@ where
                 .columns
                 .iter()
                 .map(|c| {
-                    hash_column::<F, H>(c.clone(), vk.col_hash_params())
+                    H::evaluate(vk.col_hash_params(), c.clone())
+                        .map_err(|_| Error::HashingError)
                         .unwrap()
                         .into()
                 })
@@ -558,21 +565,20 @@ where
 }
 
 // TODO maybe this can go to utils
-fn create_merkle_tree<F, C>(
-    col_hashes: &mut Vec<C::Leaf>,
-    leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters,
-    two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
+fn create_merkle_tree<C>(
+    leaves: &mut Vec<C::Leaf>,
+    leaf_hash_param: &<<C as Config>::LeafHash as CRHScheme>::Parameters,
+    two_to_one_hash_param: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
 ) -> Result<MerkleTree<C>, Error>
 where
-    F: PrimeField,
     C: Config,
     C::Leaf: Default + Clone + Send,
 {
     // pad the column hashes with zeroes
-    let next_pow_of_two = col_hashes.len().next_power_of_two();
-    col_hashes.resize(next_pow_of_two, <C::Leaf>::default());
+    let next_pow_of_two = leaves.len().next_power_of_two();
+    leaves.resize(next_pow_of_two, <C::Leaf>::default());
 
-    MerkleTree::<C>::new(leaf_hash_params, two_to_one_params, col_hashes)
+    MerkleTree::<C>::new(leaf_hash_param, two_to_one_hash_param, leaves)
         .map_err(|_| Error::HashingError)
 }
 
