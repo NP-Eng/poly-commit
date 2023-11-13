@@ -89,8 +89,8 @@ where
         max_degree: usize,
         num_vars: Option<usize>,
         rng: &mut R,
-        leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
-        two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
+        leaf_hash_param: <<C as Config>::LeafHash as CRHScheme>::Parameters,
+        two_to_one_hash_param: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
         col_hash_params: H::Parameters,
     ) -> Self::LinCodePCParams;
 
@@ -189,8 +189,8 @@ where
         num_vars: Option<usize>,
         rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
-        let leaf_hash_params = <C::LeafHash as CRHScheme>::setup(rng).unwrap();
-        let two_to_one_params = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
+        let leaf_hash_param = <C::LeafHash as CRHScheme>::setup(rng).unwrap();
+        let two_to_one_hash_param = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
             .unwrap()
             .clone();
         let col_hash_params = <H as CRHScheme>::setup(rng).unwrap();
@@ -198,8 +198,8 @@ where
             max_degree,
             num_vars,
             rng,
-            leaf_hash_params,
-            two_to_one_params,
+            leaf_hash_param,
+            two_to_one_hash_param,
             col_hash_params,
         );
         let real_max_degree = <Self::UniversalParams as PCUniversalParams>::max_degree(&pp);
@@ -263,7 +263,7 @@ where
                 leaves,
             };
             let mut leaves: Vec<C::Leaf> =
-                state.leaves.clone().into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
+                state.leaves.clone().into_iter().map(|h| h.into()).collect();
             let col_tree = create_merkle_tree::<C>(
                 &mut leaves,
                 ck.leaf_hash_param(),
@@ -343,7 +343,7 @@ where
                 leaves: col_hashes,
             } = states[i];
             let mut col_hashes: Vec<C::Leaf> =
-                col_hashes.clone().into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
+                col_hashes.clone().into_iter().map(|h| h.into()).collect();
 
             let col_tree = create_merkle_tree::<C>(
                 &mut col_hashes,
@@ -429,9 +429,9 @@ where
                 )
             ));
         }
-        let leaf_hash_params: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
+        let leaf_hash_param: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
             vk.leaf_hash_param();
-        let two_to_one_params: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
+        let two_to_one_hash_param: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
             vk.two_to_one_hash_param();
 
         for (i, labeled_commitment) in labeled_commitments.iter().enumerate() {
@@ -508,7 +508,7 @@ where
                     return Err(Error::InvalidCommitment);
                 }
 
-                path.verify(leaf_hash_params, two_to_one_params, root, leaf.clone())
+                path.verify(leaf_hash_param, two_to_one_hash_param, root, leaf.clone())
                     .map_err(|_| Error::InvalidCommitment)?;
             }
 

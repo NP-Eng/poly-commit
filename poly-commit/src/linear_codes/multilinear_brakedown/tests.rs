@@ -86,8 +86,8 @@ mod tests {
         let mut rng = &mut test_rng();
         let num_vars = 11;
         // just to make sure we have the right degree given the FFT domain for our field
-        let leaf_hash_params = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
-        let two_to_one_params = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
+        let leaf_hash_param = <LeafH as CRHScheme>::setup(&mut rng).unwrap();
+        let two_to_one_hash_param = <CompressH as TwoToOneCRHScheme>::setup(&mut rng)
             .unwrap()
             .clone();
         let col_hash_params = <ColHasher<Fr, Blake2s256> as CRHScheme>::setup(&mut rng).unwrap();
@@ -98,8 +98,8 @@ mod tests {
                 rng,
                 1 << num_vars,
                 check_well_formedness,
-                leaf_hash_params,
-                two_to_one_params,
+                leaf_hash_param,
+                two_to_one_hash_param,
                 col_hash_params,
             );
 

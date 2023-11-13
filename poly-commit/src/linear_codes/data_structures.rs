@@ -51,10 +51,10 @@ pub struct BrakedownPCParams<F: PrimeField, C: Config, H: CRHScheme> {
     pub(crate) check_well_formedness: bool,
     /// Parameters for hash function of Merkle tree leaves
     #[derivative(Debug = "ignore")]
-    pub(crate) leaf_hash_params: LeafParam<C>,
+    pub(crate) leaf_hash_param: LeafParam<C>,
     /// Parameters for hash function of Merke tree combining two nodes into one
     #[derivative(Debug = "ignore")]
-    pub(crate) two_to_one_params: TwoToOneParam<C>,
+    pub(crate) two_to_one_hash_param: TwoToOneParam<C>,
     // Parameters for obtaining leaf digest from leaf value.
     #[derivative(Debug = "ignore")]
     pub(crate) col_hash_params: H::Parameters,
