@@ -121,7 +121,6 @@ where
     Vec<F>: Borrow<<H as CRHScheme>::Input>,
 {
     H::evaluate(params, array).map_err(|_| Error::HashingError)
-    // .map(|x| x.into())
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`
