@@ -131,13 +131,8 @@ where
     let labeled_poly =
         LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None);
 
-<<<<<<< HEAD
-    let (coms, randomness) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-    let point = rand_point(num_vars, rng);
-=======
     let (coms, states) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
-    let point = P::Point::rand(rng);
->>>>>>> aux-data
+    let point = rand_point(num_vars, rng);
 
     let start = Instant::now();
     let _ = PCS::open(
