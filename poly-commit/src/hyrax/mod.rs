@@ -448,7 +448,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         vk: &Self::VerifierKey,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        values: impl IntoIterator<Item = G::ScalarField>,
+        _values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
         // Not used and not generic on the cryptographic sponge S
         _opening_challenges: &mut ChallengeGenerator<
@@ -480,10 +480,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         let l = tensor_prime(point_lower);
         let r = tensor_prime(point_upper);
 
-        for (com, (_, h_proof)) in commitments
-            .into_iter()
-            .zip(values.into_iter().zip(proof.iter()))
-        {
+        for (com, h_proof) in commitments.into_iter().zip(proof.iter()) {
             let row_coms = &com.commitment().row_coms;
 
             // extract each field from h_proof
