@@ -36,7 +36,7 @@ pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
 /// [[WTsTW17]][hyrax].
 ///
 /// [hyrax]: https://eprint.iacr.org/2017/1132.pdf
-/// 
+///
 /// ### Future optimisations
 ///
 /// - Add parallelisation. There is at least one natural place where
