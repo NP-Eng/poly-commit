@@ -1,9 +1,11 @@
-#![cfg(feature = "benches")]
 use std::{borrow::Borrow, marker::PhantomData};
 
 use ark_ff::PrimeField;
-use ark_std::{rand::RngCore, test_rng};
-use criterion::{criterion_group, criterion_main, Criterion};
+use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_std::{
+    rand::{Rng, RngCore},
+    test_rng,
+};
 
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
@@ -15,11 +17,10 @@ use ark_crypto_primitives::{
     Error,
 };
 
-use ark_poly_commit::{
-    bench_templates::{bench_pcs_method, commit, open, verify, MLE},
-    linear_codes::{LinearCodePCS, MultilinearLigero},
-};
+use ark_pcs_bench_templates::*;
+use ark_poly_commit::linear_codes::{LinearCodePCS, MultilinearLigero};
 
+pub type MLE<F> = DenseMultilinearExtension<F>;
 /// Generate default parameters for alpha = 17, state-size = 8
 ///
 /// WARNING: This poseidon parameter is not secure. Please generate
@@ -164,27 +165,8 @@ type Ligero<F> = LinearCodePCS<
 const MIN_NUM_VARS: usize = 12;
 const MAX_NUM_VARS: usize = 22;
 
-fn ligero_bn254(c: &mut Criterion) {
-    // only commit and open; verify is done in-circuit!
-    bench_pcs_method::<_, Ligero<Fr254>>(
-        c,
-        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
-        "commit_ligero_range_BN_254",
-        commit::<_, Ligero<Fr254>>,
-    );
-    bench_pcs_method::<_, Ligero<Fr254>>(
-        c,
-        (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2).collect(),
-        "open_ligero_range_BN_254",
-        open::<_, Ligero<Fr254>>,
-    );
+fn rand_ml_poly<F: PrimeField>(num_vars: usize, rng: &mut impl Rng) -> MLE<F> {
+    MLE::rand(num_vars, rng)
 }
 
-criterion_group! {
-    name = ligero_benches;
-    config = Criterion::default();
-    targets =
-        ligero_bn254,
-}
-
-criterion_main!(ligero_benches);
+bench!(Ligero<Fr254>, rand_ml_poly);
