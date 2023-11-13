@@ -326,7 +326,7 @@ where
             let n_rows = commitment.metadata.n_rows;
             let n_cols = commitment.metadata.n_cols;
             let root = &commitment.root;
-            
+
             // 1. Arrange the coefficients of the polynomial into a matrix,
             // and apply encoding to get `ext_mat`.
             // 2. Create the Merkle tree from the hashes of each column.
@@ -338,7 +338,7 @@ where
             let mat = Matrix::new_from_rows(mat);
             let ext_mat = Matrix::new_from_rows(ext_mat);
             let mut col_hashes: Vec<C::Leaf> = col_hashes.into_iter().map(|h| h.into()).collect(); // TODO cfg_inter
-            
+
             let col_tree = create_merkle_tree::<F, C>(
                 &mut col_hashes,
                 ck.leaf_hash_params(),
