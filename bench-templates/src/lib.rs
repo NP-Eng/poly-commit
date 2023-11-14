@@ -201,7 +201,7 @@ where
 
     let labeled_poly =
         LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None);
-    
+
     let (coms, states) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
     let point = rand_point(num_vars, rng);
 
