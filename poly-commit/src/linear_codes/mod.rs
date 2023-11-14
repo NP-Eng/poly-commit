@@ -238,7 +238,7 @@ where
         let mut commitments = Vec::new();
         let mut states = Vec::new();
 
-        for labeled_polynomial in polynomials.into_iter() {
+        for labeled_polynomial in polynomials {
             let polynomial = labeled_polynomial.polynomial();
 
             // 1. Arrange the coefficients of the polynomial into a matrix,
