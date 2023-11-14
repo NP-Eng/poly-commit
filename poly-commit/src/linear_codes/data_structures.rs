@@ -1,4 +1,4 @@
-use crate::{PCCommitment, PCCommitmentState};
+use crate::{utils::Matrix, PCCommitment, PCCommitmentState};
 use ark_crypto_primitives::{
     crh::CRHScheme,
     merkle_tree::{Config, LeafParam, Path, TwoToOneParam},
@@ -66,9 +66,9 @@ where
     F: PrimeField,
     H: CRHScheme,
 {
-    pub(crate) mat: Vec<Vec<F>>,
-    pub(crate) ext_mat: Vec<Vec<F>>,
-    pub(crate) col_hashes: Vec<H::Output>,
+    pub(crate) mat: Matrix<F>,
+    pub(crate) ext_mat: Matrix<F>,
+    pub(crate) leaves: Vec<H::Output>,
 }
 
 impl<F, H> PCCommitmentState for LinCodePCCommitmentState<F, H>

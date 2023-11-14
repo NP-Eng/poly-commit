@@ -1,11 +1,7 @@
-use core::borrow::Borrow;
-
 use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
 
-use ark_crypto_primitives::crh::CRHScheme;
 use ark_ff::{FftField, PrimeField};
-
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
@@ -36,16 +32,6 @@ pub(crate) fn reed_solomon<F: FftField>(
 #[inline]
 pub(crate) fn get_num_bytes(n: usize) -> usize {
     ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
-}
-
-#[inline]
-pub(crate) fn hash_column<F, H>(array: Vec<F>, params: &H::Parameters) -> Result<H::Output, Error>
-where
-    F: PrimeField,
-    H: CRHScheme,
-    Vec<F>: Borrow<<H as CRHScheme>::Input>,
-{
-    H::evaluate(params, array).map_err(|_| Error::HashingError)
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`

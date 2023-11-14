@@ -127,11 +127,11 @@ where
         (n, m)
     }
 
-    fn leaf_hash_params(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters {
+    fn leaf_hash_param(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters {
         &self.leaf_hash_params
     }
 
-    fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters {
+    fn two_to_one_hash_param(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters {
         &self.two_to_one_params
     }
 
