@@ -128,7 +128,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     type CommitterKey = HyraxCommitterKey<G>;
     type VerifierKey = HyraxVerifierKey<G>;
     type Commitment = HyraxCommitment<G>;
-    type Randomness = HyraxRandomness<G::ScalarField>;
+    type CommitmentState = HyraxRandomness<G::ScalarField>;
     type Proof = Vec<HyraxProof<G>>;
     type BatchProof = Vec<Self::Proof>;
     type Error = Error;
@@ -222,7 +222,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     ) -> Result<
         (
             Vec<LabeledCommitment<Self::Commitment>>,
-            Vec<Self::Randomness>,
+            Vec<Self::CommitmentState>,
         ),
         Self::Error,
     >
@@ -305,12 +305,12 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             G::ScalarField,
             PoseidonSponge<G::ScalarField>,
         >,
-        rands: impl IntoIterator<Item = &'a Self::Randomness>,
+        rands: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
     where
         Self::Commitment: 'a,
-        Self::Randomness: 'a,
+        Self::CommitmentState: 'a,
         P: 'a,
     {
         let n = point.len();

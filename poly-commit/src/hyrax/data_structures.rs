@@ -3,7 +3,7 @@ use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::RngCore, vec::Vec};
 
-use crate::{PCCommitment, PCCommitterKey, PCRandomness, PCUniversalParams, PCVerifierKey};
+use crate::{PCCommitment, PCCommitterKey, PCCommitmentState, PCUniversalParams, PCVerifierKey};
 
 /// `UniversalParams` amounts to a Pederson commitment key of sufficient length
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
@@ -79,7 +79,7 @@ pub(crate) type HyraxRandomness<F> = Vec<F>;
 
 /// A vector of scalars, each of which multiplies the distinguished group
 /// element in the Pederson commitment key for a different commitment
-impl<F: PrimeField> PCRandomness for HyraxRandomness<F> {
+impl<F: PrimeField> PCCommitmentState for HyraxRandomness<F> {
     fn empty() -> Self {
         unimplemented!()
     }
