@@ -564,11 +564,6 @@ where
     C: Config,
     C::Leaf: Default + Clone + Send,
 {
-    // let ext_mat_cols = ext_mat.cols();
-    // let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
-    //     .map(|col| hash_column::<F, C, H>(col, &col_hash_params).unwrap())
-    //     .collect();
-
     // pad the column hashes with zeroes
     let next_pow_of_two = col_hashes.len().next_power_of_two();
     col_hashes.resize(next_pow_of_two, <C::Leaf>::default());
