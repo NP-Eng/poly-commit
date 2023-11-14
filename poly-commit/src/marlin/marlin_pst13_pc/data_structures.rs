@@ -1,4 +1,4 @@
-use crate::{BTreeMap, Vec};
+use crate::{BTreeMap, Vec, PCRandomness};
 use crate::{
     PCCommitmentState, PCCommitterKey, PCPreparedVerifierKey, PCUniversalParams, PCVerifierKey,
 };
@@ -362,7 +362,7 @@ where
     }
 }
 
-impl<E, P> PCCommitmentState for Randomness<E, P>
+impl<E, P> PCRandomness for Randomness<E, P>
 where
     E: Pairing,
     P: DenseMVPolynomial<E::ScalarField>,
@@ -441,6 +441,43 @@ where
     #[inline]
     fn add_assign(&mut self, (f, other): (E::ScalarField, &'a Randomness<E, P>)) {
         self.blinding_polynomial += (f, &other.blinding_polynomial);
+    }
+}
+
+/// `CommitmentState` has just the `Randomness`.
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
+pub struct CommitmentState<E, P>
+where
+    E: Pairing,
+    P: DenseMVPolynomial<E::ScalarField>,
+    P::Point: Index<usize, Output = E::ScalarField>,
+{
+    /// The randomness in the state
+    pub randomness: Randomness<E, P>,
+}
+
+impl<E, P> PCCommitmentState for CommitmentState<E, P>
+where
+    E: Pairing,
+    P: DenseMVPolynomial<E::ScalarField>,
+    P::Point: Index<usize, Output = E::ScalarField>,
+{
+    type Randomness = Randomness<E, P>;
+    fn get_rand(&self) -> &Self::Randomness {
+        &self.randomness
+    }
+    fn new(randomness: Self::Randomness) -> Self {
+        Self { randomness }
+    }
+    fn empty() -> Self {
+        Self { randomness: Self::Randomness::empty() }
     }
 }
 

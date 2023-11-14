@@ -2,7 +2,7 @@ use crate::{kzg10, marlin::Marlin, PCCommitterKey, CHALLENGE_SIZE};
 use crate::{BTreeMap, BTreeSet, ToString, Vec};
 use crate::{BatchLCProof, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
-use crate::{PCCommitmentState, PCUniversalParams, PolynomialCommitment};
+use crate::{PCRandomness, PCCommitmentState, PCUniversalParams, PolynomialCommitment};
 use ark_ec::pairing::Pairing;
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
@@ -66,7 +66,7 @@ where
     type CommitterKey = CommitterKey<E>;
     type VerifierKey = VerifierKey<E>;
     type Commitment = Commitment<E>;
-    type CommitmentState = Randomness<E::ScalarField, P>;
+    type CommitmentState = CommitmentState<E::ScalarField, P>;
     type Proof = kzg10::Proof<E>;
     type BatchProof = Vec<Self::Proof>;
     type Error = Error;
@@ -191,7 +191,7 @@ where
         let commit_time = start_timer!(|| "Committing to polynomials");
 
         let mut commitments = Vec::new();
-        let mut randomness = Vec::new();
+        let mut states = Vec::new();
 
         for p in polynomials {
             let label = p.label();
@@ -238,11 +238,11 @@ where
                 comm,
                 degree_bound,
             ));
-            randomness.push(rand);
+            states.push(CommitmentState::new(rand));
             end_timer!(commit_time);
         }
         end_timer!(commit_time);
-        Ok((commitments, randomness))
+        Ok((commitments, states))
     }
 
     /// On input a polynomial `p` and a point `point`, outputs a proof for the same.
@@ -252,7 +252,7 @@ where
         _commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
         opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
-        rands: impl IntoIterator<Item = &'a Self::CommitmentState>,
+        states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
     where
@@ -267,9 +267,9 @@ where
         let mut shifted_r_witness = P::zero();
 
         let mut enforce_degree_bound = false;
-        for (polynomial, rand) in labeled_polynomials.into_iter().zip(rands) {
+        for (polynomial, state) in labeled_polynomials.into_iter().zip(states) {
             let degree_bound = polynomial.degree_bound();
-            assert_eq!(degree_bound.is_some(), rand.shifted_rand.is_some());
+            assert_eq!(degree_bound.is_some(), state.get_rand().shifted_rand.is_some());
 
             let enforced_degree_bounds: Option<&[usize]> = ck
                 .enforced_degree_bounds
@@ -285,14 +285,14 @@ where
             // compute next challenges challenge^j and challenge^{j+1}.
             let challenge_j = opening_challenges.try_next_challenge_of_size(CHALLENGE_SIZE);
 
-            assert_eq!(degree_bound.is_some(), rand.shifted_rand.is_some());
+            assert_eq!(degree_bound.is_some(), state.get_rand().shifted_rand.is_some());
 
             p += (challenge_j, polynomial.polynomial());
-            r += (challenge_j, &rand.rand);
+            r += (challenge_j, &state.get_rand().rand);
 
             if let Some(degree_bound) = degree_bound {
                 enforce_degree_bound = true;
-                let shifted_rand = rand.shifted_rand.as_ref().unwrap();
+                let shifted_rand = state.get_rand().shifted_rand.as_ref().unwrap();
                 let (witness, shifted_rand_witness) =
                     kzg10::KZG10::<E, P>::compute_witness_polynomial(
                         polynomial.polynomial(),
@@ -408,7 +408,7 @@ where
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         query_set: &QuerySet<P::Point>,
         opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
-        rands: impl IntoIterator<Item = &'a Self::CommitmentState>,
+        states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<BatchLCProof<E::ScalarField, Self::BatchProof>, Self::Error>
     where
@@ -423,7 +423,7 @@ where
             commitments,
             query_set,
             opening_challenges,
-            rands,
+            states,
             rng,
         )
     }

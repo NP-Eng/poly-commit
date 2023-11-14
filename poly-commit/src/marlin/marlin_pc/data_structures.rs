@@ -1,6 +1,6 @@
 use crate::{
     DenseUVPolynomial, PCCommitment, PCCommitmentState, PCCommitterKey, PCPreparedCommitment,
-    PCPreparedVerifierKey, PCVerifierKey, Vec,
+    PCPreparedVerifierKey, PCVerifierKey, Vec, PCRandomness,
 };
 use ark_ec::pairing::Pairing;
 use ark_ec::AdditiveGroup;
@@ -360,7 +360,7 @@ impl<'a, F: PrimeField, P: DenseUVPolynomial<F>> AddAssign<(F, &'a Randomness<F,
     }
 }
 
-impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for Randomness<F, P> {
+impl<F: PrimeField, P: DenseUVPolynomial<F>> PCRandomness for Randomness<F, P> {
     fn empty() -> Self {
         Self {
             rand: kzg10::Randomness::empty(),
@@ -383,5 +383,34 @@ impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for Randomness<F,
             rand: kzg10::Randomness::rand(hiding_bound, false, None, rng),
             shifted_rand,
         }
+    }
+}
+
+/// `CommitmentState` is just the `Randomness`.
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
+pub struct CommitmentState<F: PrimeField, P: DenseUVPolynomial<F>> {
+    /// The randomness in the state
+    pub randomness: Randomness<F, P>,
+}
+
+impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for CommitmentState<F, P> {
+    type Randomness = Randomness<F, P>;
+    fn empty() -> Self {
+        Self { randomness: Self::Randomness::empty() }
+    }
+
+    fn get_rand(&self) -> &Self::Randomness {
+        &self.randomness
+    }
+
+    fn new(randomness: Self::Randomness) -> Self {
+        Self { randomness }
     }
 }

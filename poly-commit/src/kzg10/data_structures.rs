@@ -420,7 +420,7 @@ impl<F: PrimeField, P: DenseUVPolynomial<F>> Randomness<F, P> {
     }
 }
 
-impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for Randomness<F, P> {
+impl<F: PrimeField, P: DenseUVPolynomial<F>> PCRandomness for Randomness<F, P> {
     fn empty() -> Self {
         Self {
             blinding_polynomial: P::zero(),
@@ -473,6 +473,33 @@ impl<'a, F: PrimeField, P: DenseUVPolynomial<F>> AddAssign<(F, &'a Randomness<F,
     #[inline]
     fn add_assign(&mut self, (f, other): (F, &'a Randomness<F, P>)) {
         self.blinding_polynomial += (f, &other.blinding_polynomial);
+    }
+}
+
+/// `CommitmentState` is just the `Randomness`.
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
+pub struct CommitmentState<F: PrimeField, P: DenseUVPolynomial<F>> {
+    /// The randomness in the state
+    pub randomness: Randomness<F, P>,
+}
+
+impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for CommitmentState<F, P> {
+    type Randomness = Randomness<F, P>;
+    fn get_rand(&self) -> &Self::Randomness {
+        &self.randomness
+    }
+    fn new(randomness: Self::Randomness) -> Self {
+        Self { randomness }
+    }
+    fn empty() -> Self {
+        Self { randomness: Self::Randomness::empty() }
     }
 }
 

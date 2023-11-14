@@ -15,6 +15,9 @@ pub type UniversalParams<E> = kzg10::UniversalParams<E>;
 /// `Randomness` is the randomness for the KZG10 scheme.
 pub type Randomness<F, P> = kzg10::Randomness<F, P>;
 
+/// `CommitmentState` is the commitment state for the KZG10 scheme.
+pub type CommitmentState<F, P> = kzg10::CommitmentState<F, P>;
+
 /// `Commitment` is the commitment for the KZG10 scheme.
 pub type Commitment<E> = kzg10::Commitment<E>;
 

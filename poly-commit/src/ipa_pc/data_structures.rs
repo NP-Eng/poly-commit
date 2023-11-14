@@ -146,7 +146,7 @@ pub struct Randomness<G: AffineRepr> {
     pub shifted_rand: Option<G::ScalarField>,
 }
 
-impl<G: AffineRepr> PCCommitmentState for Randomness<G> {
+impl<G: AffineRepr> PCRandomness for Randomness<G> {
     fn empty() -> Self {
         Self {
             rand: G::ScalarField::zero(),
@@ -163,6 +163,36 @@ impl<G: AffineRepr> PCCommitmentState for Randomness<G> {
         };
 
         Self { rand, shifted_rand }
+    }
+}
+
+/// `Randomness` hides the polynomial inside a commitment and is outputted by `InnerProductArg::commit`.
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Default(bound = ""),
+    Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
+pub struct CommitmentState<G: AffineRepr> {
+    /// Randomness is some scalar field element.
+    pub randomness: Randomness<G>,
+}
+
+impl<G: AffineRepr> PCCommitmentState for CommitmentState<G> {
+    type Randomness = Randomness<G>;
+    fn get_rand(&self) -> &Self::Randomness {
+        &self.randomness
+    }
+
+    fn new(randomness: Self::Randomness) -> Self {
+        Self { randomness }
+    }
+
+    fn empty() -> Self {
+        Self { randomness: Self::Randomness::empty() }
     }
 }
 
