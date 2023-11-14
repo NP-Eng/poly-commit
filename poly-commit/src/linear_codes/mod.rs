@@ -314,9 +314,8 @@ where
         Self::Commitment: 'a,
     {
         let mut proof_array = LPCPArray::default();
-        let mut states = states.into_iter();
 
-        for labeled_commitment in commitments {
+        for (labeled_commitment, state) in commitments.into_iter().zip(states) {
             let commitment = labeled_commitment.commitment();
             let n_rows = commitment.metadata.n_rows;
             let n_cols = commitment.metadata.n_cols;
@@ -329,12 +328,7 @@ where
                 mat,
                 ext_mat,
                 leaves: col_hashes,
-            } = states.next().ok_or_else(|| {
-                Error::IncorrectInputLength(
-                    "Mismatched lengths: missing CommitmentState for the provided commitment"
-                        .to_string(),
-                )
-            })?;
+            } = state;
             let mut col_hashes: Vec<C::Leaf> =
                 col_hashes.clone().into_iter().map(|h| h.into()).collect();
 
@@ -409,15 +403,13 @@ where
     where
         Self::Commitment: 'a,
     {
-        let mut values = values.into_iter();
-
         let leaf_hash_param: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
             vk.leaf_hash_param();
         let two_to_one_hash_param: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
             vk.two_to_one_hash_param();
 
-        let mut i = 0;
-        for labeled_commitment in commitments {
+        // let mut i = 0;
+        for (i, (labeled_commitment, value)) in commitments.into_iter().zip(values).enumerate() {
             let proof = &proof_array[i];
             let commitment = labeled_commitment.commitment();
             let n_rows = commitment.metadata.n_rows;
@@ -538,18 +530,11 @@ where
                 }
             }
 
-            if inner_product(&proof.opening.v, &a)
-                != values.next().ok_or_else(|| {
-                    Error::IncorrectInputLength(
-                    "Mismatched lengths: not enough claimed values for the provided commitments"
-                        .to_string(),
-                )
-                })?
-            {
+            if inner_product(&proof.opening.v, &a) != value {
                 eprintln!("Function check: claimed value in position {i} does not match the evaluation of the committed polynomial in the same position");
                 return Ok(false);
             }
-            i += 1;
+            // i += 1;
         }
 
         Ok(true)
