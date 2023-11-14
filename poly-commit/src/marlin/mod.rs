@@ -241,7 +241,12 @@ where
             Commitment = marlin_pc::Commitment<E>,
             Error = Error,
         >,
-        PC::CommitmentState: 'a + AddAssign<(E::ScalarField, &'a PC::CommitmentState)>,
+        PC::CommitmentState: 'a,
+        <PC::CommitmentState as PCCommitmentState>::Randomness: 'a
+            + AddAssign<(
+                E::ScalarField,
+                &'a <PC::CommitmentState as PCCommitmentState>::Randomness,
+            )>,
         PC::Commitment: 'a,
     {
         let label_map = polynomials
@@ -252,7 +257,7 @@ where
             .collect::<BTreeMap<_, _>>();
 
         let mut lc_polynomials = Vec::new();
-        let mut lc_randomness = Vec::new();
+        let mut lc_randomness: Vec<PC::CommitmentState> = Vec::new();
         let mut lc_commitments = Vec::new();
         let mut lc_info = Vec::new();
 

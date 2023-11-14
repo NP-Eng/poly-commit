@@ -362,13 +362,23 @@ where
     }
 }
 
+struct MarlinPCCommitmentState<E, P>
+where
+    E: Pairing,
+    P: DenseMVPolynomial<E::ScalarField>,
+    P::Point: Index<usize, Output = E::ScalarField>,
+{
+    inner: Randomness<E, P>,
+}
+
 impl<E, P> PCCommitmentState for Randomness<E, P>
 where
     E: Pairing,
     P: DenseMVPolynomial<E::ScalarField>,
     P::Point: Index<usize, Output = E::ScalarField>,
 {
-    fn empty() -> Self {
+    type Randomness = Randomness<E, P>;
+    fn empty() -> Self::Randomness {
         Self {
             blinding_polynomial: P::zero(),
             _engine: PhantomData,
@@ -380,7 +390,7 @@ where
         _: bool,
         num_vars: Option<usize>,
         rng: &mut R,
-    ) -> Self {
+    ) -> Self::Randomness {
         let hiding_poly_degree = Self::calculate_hiding_polynomial_degree(hiding_bound);
         Randomness {
             blinding_polynomial: P::rand(hiding_poly_degree, num_vars.unwrap(), rng),

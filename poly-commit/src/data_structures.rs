@@ -73,8 +73,10 @@ pub trait PCPreparedCommitment<UNPREPARED: PCCommitment>: Clone {
 /// Defines the minimal interface of commitment state for any polynomial
 /// commitment scheme. It might be randomness etc.
 pub trait PCCommitmentState: Clone + CanonicalSerialize + CanonicalDeserialize {
+    /// The type of randomness
+    type Randomness: Clone + CanonicalSerialize + CanonicalDeserialize;
     /// Outputs empty randomness that does not hide the commitment.
-    fn empty() -> Self;
+    fn empty() -> Self::Randomness;
 
     /// Samples randomness for commitments;
     /// `num_queries` specifies the number of queries that the commitment will be opened at.
@@ -86,7 +88,7 @@ pub trait PCCommitmentState: Clone + CanonicalSerialize + CanonicalDeserialize {
         has_degree_bound: bool,
         num_vars: Option<usize>,
         rng: &mut R,
-    ) -> Self;
+    ) -> Self::Randomness;
 }
 
 /// A proof of satisfaction of linear combinations.
