@@ -301,7 +301,7 @@ where
 
     fn open<'a>(
         ck: &Self::CommitterKey,
-        labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
+        _labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
         _challenge_generator: &mut crate::challenge::ChallengeGenerator<F, S>,
@@ -314,22 +314,10 @@ where
         Self::Commitment: 'a,
     {
         let mut proof_array = LPCPArray::default();
-        let labeled_commitments: Vec<&'a LabeledCommitment<Self::Commitment>> =
-            commitments.into_iter().collect();
-        let labeled_polynomials: Vec<&'a LabeledPolynomial<F, P>> =
-            labeled_polynomials.into_iter().collect();
-        let states: Vec<&'a Self::CommitmentState> = states.into_iter().collect();
+        let mut states = states.into_iter();
 
-        if labeled_commitments.len() != labeled_polynomials.len() {
-            return Err(Error::IncorrectInputLength(format!(
-                "Mismatched lengths: {} commitments, {} polynomials",
-                labeled_commitments.len(),
-                labeled_polynomials.len()
-            )));
-        }
-
-        for i in 0..labeled_polynomials.len() {
-            let commitment = labeled_commitments[i].commitment();
+        for labeled_commitments in commitments {
+            let commitment = labeled_commitments.commitment();
             let n_rows = commitment.metadata.n_rows;
             let n_cols = commitment.metadata.n_cols;
             let root = &commitment.root;
@@ -341,7 +329,12 @@ where
                 mat,
                 ext_mat,
                 leaves: col_hashes,
-            } = states[i];
+            } = states.next().ok_or_else(|| {
+                Error::IncorrectInputLength(
+                    "Mismatched lengths: missing CommitmentState for the provided commitment"
+                        .to_string(),
+                )
+            })?;
             let mut col_hashes: Vec<C::Leaf> =
                 col_hashes.clone().into_iter().map(|h| h.into()).collect();
 
@@ -416,25 +409,16 @@ where
     where
         Self::Commitment: 'a,
     {
-        let labeled_commitments: Vec<&'a LabeledCommitment<Self::Commitment>> =
-            commitments.into_iter().collect();
-        let values: Vec<F> = values.into_iter().collect();
+        let mut values = values.into_iter();
 
-        if labeled_commitments.len() != proof_array.len()
-            || labeled_commitments.len() != values.len()
-        {
-            return Err(Error::IncorrectInputLength(
-                format!(
-                    "Mismatched lengths: {} proofs were provided for {} commitments with {} claimed values",labeled_commitments.len(), proof_array.len(), values.len()
-                )
-            ));
-        }
         let leaf_hash_param: &<<C as Config>::LeafHash as CRHScheme>::Parameters =
             vk.leaf_hash_param();
         let two_to_one_hash_param: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
             vk.two_to_one_hash_param();
 
-        for (i, labeled_commitment) in labeled_commitments.iter().enumerate() {
+        let mut i = 0;
+        for labeled_commitment in commitments {
+            let proof = &proof_array[i];
             let commitment = labeled_commitment.commitment();
             let n_rows = commitment.metadata.n_rows;
             let n_cols = commitment.metadata.n_cols;
@@ -448,10 +432,10 @@ where
                 .map_err(|_| Error::TranscriptError)?;
 
             let out = if vk.check_well_formedness() {
-                if proof_array[i].well_formedness.is_none() {
+                if proof.well_formedness.is_none() {
                     return Err(Error::InvalidCommitment);
                 }
-                let tmp = &proof_array[i].well_formedness.as_ref();
+                let tmp = &proof.well_formedness.as_ref();
                 let well_formedness = tmp.unwrap();
                 let mut r = Vec::with_capacity(n_rows);
                 for _ in 0..n_rows {
@@ -480,14 +464,14 @@ where
                     .map_err(|_| Error::TranscriptError)?;
             }
             transcript
-                .append_serializable_element(b"v", &proof_array[i].opening.v)
+                .append_serializable_element(b"v", &proof.opening.v)
                 .map_err(|_| Error::TranscriptError)?;
 
             // 2. Ask random oracle for the `t` indices where the checks happen.
             let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
 
             // 3. Hash the received columns into leaf hashes.
-            let col_hashes: Vec<C::Leaf> = proof_array[i]
+            let col_hashes: Vec<C::Leaf> = proof
                 .opening
                 .columns
                 .iter()
@@ -503,7 +487,7 @@ where
             // even if we have a well-formedness check (i.e., we save sending and checking the columns).
             // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf).
             for (j, (leaf, q_j)) in col_hashes.iter().zip(indices.iter()).enumerate() {
-                let path = &proof_array[i].opening.paths[j];
+                let path = &proof.opening.paths[j];
                 if path.leaf_index != *q_j {
                     return Err(Error::InvalidCommitment);
                 }
@@ -522,7 +506,7 @@ where
             };
 
             // 5. Compute the encoding w = E(v).
-            let w = L::encode(&proof_array[i].opening.v, vk)?;
+            let w = L::encode(&proof.opening.v, vk)?;
 
             // 6. Compute `a`, `b` to right- and left- multiply with the matrix `M`.
             let (a, b) = L::tensor(point, n_cols, n_rows);
@@ -535,12 +519,12 @@ where
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     check_inner_product(
                         &r,
-                        &proof_array[i].opening.columns[transcript_index],
+                        &proof.opening.columns[transcript_index],
                         w_well_formedness[*matrix_index],
                     )?;
                     check_inner_product(
                         &b,
-                        &proof_array[i].opening.columns[transcript_index],
+                        &proof.opening.columns[transcript_index],
                         w[*matrix_index],
                     )?;
                 }
@@ -548,16 +532,24 @@ where
                 for (transcript_index, matrix_index) in indices.iter().enumerate() {
                     check_inner_product(
                         &b,
-                        &proof_array[i].opening.columns[transcript_index],
+                        &proof.opening.columns[transcript_index],
                         w[*matrix_index],
                     )?;
                 }
             }
 
-            if inner_product(&proof_array[i].opening.v, &a) != values[i] {
+            if inner_product(&proof.opening.v, &a)
+                != values.next().ok_or_else(|| {
+                    Error::IncorrectInputLength(
+                    "Mismatched lengths: not enough claimed values for the provided commitments"
+                        .to_string(),
+                )
+                })?
+            {
                 eprintln!("Function check: claimed value in position {i} does not match the evaluation of the committed polynomial in the same position");
                 return Ok(false);
             }
+            i += 1;
         }
 
         Ok(true)
