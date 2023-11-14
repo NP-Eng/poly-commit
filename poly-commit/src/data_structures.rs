@@ -70,9 +70,9 @@ pub trait PCPreparedCommitment<UNPREPARED: PCCommitment>: Clone {
     fn prepare(comm: &UNPREPARED) -> Self;
 }
 
-/// Defines the minimal interface of commitment randomness for any polynomial
-/// commitment scheme.
-pub trait PCRandomness: Clone + CanonicalSerialize + CanonicalDeserialize {
+/// Defines the minimal interface of commitment state for any polynomial
+/// commitment scheme. It might be randomness etc.
+pub trait PCCommitmentState: Clone + CanonicalSerialize + CanonicalDeserialize {
     /// Outputs empty randomness that does not hide the commitment.
     fn empty() -> Self;
 
