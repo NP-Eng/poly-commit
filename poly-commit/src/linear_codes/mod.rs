@@ -408,7 +408,6 @@ where
         let two_to_one_hash_param: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters =
             vk.two_to_one_hash_param();
 
-        // let mut i = 0;
         for (i, (labeled_commitment, value)) in commitments.into_iter().zip(values).enumerate() {
             let proof = &proof_array[i];
             let commitment = labeled_commitment.commitment();
@@ -534,7 +533,6 @@ where
                 eprintln!("Function check: claimed value in position {i} does not match the evaluation of the committed polynomial in the same position");
                 return Ok(false);
             }
-            // i += 1;
         }
 
         Ok(true)
