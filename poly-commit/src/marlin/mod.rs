@@ -228,7 +228,7 @@ where
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<PC::Commitment>>,
         query_set: &QuerySet<D>,
         opening_challenges: &mut ChallengeGenerator<E::ScalarField, S>,
-        rands: impl IntoIterator<Item = &'a PC::CommitmentState>,
+        states: impl IntoIterator<Item = &'a PC::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<BatchLCProof<E::ScalarField, PC::BatchProof>, Error>
     where
@@ -241,23 +241,18 @@ where
             Commitment = marlin_pc::Commitment<E>,
             Error = Error,
         >,
-        PC::CommitmentState: 'a,
-        <PC::CommitmentState as PCCommitmentState>::Randomness: 'a
-            + AddAssign<(
-                E::ScalarField,
-                &'a <PC::CommitmentState as PCCommitmentState>::Randomness,
-            )>,
+        PC::CommitmentState: 'a + AddAssign<(E::ScalarField, &'a PC::CommitmentState)>,
         PC::Commitment: 'a,
     {
         let label_map = polynomials
             .into_iter()
-            .zip(rands)
+            .zip(states)
             .zip(commitments)
             .map(|((p, r), c)| (p.label(), (p, r, c)))
             .collect::<BTreeMap<_, _>>();
 
         let mut lc_polynomials = Vec::new();
-        let mut lc_randomness: Vec<PC::CommitmentState> = Vec::new();
+        let mut lc_randomness = Vec::new();
         let mut lc_commitments = Vec::new();
         let mut lc_info = Vec::new();
 

@@ -151,7 +151,7 @@ where
     type CommitterKey = CommitterKey<E, P>;
     type VerifierKey = VerifierKey<E>;
     type Commitment = marlin_pc::Commitment<E>;
-    type CommitmentState = Randomness<E, P>;
+    type CommitmentState = MarlinCommitmentState<E, P>;
     type Proof = Proof<E>;
     type BatchProof = Vec<Self::Proof>;
     type Error = Error;
@@ -353,7 +353,7 @@ where
         let rng = &mut crate::optional_rng::OptionalRng(rng);
         let commit_time = start_timer!(|| "Committing to polynomials");
         let mut commitments = Vec::new();
-        let mut randomness = Vec::new();
+        let mut states = Vec::new();
         for p in polynomials {
             let label = p.label();
             let hiding_bound = p.hiding_bound();
@@ -382,13 +382,13 @@ where
             end_timer!(msm_time);
 
             // Sample random polynomial
-            let mut rand = Randomness::<E, P>::empty();
+            let mut rand = MarlinCommitmentState::<E, P>::empty();
             if let Some(hiding_degree) = hiding_bound {
                 let sample_random_poly_time = start_timer!(|| format!(
                     "Sampling a random polynomial of degree {}",
                     hiding_degree
                 ));
-                rand = Randomness::rand(hiding_degree, false, Some(ck.num_vars), rng);
+                rand = MarlinCommitmentState::rand(hiding_degree, false, Some(ck.num_vars), rng);
                 Self::check_hiding_bound(hiding_degree, ck.supported_degree + 1)?;
                 end_timer!(sample_random_poly_time);
             }
@@ -427,11 +427,11 @@ where
             };
 
             commitments.push(LabeledCommitment::new(label.to_string(), comm, None));
-            randomness.push(rand);
+            states.push(MarlinCommitmentState { inner: rand });
             end_timer!(commit_time);
         }
         end_timer!(commit_time);
-        Ok((commitments, randomness))
+        Ok((commitments, states))
     }
 
     /// On input a polynomial `p` and a point `point`, outputs a proof for the same.

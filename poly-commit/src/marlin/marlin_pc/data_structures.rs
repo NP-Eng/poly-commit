@@ -360,10 +360,26 @@ impl<'a, F: PrimeField, P: DenseUVPolynomial<F>> AddAssign<(F, &'a Randomness<F,
     }
 }
 
-impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for Randomness<F, P> {
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
+pub struct MarlinCommitmentState<F, P>
+where
+    F: PrimeField,
+    P: DenseUVPolynomial<F>,
+{
+    pub inner: Randomness<F, P>,
+}
+
+impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for MarlinCommitmentState<F, P> {
     type Randomness = Randomness<F, P>;
-    fn empty() -> Self {
-        Self {
+    fn empty() -> Self::Randomness {
+        Self::Randomness {
             rand: kzg10::Randomness::empty(),
             shifted_rand: None,
         }
@@ -374,13 +390,13 @@ impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for Randomness<F,
         has_degree_bound: bool,
         _: Option<usize>,
         rng: &mut R,
-    ) -> Self {
+    ) -> Self::Randomness {
         let shifted_rand = if has_degree_bound {
             Some(kzg10::Randomness::rand(hiding_bound, false, None, rng))
         } else {
             None
         };
-        Self {
+        Self::Randomness {
             rand: kzg10::Randomness::rand(hiding_bound, false, None, rng),
             shifted_rand,
         }
