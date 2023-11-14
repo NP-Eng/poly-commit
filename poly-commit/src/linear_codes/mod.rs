@@ -316,8 +316,8 @@ where
         let mut proof_array = LPCPArray::default();
         let mut states = states.into_iter();
 
-        for labeled_commitments in commitments {
-            let commitment = labeled_commitments.commitment();
+        for labeled_commitment in commitments {
+            let commitment = labeled_commitment.commitment();
             let n_rows = commitment.metadata.n_rows;
             let n_cols = commitment.metadata.n_cols;
             let root = &commitment.root;
