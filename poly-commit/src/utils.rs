@@ -154,12 +154,7 @@ impl<F: Field> Matrix<F> {
         );
 
         (0..self.m)
-            .map(|col| {
-                inner_product(
-                    v,
-                    &self.col_major[col],
-                )
-            })
+            .map(|col| inner_product(v, &self.col_major[col]))
             .collect()
     }
 }

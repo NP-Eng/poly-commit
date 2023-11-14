@@ -556,12 +556,7 @@ where
     let ext_mat_cols = ext_mat.cols().clone();
 
     let mut col_hashes: Vec<C::Leaf> = cfg_into_iter!(ext_mat_cols)
-        .map(|col| {
-            H::evaluate(col_hash_params, col)
-                .map_err(|_| Error::HashingError)
-                .map(|x| x.into())
-                .unwrap()
-        })
+        .map(|col| hash_column::<F, C, H>(col, &col_hash_params).unwrap())
         .collect();
 
     // pad the column hashes with zeroes
