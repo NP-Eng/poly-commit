@@ -108,11 +108,7 @@ where
 
     type VerifierKey = LinCodePCVerifierKey<F, C, H>;
 
-    type PreparedVerifierKey = LinCodePCPreparedVerifierKey;
-
     type Commitment = LinCodePCCommitment<C>;
-
-    type PreparedCommitment = LinCodePCPreparedCommitment<C>;
 
     type Randomness = LinCodePCRandomness;
 
