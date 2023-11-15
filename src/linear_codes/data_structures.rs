@@ -1,6 +1,6 @@
 use crate::{
-    PCCommitment, PCCommitterKey, PCPreparedCommitment, PCPreparedVerifierKey, PCRandomness,
-    PCUniversalParams, PCVerifierKey,
+    PCCommitment, PCCommitterKey, PCPreparedCommitment, PCRandomness, PCUniversalParams,
+    PCVerifierKey,
 };
 use ark_crypto_primitives::crh::CRHScheme;
 use ark_crypto_primitives::merkle_tree::{Config, LeafParam, Path, TwoToOneParam};
@@ -198,11 +198,6 @@ where
     }
 }
 
-pub(crate) type LinCodePCPreparedVerifierKey = ();
-
-impl<Unprepared: PCVerifierKey> PCPreparedVerifierKey<Unprepared> for LinCodePCPreparedVerifierKey {
-    fn prepare(_vk: &Unprepared) -> Self {}
-}
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
 /// Metadata about the PCS
