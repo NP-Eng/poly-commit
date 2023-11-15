@@ -105,6 +105,7 @@ where
     F: PrimeField,
     H: CRHScheme,
 {
+    type Randomness = ();
     fn empty() -> Self {
         unimplemented!()
     }
@@ -114,7 +115,7 @@ where
         _has_degree_bound: bool,
         _num_vars: Option<usize>,
         _rng: &mut R,
-    ) -> Self {
+    ) -> Self::Randomness {
         unimplemented!()
     }
 }
