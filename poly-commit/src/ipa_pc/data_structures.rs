@@ -166,24 +166,7 @@ impl<G: AffineRepr> PCRandomness for Randomness<G> {
     }
 }
 
-/// There is no auxiliary data in the scheme.
-#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
-#[derivative(
-    Default(bound = ""),
-    Hash(bound = ""),
-    Clone(bound = ""),
-    Debug(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = "")
-)]
-pub struct Auxiliary;
-impl PCAuxiliary for Auxiliary {
-    fn empty() -> Self {
-        Self
-    }
-}
-
-/// `CommitmentState` is just the `Randomness`.
+/// `Randomness` hides the polynomial inside a commitment and is outputted by `InnerProductArg::commit`.
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(
     Default(bound = ""),
@@ -194,25 +177,22 @@ impl PCAuxiliary for Auxiliary {
     Eq(bound = "")
 )]
 pub struct CommitmentState<G: AffineRepr> {
-    /// The randomness in the state
+    /// Randomness is some scalar field element.
     pub randomness: Randomness<G>,
 }
 
 impl<G: AffineRepr> PCCommitmentState for CommitmentState<G> {
     type Randomness = Randomness<G>;
-    type Auxiliary = Auxiliary;
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
 
-    fn new(randomness: Self::Randomness, _auxiliary: Self::Auxiliary) -> Self {
+    fn new(randomness: Self::Randomness) -> Self {
         Self { randomness }
     }
 
     fn empty() -> Self {
-        Self {
-            randomness: Self::Randomness::empty(),
-        }
+        Self { randomness: Self::Randomness::empty() }
     }
 }
 

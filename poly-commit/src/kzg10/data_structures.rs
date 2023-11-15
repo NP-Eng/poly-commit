@@ -476,23 +476,6 @@ impl<'a, F: PrimeField, P: DenseUVPolynomial<F>> AddAssign<(F, &'a Randomness<F,
     }
 }
 
-/// There is no auxiliary data in the scheme.
-#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
-#[derivative(
-    Default(bound = ""),
-    Hash(bound = ""),
-    Clone(bound = ""),
-    Debug(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = "")
-)]
-pub struct Auxiliary;
-impl PCAuxiliary for Auxiliary {
-    fn empty() -> Self {
-        Self
-    }
-}
-
 /// `CommitmentState` is just the `Randomness`.
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(
@@ -509,17 +492,14 @@ pub struct CommitmentState<F: PrimeField, P: DenseUVPolynomial<F>> {
 
 impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for CommitmentState<F, P> {
     type Randomness = Randomness<F, P>;
-    type Auxiliary = Auxiliary;
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
-    fn new(randomness: Self::Randomness, _auxiliary: Self::Auxiliary) -> Self {
+    fn new(randomness: Self::Randomness) -> Self {
         Self { randomness }
     }
     fn empty() -> Self {
-        Self {
-            randomness: Self::Randomness::empty(),
-        }
+        Self { randomness: Self::Randomness::empty() }
     }
 }
 

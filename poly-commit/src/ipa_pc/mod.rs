@@ -1,4 +1,4 @@
-use crate::{BTreeMap, BTreeSet, PCRandomness, String, ToString, Vec, CHALLENGE_SIZE};
+use crate::{BTreeMap, BTreeSet, String, ToString, Vec, CHALLENGE_SIZE, PCRandomness};
 use crate::{BatchLCProof, DenseUVPolynomial, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
 use crate::{PCCommitmentState, PCCommitterKey, PCUniversalParams, PolynomialCommitment};
@@ -893,7 +893,7 @@ where
             .collect::<BTreeMap<_, _>>();
 
         let mut lc_polynomials = Vec::new();
-        let mut lc_states = Vec::new();
+        let mut lc_randomness = Vec::new();
         let mut lc_commitments = Vec::new();
         let mut lc_info = Vec::new();
 
@@ -951,12 +951,10 @@ where
             let lc_poly =
                 LabeledPolynomial::new(lc_label.clone(), poly, degree_bound, hiding_bound);
             lc_polynomials.push(lc_poly);
-            lc_states.push(CommitmentState {
-                randomness: Randomness {
-                    rand: combined_rand,
-                    shifted_rand: combined_shifted_rand,
-                },
-            });
+            lc_randomness.push(CommitmentState { randomness: Randomness {
+                rand: combined_rand,
+                shifted_rand: combined_shifted_rand,
+            }});
 
             lc_commitments.push(combined_comm);
             if let Some(combined_shifted_comm) = combined_shifted_comm {
@@ -974,7 +972,7 @@ where
             lc_commitments.iter(),
             &query_set,
             opening_challenges,
-            lc_states.iter(),
+            lc_randomness.iter(),
             rng,
         )?;
         Ok(BatchLCProof { proof, evals: None })

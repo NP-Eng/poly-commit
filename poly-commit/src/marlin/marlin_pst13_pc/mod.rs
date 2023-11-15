@@ -5,7 +5,7 @@ use crate::{
 };
 use crate::{BatchLCProof, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
-use crate::{PCCommitmentState, PCRandomness, PCUniversalParams, PolynomialCommitment};
+use crate::{PCRandomness, PCCommitmentState, PCUniversalParams, PolynomialCommitment};
 use crate::{ToString, Vec};
 use ark_ec::AffineRepr;
 use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, CurveGroup, VariableBaseMSM};
@@ -427,7 +427,7 @@ where
             };
 
             commitments.push(LabeledCommitment::new(label.to_string(), comm, None));
-            states.push(CommitmentState::new(rand, Auxiliary));
+            states.push(CommitmentState::new(rand));
             end_timer!(commit_time);
         }
         end_timer!(commit_time);

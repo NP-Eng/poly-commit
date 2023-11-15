@@ -70,12 +70,11 @@ pub trait PCPreparedCommitment<UNPREPARED: PCCommitment>: Clone {
     fn prepare(comm: &UNPREPARED) -> Self;
 }
 
-/// Defines the minimal interface of commitment randomness for any polynomial
-/// commitment scheme.
+/// Defines the minimal interface of randomness
 pub trait PCRandomness: Clone + CanonicalSerialize + CanonicalDeserialize {
     /// Outputs empty randomness that does not hide the commitment.
     fn empty() -> Self;
-
+    
     /// Samples randomness for commitments;
     /// `num_queries` specifies the number of queries that the commitment will be opened at.
     /// `has_degree_bound` indicates that the corresponding commitment has an enforced
@@ -89,24 +88,16 @@ pub trait PCRandomness: Clone + CanonicalSerialize + CanonicalDeserialize {
     ) -> Self;
 }
 
-/// Defines the minimal interface of commitment auxiliary data for any polynomial
-/// commitment scheme.
-pub trait PCAuxiliary: Clone + CanonicalSerialize + CanonicalDeserialize {
-    /// Outputs empty auxiliary data.
-    fn empty() -> Self;
-}
 /// Defines the minimal interface of commitment state for any polynomial
 /// commitment scheme. It might be randomness etc.
 pub trait PCCommitmentState: Clone + CanonicalSerialize + CanonicalDeserialize {
     /// Associated type for the randomness in the scheme
     type Randomness: PCRandomness;
-    /// Associated type for the auxiliary data in the scheme
-    type Auxiliary: PCAuxiliary;
     /// Get the Randomness object in the state
     fn get_rand(&self) -> &Self::Randomness;
-    /// Outputs a state given a randomness and auxiliary data
-    fn new(randomness: Self::Randomness, auxiliary: Self::Auxiliary) -> Self;
-    /// Outputs a trivial empty state
+    /// Get a state given a randomness
+    fn new(randomness: Self::Randomness) -> Self;
+    /// Get a trivial empty state
     fn empty() -> Self;
 }
 
