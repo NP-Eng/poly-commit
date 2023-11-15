@@ -241,9 +241,7 @@ where
             Commitment = marlin_pc::Commitment<E>,
             Error = Error,
         >,
-        PC::CommitmentState: 'a,
-        <PC::CommitmentState as PCCommitmentState>::Randomness:
-            'a + AddAssign<(E::ScalarField, &'a PC::CommitmentState)>,
+        PC::CommitmentState: 'a + AddAssign<(E::ScalarField, &'a PC::CommitmentState)>,
         PC::Commitment: 'a,
     {
         let label_map = polynomials

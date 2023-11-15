@@ -77,7 +77,7 @@ pub trait PCCommitmentState: Clone + CanonicalSerialize + CanonicalDeserialize {
     type Randomness: Clone + CanonicalSerialize + CanonicalDeserialize;
 
     /// Outputs empty randomness that does not hide the commitment.
-    fn empty() -> Self::Randomness;
+    fn empty() -> Self;
 
     /// Samples randomness for commitments;
     /// `num_queries` specifies the number of queries that the commitment will be opened at.
