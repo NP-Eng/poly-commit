@@ -7,7 +7,7 @@ use rayon::{
 };
 
 use ark_ff::{Field, PrimeField};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::vec::Vec;
 use merlin::Transcript;
 
@@ -31,7 +31,8 @@ pub(crate) fn ceil_div(x: usize, y: usize) -> usize {
     (x + y - 1) / y
 }
 
-#[derive(Debug)]
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
 pub(crate) struct Matrix<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,

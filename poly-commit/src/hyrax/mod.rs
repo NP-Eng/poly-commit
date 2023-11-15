@@ -272,6 +272,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             coms.push(l_comm);
             states.push(HyraxCommitmentState {
                 randomness: com_rands,
+                mat: Matrix::new_from_rows(m),
             });
         }
 
@@ -307,7 +308,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             G::ScalarField,
             PoseidonSponge<G::ScalarField>,
         >,
-        rands: impl IntoIterator<Item = &'a Self::CommitmentState>,
+        states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
     where
@@ -343,7 +344,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
 
         for (l_poly, (l_com, state)) in labeled_polynomials
             .into_iter()
-            .zip(commitments.into_iter().zip(rands.into_iter()))
+            .zip(commitments.into_iter().zip(states.into_iter()))
         {
             let label = l_poly.label();
             if label != l_com.label() {
@@ -376,8 +377,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             transcript.append_serializable_element(b"point", point)?;
 
             // Commiting to the matrix formed by the polynomial coefficients
-            let t_aux = flat_to_matrix_column_major(&poly.to_evaluations(), dim, dim);
-            let t = Matrix::new_from_rows(t_aux);
+            let t = &state.mat;
 
             let lt = t.row_mul(&l);
 
