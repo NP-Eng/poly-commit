@@ -1,6 +1,7 @@
-use crate::{BTreeMap, Vec, PCRandomness};
+use crate::{BTreeMap, PCRandomness, Vec};
 use crate::{
-    PCCommitmentState, PCCommitterKey, PCPreparedVerifierKey, PCUniversalParams, PCVerifierKey,
+    PCAuxiliary, PCCommitmentState, PCCommitterKey, PCPreparedVerifierKey, PCUniversalParams,
+    PCVerifierKey,
 };
 use ark_ec::pairing::Pairing;
 use ark_poly::DenseMVPolynomial;
@@ -444,6 +445,22 @@ where
     }
 }
 
+/// There is no auxiliary data in the scheme.
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(
+    Default(bound = ""),
+    Hash(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = "")
+)]
+pub struct Auxiliary;
+impl PCAuxiliary for Auxiliary {
+    fn empty() -> Self {
+        Self
+    }
+}
 /// `CommitmentState` has just the `Randomness`.
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(
@@ -470,14 +487,17 @@ where
     P::Point: Index<usize, Output = E::ScalarField>,
 {
     type Randomness = Randomness<E, P>;
+    type Auxiliary = Auxiliary;
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
-    fn new(randomness: Self::Randomness) -> Self {
+    fn new(randomness: Self::Randomness, _auxiliary: Self::Auxiliary) -> Self {
         Self { randomness }
     }
     fn empty() -> Self {
-        Self { randomness: Self::Randomness::empty() }
+        Self {
+            randomness: Self::Randomness::empty(),
+        }
     }
 }
 
