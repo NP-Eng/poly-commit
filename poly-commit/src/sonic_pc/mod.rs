@@ -2,7 +2,7 @@ use crate::{kzg10, PCCommitterKey, CHALLENGE_SIZE};
 use crate::{BTreeMap, BTreeSet, String, ToString, Vec};
 use crate::{BatchLCProof, DenseUVPolynomial, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
-use crate::{PCRandomness, PCCommitmentState, PCUniversalParams, PolynomialCommitment};
+use crate::{PCCommitmentState, PCRandomness, PCUniversalParams, PolynomialCommitment};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
 
@@ -332,7 +332,7 @@ where
                 comm,
                 degree_bound,
             ));
-            states.push(CommitmentState {randomness: rand});
+            states.push(CommitmentState { randomness: rand });
             end_timer!(commit_time);
         }
 
@@ -560,7 +560,7 @@ where
             let lc_poly =
                 LabeledPolynomial::new(lc_label.clone(), poly, degree_bound, hiding_bound);
             lc_polynomials.push(lc_poly);
-            lc_states.push(CommitmentState {randomness});
+            lc_states.push(CommitmentState { randomness });
             lc_commitments.push(comm);
             lc_info.push((lc_label, degree_bound));
         }

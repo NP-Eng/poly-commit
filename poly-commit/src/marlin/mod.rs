@@ -3,7 +3,7 @@ use crate::{kzg10, Error};
 use crate::{BTreeMap, BTreeSet, Debug, RngCore, String, ToString, Vec};
 use crate::{BatchLCProof, LabeledPolynomial, LinearCombination};
 use crate::{Evaluations, LabeledCommitment, QuerySet};
-use crate::{PCRandomness, PCCommitmentState, Polynomial, PolynomialCommitment};
+use crate::{PCCommitmentState, PCRandomness, Polynomial, PolynomialCommitment};
 use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ec::pairing::Pairing;
 use ark_ec::AffineRepr;
@@ -242,7 +242,11 @@ where
             Error = Error,
         >,
         PC::CommitmentState: 'a,
-        <PC::CommitmentState as PCCommitmentState>::Randomness: 'a + AddAssign<(E::ScalarField, &'a <PC::CommitmentState as PCCommitmentState>::Randomness)>,
+        <PC::CommitmentState as PCCommitmentState>::Randomness: 'a
+            + AddAssign<(
+                E::ScalarField,
+                &'a <PC::CommitmentState as PCCommitmentState>::Randomness,
+            )>,
         PC::Commitment: 'a,
     {
         let label_map = polynomials
@@ -292,7 +296,7 @@ where
             let lc_poly =
                 LabeledPolynomial::new(lc_label.clone(), poly, degree_bound, hiding_bound);
             lc_polynomials.push(lc_poly);
-            lc_states.push(PC::CommitmentState::new(randomness));
+            lc_states.push(PC::CommitmentState::new_from_rand(randomness));
             lc_commitments.push(Self::combine_commitments(coeffs_and_comms));
             lc_info.push((lc_label, degree_bound));
         }

@@ -495,11 +495,13 @@ impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for CommitmentSta
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
-    fn new(randomness: Self::Randomness) -> Self {
+    fn new_from_rand(randomness: Self::Randomness) -> Self {
         Self { randomness }
     }
     fn empty() -> Self {
-        Self { randomness: Self::Randomness::empty() }
+        Self {
+            randomness: Self::Randomness::empty(),
+        }
     }
 }
 

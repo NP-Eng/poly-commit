@@ -1,4 +1,4 @@
-use crate::{BTreeMap, Vec, PCRandomness};
+use crate::{BTreeMap, PCRandomness, Vec};
 use crate::{
     PCCommitmentState, PCCommitterKey, PCPreparedVerifierKey, PCUniversalParams, PCVerifierKey,
 };
@@ -473,11 +473,13 @@ where
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
-    fn new(randomness: Self::Randomness) -> Self {
+    fn new_from_rand(randomness: Self::Randomness) -> Self {
         Self { randomness }
     }
     fn empty() -> Self {
-        Self { randomness: Self::Randomness::empty() }
+        Self {
+            randomness: Self::Randomness::empty(),
+        }
     }
 }
 

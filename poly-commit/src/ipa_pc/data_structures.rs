@@ -187,12 +187,14 @@ impl<G: AffineRepr> PCCommitmentState for CommitmentState<G> {
         &self.randomness
     }
 
-    fn new(randomness: Self::Randomness) -> Self {
+    fn new_from_rand(randomness: Self::Randomness) -> Self {
         Self { randomness }
     }
 
     fn empty() -> Self {
-        Self { randomness: Self::Randomness::empty() }
+        Self {
+            randomness: Self::Randomness::empty(),
+        }
     }
 }
 

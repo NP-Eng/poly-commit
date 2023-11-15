@@ -2,7 +2,7 @@ use crate::{kzg10, marlin::Marlin, PCCommitterKey, CHALLENGE_SIZE};
 use crate::{BTreeMap, BTreeSet, ToString, Vec};
 use crate::{BatchLCProof, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
-use crate::{PCRandomness, PCCommitmentState, PCUniversalParams, PolynomialCommitment};
+use crate::{PCCommitmentState, PCRandomness, PCUniversalParams, PolynomialCommitment};
 use ark_ec::pairing::Pairing;
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
@@ -238,7 +238,7 @@ where
                 comm,
                 degree_bound,
             ));
-            states.push(CommitmentState::new(rand));
+            states.push(CommitmentState::new_from_rand(rand));
             end_timer!(commit_time);
         }
         end_timer!(commit_time);
@@ -269,7 +269,10 @@ where
         let mut enforce_degree_bound = false;
         for (polynomial, state) in labeled_polynomials.into_iter().zip(states) {
             let degree_bound = polynomial.degree_bound();
-            assert_eq!(degree_bound.is_some(), state.get_rand().shifted_rand.is_some());
+            assert_eq!(
+                degree_bound.is_some(),
+                state.get_rand().shifted_rand.is_some()
+            );
 
             let enforced_degree_bounds: Option<&[usize]> = ck
                 .enforced_degree_bounds
@@ -285,7 +288,10 @@ where
             // compute next challenges challenge^j and challenge^{j+1}.
             let challenge_j = opening_challenges.try_next_challenge_of_size(CHALLENGE_SIZE);
 
-            assert_eq!(degree_bound.is_some(), state.get_rand().shifted_rand.is_some());
+            assert_eq!(
+                degree_bound.is_some(),
+                state.get_rand().shifted_rand.is_some()
+            );
 
             p += (challenge_j, polynomial.polynomial());
             r += (challenge_j, &state.get_rand().rand);

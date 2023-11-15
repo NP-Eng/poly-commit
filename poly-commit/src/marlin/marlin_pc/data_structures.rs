@@ -1,6 +1,6 @@
 use crate::{
     DenseUVPolynomial, PCCommitment, PCCommitmentState, PCCommitterKey, PCPreparedCommitment,
-    PCPreparedVerifierKey, PCVerifierKey, Vec, PCRandomness,
+    PCPreparedVerifierKey, PCRandomness, PCVerifierKey, Vec,
 };
 use ark_ec::pairing::Pairing;
 use ark_ec::AdditiveGroup;
@@ -403,14 +403,16 @@ pub struct CommitmentState<F: PrimeField, P: DenseUVPolynomial<F>> {
 impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for CommitmentState<F, P> {
     type Randomness = Randomness<F, P>;
     fn empty() -> Self {
-        Self { randomness: Self::Randomness::empty() }
+        Self {
+            randomness: Self::Randomness::empty(),
+        }
     }
 
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
 
-    fn new(randomness: Self::Randomness) -> Self {
+    fn new_from_rand(randomness: Self::Randomness) -> Self {
         Self { randomness }
     }
 }
