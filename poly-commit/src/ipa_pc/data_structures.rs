@@ -183,6 +183,7 @@ pub struct CommitmentState<G: AffineRepr> {
 
 impl<G: AffineRepr> PCCommitmentState for CommitmentState<G> {
     type Randomness = Randomness<G>;
+    type Auxiliary = ();
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
@@ -195,6 +196,9 @@ impl<G: AffineRepr> PCCommitmentState for CommitmentState<G> {
         Self {
             randomness: Self::Randomness::empty(),
         }
+    }
+    fn new(_randomness: Self::Randomness, _auxiliary: Self::Auxiliary) -> Self {
+        unimplemented!()
     }
 }
 

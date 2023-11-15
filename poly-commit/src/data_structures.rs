@@ -93,10 +93,14 @@ pub trait PCRandomness: Clone + CanonicalSerialize + CanonicalDeserialize {
 pub trait PCCommitmentState: Clone + CanonicalSerialize + CanonicalDeserialize {
     /// Associated type for the randomness in the scheme
     type Randomness: PCRandomness;
+    /// Associated type for the auxiliary in the scheme
+    type Auxiliary: Clone + CanonicalSerialize + CanonicalDeserialize;
     /// Get the Randomness object in the state
     fn get_rand(&self) -> &Self::Randomness;
     /// Get a state given a randomness
     fn new_from_rand(randomness: Self::Randomness) -> Self;
+    /// Get a state given everything
+    fn new(randomness: Self::Randomness, auxiliary: Self::Auxiliary) -> Self;
     /// Get a trivial empty state
     fn empty() -> Self;
 }

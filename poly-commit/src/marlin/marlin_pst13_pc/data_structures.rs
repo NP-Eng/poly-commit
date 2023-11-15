@@ -470,6 +470,7 @@ where
     P::Point: Index<usize, Output = E::ScalarField>,
 {
     type Randomness = Randomness<E, P>;
+    type Auxiliary = ();
     fn get_rand(&self) -> &Self::Randomness {
         &self.randomness
     }
@@ -480,6 +481,9 @@ where
         Self {
             randomness: Self::Randomness::empty(),
         }
+    }
+    fn new(_randomness: Self::Randomness, _auxiliary: Self::Auxiliary) -> Self {
+        unimplemented!()
     }
 }
 

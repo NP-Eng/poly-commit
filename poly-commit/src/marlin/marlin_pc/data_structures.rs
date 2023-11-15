@@ -402,6 +402,7 @@ pub struct CommitmentState<F: PrimeField, P: DenseUVPolynomial<F>> {
 
 impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for CommitmentState<F, P> {
     type Randomness = Randomness<F, P>;
+    type Auxiliary = ();
     fn empty() -> Self {
         Self {
             randomness: Self::Randomness::empty(),
@@ -414,5 +415,9 @@ impl<F: PrimeField, P: DenseUVPolynomial<F>> PCCommitmentState for CommitmentSta
 
     fn new_from_rand(randomness: Self::Randomness) -> Self {
         Self { randomness }
+    }
+
+    fn new(_randomness: Self::Randomness, _auxiliary: Self::Auxiliary) -> Self {
+        unimplemented!()
     }
 }
