@@ -128,7 +128,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     type CommitterKey = HyraxCommitterKey<G>;
     type VerifierKey = HyraxVerifierKey<G>;
     type Commitment = HyraxCommitment<G>;
-    type CommitmentState = HyraxRandomness<G::ScalarField>;
+    type CommitmentState = HyraxCommitmentState<G::ScalarField>;
     type Proof = Vec<HyraxProof<G>>;
     type BatchProof = Vec<Self::Proof>;
     type Error = Error;
@@ -230,7 +230,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         P: 'a,
     {
         let mut coms = Vec::new();
-        let mut rands = Vec::new();
+        let mut states = Vec::new();
 
         #[cfg(not(feature = "parallel"))]
         let rng_inner = rng.expect("Committing to polynomials requires a random generator");
@@ -270,10 +270,12 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             let l_comm = LabeledCommitment::new(label.to_string(), com, Some(1));
 
             coms.push(l_comm);
-            rands.push(com_rands);
+            states.push(HyraxCommitmentState {
+                randomness: com_rands,
+            });
         }
 
-        Ok((coms, rands))
+        Ok((coms, states))
     }
 
     /// Opens a list of polynomial commitments at a desired point. This
@@ -339,7 +341,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
 
         let rng_inner = rng.expect("Opening polynomials requires randomness");
 
-        for (l_poly, (l_com, randomness)) in labeled_polynomials
+        for (l_poly, (l_com, state)) in labeled_polynomials
             .into_iter()
             .zip(commitments.into_iter().zip(rands.into_iter()))
         {
@@ -382,7 +384,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
             // t_prime coincides witht he Pedersen commitment to lt with the
             // randomnes r_lt computed here
             let r_lt = cfg_iter!(l)
-                .zip(cfg_iter!(randomness))
+                .zip(cfg_iter!(state.randomness))
                 .map(|(l, r)| *l * r)
                 .sum::<G::ScalarField>();
 
