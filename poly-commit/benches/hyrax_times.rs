@@ -14,7 +14,7 @@ fn rand_poly_hyrax<F: PrimeField>(
     num_vars: usize,
     rng: &mut ChaCha20Rng,
 ) -> DenseMultilinearExtension<F> {
-    let max_bits: usize = 60;
+    let max_bits: usize = 32;
     let num_bits = F::MODULUS_BIT_SIZE as usize;
     let small_scalars = (0..(1 << num_vars))
         .map(|_| {
@@ -34,7 +34,7 @@ fn rand_point_hyrax<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng) -> Ve
     (0..num_vars).map(|_| F::rand(rng)).collect()
 }
 
-const MIN_NUM_VARS: usize = 12;
-const MAX_NUM_VARS: usize = 22;
+const MIN_NUM_VARS: usize = 32;
+const MAX_NUM_VARS: usize = 34;
 
 bench!(Hyrax254, rand_poly_hyrax, rand_point_hyrax);
