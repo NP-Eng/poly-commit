@@ -97,12 +97,12 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> {
             Some(v) => v,
             None => {
                 let tv = G::ScalarField::rand(rng.expect("Either r or rng must be provided"));
-                // hack: we trim r to max 60 bits - this is for checking performance on "small" coefficients.
+                // hack: we trim r to max 32 bits - this is for checking performance on "small" coefficients.
                 // A random `r` have up to `MODULUS_BIT_SIZE`, which then causes our MSM modification to not take full advantage of the coefficient "smallness".
                 let num_bits = <G::ScalarField as PrimeField>::MODULUS_BIT_SIZE as usize;
 
                 let mut bits = tv.into_bigint().to_bits_le();
-                bits.truncate(60);
+                bits.truncate(32);
                 bits.resize(num_bits, false);
                 let small_scalar = <G::ScalarField as PrimeField>::BigInt::from_bits_le(&bits);
                 let r = G::ScalarField::from_bigint(small_scalar).unwrap();
