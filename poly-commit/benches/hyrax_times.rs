@@ -21,7 +21,7 @@ fn rand_point_hyrax<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng) -> Ve
     (0..num_vars).map(|_| F::rand(rng)).collect()
 }
 
-const MIN_NUM_VARS: usize = 12;
-const MAX_NUM_VARS: usize = 22;
+const MIN_NUM_VARS: usize = 32;
+const MAX_NUM_VARS: usize = 34;
 
 bench!(Hyrax254, rand_poly_hyrax, rand_point_hyrax);
