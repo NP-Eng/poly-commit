@@ -2,7 +2,7 @@ use ark_pcs_bench_templates::*;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 
 use ark_bn254::{Fr, G1Affine};
-use ark_ff::PrimeField;
+use ark_ff::{PrimeField, BigInteger};
 use ark_poly_commit::hyrax::HyraxPC;
 
 use rand_chacha::ChaCha20Rng;
@@ -16,7 +16,7 @@ fn rand_poly_hyrax<F: PrimeField>(
 ) -> DenseMultilinearExtension<F> {
     let max_bits: usize = 32;
     let num_bits = F::MODULUS_BIT_SIZE as usize;
-    let small_scalars = (0..(1 << num_vars))
+    let small_scalars = (0..((1 as usize) << num_vars))
         .map(|_| {
             let s = F::rand(rng).into_bigint();
             let mut bits = s.to_bits_le();
