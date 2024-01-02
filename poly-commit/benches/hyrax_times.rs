@@ -1,5 +1,5 @@
 use ark_pcs_bench_templates::*;
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_poly::DenseMultilinearExtension;
 
 use ark_bn254::{Fr, G1Affine};
 use ark_ff::{PrimeField, BigInteger};
