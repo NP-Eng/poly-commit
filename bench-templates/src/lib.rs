@@ -17,9 +17,7 @@ use rand_chacha::{
 use core::time::Duration;
 use std::{borrow::Borrow, marker::PhantomData, time::Instant};
 
-use ark_poly_commit::{
-    challenge::ChallengeGenerator, to_bytes, LabeledPolynomial, PolynomialCommitment,
-};
+use ark_poly_commit::{to_bytes, LabeledPolynomial, PolynomialCommitment};
 
 pub use criterion::*;
 pub use paste::paste;
@@ -140,7 +138,7 @@ where
         [&labeled_poly],
         &coms,
         &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        &mut test_sponge(),
         &states,
         Some(rng),
     )
@@ -173,7 +171,7 @@ where
         [&labeled_poly],
         &coms,
         &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        &mut test_sponge(),
         &states,
         Some(rng),
     )
@@ -210,7 +208,7 @@ where
         [&labeled_poly],
         &coms,
         &point,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        &mut test_sponge(),
         &states,
         Some(rng),
     )
@@ -223,7 +221,7 @@ where
         &point,
         [claimed_eval],
         &proof,
-        &mut ChallengeGenerator::new_univariate(&mut test_sponge()),
+        &mut test_sponge(),
         None,
     )
     .unwrap();
