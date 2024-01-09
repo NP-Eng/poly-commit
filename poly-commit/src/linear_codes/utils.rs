@@ -119,11 +119,7 @@ pub(crate) fn get_indices_from_sponge<S: CryptographicSponge>(
     let bytes_to_squeeze = get_num_bytes(n);
     let mut indices = Vec::with_capacity(t);
     for _ in 0..t {
-        // let mut bytes: Vec<u8> = vec![0; bytes_to_squeeze];
         let bytes = sponge.squeeze_bytes(bytes_to_squeeze);
-        // transcript
-        //     .get_and_append_byte_challenge(b"i", &mut bytes)
-        //     .map_err(|_| Error::TranscriptError)?;
         sponge.absorb(&bytes);
 
         // get the usize from Vec<u8>:
