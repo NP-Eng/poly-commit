@@ -1,8 +1,8 @@
 use crate::{utils::ceil_div, Error};
 
+use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
-use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
