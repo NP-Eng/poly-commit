@@ -21,7 +21,7 @@ use crate::hyrax::utils::tensor_prime;
 use crate::utils::{inner_product, scalar_by_vector, vector_sum, IOPTranscript, Matrix};
 
 use crate::{
-    challenge::ChallengeGenerator, hyrax::utils::flat_to_matrix_column_major, Error,
+    hyrax::utils::flat_to_matrix_column_major, Error,
     LabeledCommitment, LabeledPolynomial, PolynomialCommitment,
 };
 
@@ -297,17 +297,14 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     /// point.
     ///
     /// # Disregarded arguments
-    /// - `opening_challenges`
+    /// - `sponge`
     fn open<'a>(
         ck: &Self::CommitterKey,
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
         // Not used and not generic on the cryptographic sponge S
-        _opening_challenges: &mut ChallengeGenerator<
-            G::ScalarField,
-            PoseidonSponge<G::ScalarField>,
-        >,
+        _sponge: &mut PoseidonSponge<G::ScalarField>,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -444,7 +441,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
     /// point (specifically, commitment length should be 2^(point-length/2)).
     ///
     /// # Disregarded arguments
-    /// - `opening_challenges`
+    /// - `sponge`
     /// - `rng`
     fn check<'a>(
         vk: &Self::VerifierKey,
@@ -453,10 +450,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         _values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
         // Not used and not generic on the cryptographic sponge S
-        _opening_challenges: &mut ChallengeGenerator<
-            G::ScalarField,
-            PoseidonSponge<G::ScalarField>,
-        >,
+        _sponge: &mut PoseidonSponge<G::ScalarField>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where

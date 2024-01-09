@@ -1,5 +1,4 @@
 use ark_bls12_377::G1Affine;
-use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::AffineRepr;
 use ark_ed_on_bls12_381::EdwardsAffine;
 use ark_ff::PrimeField;
@@ -7,7 +6,6 @@ use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 use ark_std::test_rng;
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
-use crate::challenge::ChallengeGenerator;
 use crate::hyrax::HyraxPC;
 
 use crate::utils::test_sponge;
@@ -84,15 +82,13 @@ fn test_hyrax_construction() {
 
     // Dummy argument
     let mut test_sponge = test_sponge::<Fr>();
-    let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
-        ChallengeGenerator::new_univariate(&mut test_sponge);
 
     let proof = Hyrax381::open(
         &ck,
         &[l_poly],
         &c,
         &point,
-        &mut (challenge_generator.clone()),
+        &mut (test_sponge.clone()),
         &rands,
         Some(chacha),
     )
@@ -104,7 +100,7 @@ fn test_hyrax_construction() {
         &point,
         [value],
         &proof,
-        &mut challenge_generator,
+        &mut test_sponge,
         Some(chacha),
     )
     .unwrap());
