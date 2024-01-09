@@ -160,7 +160,7 @@ where
     C: Config + 'static,
     Vec<F>: Borrow<<H as CRHScheme>::Input>,
     H::Output: Into<C::Leaf> + Send,
-    C::Leaf: Sized + Clone + Default + Send,
+    C::Leaf: Sized + Clone + Default + Send + AsRef<C::Leaf>,
     H: CRHScheme + 'static,
 {
     type UniversalParams = L::LinCodePCParams;
@@ -302,7 +302,7 @@ where
         _labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        _challenge_generator: &mut crate::challenge::ChallengeGenerator<F, S>,
+        _sponge: &mut S,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -395,7 +395,7 @@ where
         point: &'a P::Point,
         values: impl IntoIterator<Item = F>,
         proof_array: &Self::Proof,
-        _challenge_generator: &mut crate::challenge::ChallengeGenerator<F, S>,
+        _sponge: &mut S,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
@@ -545,7 +545,7 @@ fn create_merkle_tree<C>(
 ) -> Result<MerkleTree<C>, Error>
 where
     C: Config,
-    C::Leaf: Default + Clone + Send,
+    C::Leaf: Default + Clone + Send + AsRef<C::Leaf>,
 {
     // pad the column hashes with zeroes
     let next_pow_of_two = leaves.len().next_power_of_two();
