@@ -1,16 +1,16 @@
 use crate::hyrax::utils::tensor_prime;
-use crate::utils::{inner_product, scalar_by_vector, vector_sum, IOPTranscript, Matrix};
+use crate::to_bytes;
+use crate::utils::{inner_product, scalar_by_vector, vector_sum, Matrix};
 use crate::{
     hyrax::utils::flat_to_matrix_column_major, Error, LabeledCommitment, LabeledPolynomial,
     PolynomialCommitment,
 };
-use ark_crypto_primitives::sponge::CryptographicSponge;
+use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_poly::MultilinearExtension;
-use ark_std::{rand::RngCore, string::ToString, vec::Vec, UniformRand};
+use ark_std::{marker::PhantomData, rand::RngCore, string::ToString, vec::Vec, UniformRand};
 use blake2::Blake2s256;
-use core::marker::PhantomData;
 use digest::Digest;
 
 #[cfg(feature = "parallel")]
@@ -66,11 +66,18 @@ pub struct HyraxPC<
     G: AffineRepr,
     // A polynomial type representing multilinear polynomials
     P: MultilinearExtension<G::ScalarField>,
+    // The sponge used in the protocol as random oracle
+    S: CryptographicSponge,
 > {
-    _phantom: PhantomData<(G, P)>,
+    _phantom: PhantomData<(G, P, S)>,
 }
 
-impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> {
+impl<G, P, S> HyraxPC<G, P, S>
+where
+    G: AffineRepr,
+    P: MultilinearExtension<G::ScalarField>,
+    S: CryptographicSponge,
+{
     /// Pedersen commitment to a vector of scalars as described in appendix A.1
     /// of the reference article.
     /// The caller must either directly pass hiding exponent `r` inside Some,
@@ -112,9 +119,10 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> {
     }
 }
 
-impl<G, P, S> PolynomialCommitment<G::ScalarField, P, S> for HyraxPC<G, P>
+impl<G, P, S> PolynomialCommitment<G::ScalarField, P, S> for HyraxPC<G, P, S>
 where
     G: AffineRepr,
+    G::ScalarField: Absorb,
     P: MultilinearExtension<G::ScalarField>,
     S: CryptographicSponge,
 {
@@ -289,15 +297,12 @@ where
     /// polynomial.
     /// - The number of variables of a polynomial doesn't match that of the
     /// point.
-    ///
-    /// # Disregarded arguments
-    /// - `sponge`
     fn open<'a>(
         ck: &Self::CommitterKey,
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        _sponge: &mut S,
+        sponge: &mut S,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -354,17 +359,14 @@ where
                 });
             }
 
-            // Initialising the transcript
-            let mut transcript: IOPTranscript<G::ScalarField> = IOPTranscript::new(b"transcript");
-
             // Absorbing public parameters
-            transcript.append_serializable_element(b"public parameters", ck)?;
+            sponge.absorb(&to_bytes!(ck).map_err(|_| Error::TranscriptError)?);
 
             // Absorbing the commitment to the polynomial
-            transcript.append_serializable_element(b"commitment", &com.row_coms)?;
+            sponge.absorb(&to_bytes!(&com.row_coms).map_err(|_| Error::TranscriptError)?);
 
             // Absorbing the point
-            transcript.append_serializable_element(b"point", point)?;
+            sponge.absorb(point);
 
             // Commiting to the matrix formed by the polynomial coefficients
             let t = &state.mat;
@@ -398,15 +400,15 @@ where
             let (com_b, r_b) = Self::pedersen_commit(ck, &[b], None, Some(rng_inner));
 
             // Absorbing the commitment to the evaluation
-            transcript.append_serializable_element(b"com_eval", &com_eval)?;
+            sponge.absorb(&to_bytes!(&com_eval).map_err(|_| Error::TranscriptError)?);
 
             // Absorbing the two auxiliary commitments
-            transcript.append_serializable_element(b"com_d", &com_d)?;
-            transcript.append_serializable_element(b"com_b", &com_b)?;
+            sponge.absorb(&to_bytes!(&com_d).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&to_bytes!(&com_b).map_err(|_| Error::TranscriptError)?);
 
             // Receive the random challenge c from the verifier, i.e. squeeze
             // it from the transcript.
-            let c = transcript.get_and_append_challenge(b"c").unwrap();
+            let c = sponge.squeeze_field_elements(1)[0];
 
             let z = vector_sum(&d, &scalar_by_vector(c, &lt));
             let z_d = c * r_lt + r_d;
@@ -434,7 +436,6 @@ where
     /// point (specifically, commitment length should be 2^(point-length/2)).
     ///
     /// # Disregarded arguments
-    /// - `sponge`
     /// - `rng`
     fn check<'a>(
         vk: &Self::VerifierKey,
@@ -442,7 +443,7 @@ where
         point: &'a P::Point,
         _values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
-        _sponge: &mut S,
+        sponge: &mut S,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
@@ -494,29 +495,25 @@ where
                 .collect::<Vec<_>>();
             let t_prime: G = <G::Group as VariableBaseMSM>::msm_bigint(row_coms, &l_bigint).into();
 
-            // Construct transcript and squeeze the challenge c from it
-
-            let mut transcript: IOPTranscript<G::ScalarField> = IOPTranscript::new(b"transcript");
-
             // Absorbing public parameters
-            transcript.append_serializable_element(b"public parameters", vk)?;
+            sponge.absorb(&to_bytes!(vk).map_err(|_| Error::TranscriptError)?);
 
             // Absorbing the commitment to the polynomial
-            transcript.append_serializable_element(b"commitment", row_coms)?;
+            sponge.absorb(&to_bytes!(row_coms).map_err(|_| Error::TranscriptError)?);
 
             // Absorbing the point
-            transcript.append_serializable_element(b"point", point)?;
+            sponge.absorb(point);
 
             // Absorbing the commitment to the evaluation
-            transcript.append_serializable_element(b"com_eval", com_eval)?;
+            sponge.absorb(&to_bytes!(com_eval).map_err(|_| Error::TranscriptError)?);
 
             // Absorbing the two auxiliary commitments
-            transcript.append_serializable_element(b"com_d", com_d)?;
-            transcript.append_serializable_element(b"com_b", com_b)?;
+            sponge.absorb(&to_bytes!(com_d).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&to_bytes!(com_b).map_err(|_| Error::TranscriptError)?);
 
             // Receive the random challenge c from the verifier, i.e. squeeze
             // it from the transcript.
-            let c = transcript.get_and_append_challenge(b"c").unwrap();
+            let c: G::ScalarField = sponge.squeeze_field_elements(1)[0];
 
             // First check
             let com_z_zd = Self::pedersen_commit(vk, z, Some(*z_d), None).0;
