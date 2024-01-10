@@ -339,9 +339,7 @@ where
 
             // If we are checking well-formedness, we need to compute the well-formedness proof (which is just r.M) and append it to the transcript.
             let well_formedness = if ck.check_well_formedness() {
-                // TODO Check this: we changed, now we squeeze all elements and then abosrb all of them
                 let r = sponge.squeeze_field_elements::<F>(n_rows);
-                sponge.absorb(&r);
                 let v = mat.row_mul(&r);
 
                 sponge.absorb(&v);
@@ -351,7 +349,6 @@ where
             };
 
             let point_vec = L::point_to_vec(point.clone());
-            // TODO Why not absorbing the vector all at once?
             sponge.absorb(&point_vec);
 
             proof_array.push(LinCodePCProof {
@@ -406,9 +403,7 @@ where
                 }
                 let tmp = &proof.well_formedness.as_ref();
                 let v = tmp.unwrap();
-                // TODO Check this: we changed, now we squeeze all elements and then abosrb all of them
                 let r = sponge.squeeze_field_elements::<F>(n_rows);
-                sponge.absorb(&r);
                 // Upon sending `v` to the Verifier, add it to the sponge. The claim is that v = r.M.
                 sponge.absorb(&v);
 
@@ -420,7 +415,6 @@ where
             // 1. Seed the transcript with the point and the recieved vector
             // TODO Consider removing the evaluation point from the transcript.
             let point_vec = L::point_to_vec(point.clone());
-            // TODO Why not absorbing the vector all at once?
             sponge.absorb(&point_vec);
             sponge.absorb(&proof.opening.v);
 
