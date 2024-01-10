@@ -1,11 +1,10 @@
-mod data_structures;
-mod utils;
-pub use data_structures::*;
-
-#[cfg(test)]
-mod tests;
-
-use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+use crate::hyrax::utils::tensor_prime;
+use crate::utils::{inner_product, scalar_by_vector, vector_sum, IOPTranscript, Matrix};
+use crate::{
+    hyrax::utils::flat_to_matrix_column_major, Error, LabeledCommitment, LabeledPolynomial,
+    PolynomialCommitment,
+};
+use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_poly::MultilinearExtension;
@@ -17,14 +16,11 @@ use digest::Digest;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use crate::hyrax::utils::tensor_prime;
-use crate::utils::{inner_product, scalar_by_vector, vector_sum, IOPTranscript, Matrix};
-
-use crate::{
-    hyrax::utils::flat_to_matrix_column_major, Error,
-    LabeledCommitment, LabeledPolynomial, PolynomialCommitment,
-};
-
+mod data_structures;
+pub use data_structures::*;
+#[cfg(test)]
+mod tests;
+mod utils;
 /// String of bytes used to seed the randomness during the setup function.
 /// Note that the latter should never be used in production environments.
 pub const PROTOCOL_NAME: &'static [u8] = b"Hyrax protocol";
@@ -116,13 +112,11 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>> HyraxPC<G, P> {
     }
 }
 
-impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
-    PolynomialCommitment<
-        G::ScalarField,
-        P,
-        // Dummy sponge - required by the trait, not used in this implementation
-        PoseidonSponge<G::ScalarField>,
-    > for HyraxPC<G, P>
+impl<G, P, S> PolynomialCommitment<G::ScalarField, P, S> for HyraxPC<G, P>
+where
+    G: AffineRepr,
+    P: MultilinearExtension<G::ScalarField>,
+    S: CryptographicSponge,
 {
     type UniversalParams = HyraxUniversalParams<G>;
     type CommitterKey = HyraxCommitterKey<G>;
@@ -303,8 +297,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<G::ScalarField, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        // Not used and not generic on the cryptographic sponge S
-        _sponge: &mut PoseidonSponge<G::ScalarField>,
+        _sponge: &mut S,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -449,8 +442,7 @@ impl<G: AffineRepr, P: MultilinearExtension<G::ScalarField>>
         point: &'a P::Point,
         _values: impl IntoIterator<Item = G::ScalarField>,
         proof: &Self::Proof,
-        // Not used and not generic on the cryptographic sponge S
-        _sponge: &mut PoseidonSponge<G::ScalarField>,
+        _sponge: &mut S,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
