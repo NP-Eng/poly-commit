@@ -6,9 +6,6 @@ use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
-#[cfg(not(feature = "std"))]
-use num_traits::Float;
-
 /// Apply reed-solomon encoding to msg.
 /// Assumes msg.len() is equal to the order of some FFT domain in F.
 /// Returns a vector of length equal to the smallest FFT domain of size at least msg.len() * RHO_INV.

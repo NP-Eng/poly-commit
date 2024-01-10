@@ -9,8 +9,6 @@ use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
 use ark_std::log2;
 use ark_std::marker::PhantomData;
-#[cfg(not(feature = "std"))]
-use num_traits::Float;
 
 impl<F, C, H> LigeroPCParams<F, C, H>
 where
