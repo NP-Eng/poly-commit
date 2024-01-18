@@ -4,7 +4,6 @@ mod tests {
     use crate::linear_codes::LinearCodePCS;
     use crate::utils::test_sponge;
     use crate::{
-        challenge::ChallengeGenerator,
         linear_codes::{LigeroPCParams, MultilinearLigero, PolynomialCommitment},
         LabeledPolynomial,
     };
@@ -122,29 +121,20 @@ mod tests {
 
         let value = labeled_poly.evaluate(&point);
 
-        let mut challenge_generator: ChallengeGenerator<Fr, PoseidonSponge<Fr>> =
-            ChallengeGenerator::new_univariate(&mut test_sponge);
-
         let proof = LigeroPCS::<Fr>::open(
             &ck,
             &[labeled_poly],
             &c,
             &point,
-            &mut (challenge_generator.clone()),
+            &mut (test_sponge.clone()),
             &rands,
             None,
         )
         .unwrap();
-        assert!(LigeroPCS::<Fr>::check(
-            &vk,
-            &c,
-            &point,
-            [value],
-            &proof,
-            &mut challenge_generator,
-            None
-        )
-        .unwrap());
+        assert!(
+            LigeroPCS::<Fr>::check(&vk, &c, &point, [value], &proof, &mut test_sponge, None)
+                .unwrap()
+        );
     }
 
     fn rand_point<F: Field>(num_vars: Option<usize>, rng: &mut ChaCha20Rng) -> Vec<F> {
