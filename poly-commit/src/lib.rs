@@ -9,7 +9,7 @@
 #![deny(renamed_and_removed_lints, stable_features, unused_allocation)]
 #![deny(unused_comparisons, bare_trait_objects, unused_must_use)]
 #![forbid(unsafe_code)]
-#![doc = include_str!("../README.md")]
+#![doc = include_str!("../../README.md")]
 
 #[allow(unused)]
 #[macro_use]
@@ -101,8 +101,6 @@ pub mod sonic_pc;
 /// [pcdas]: https://eprint.iacr.org/2020/499
 pub mod ipa_pc;
 
-/// Defines the challenge strategies and challenge generator.
-pub mod challenge;
 /// A multilinear polynomial commitment scheme that converts n-variate multilinear polynomial into
 /// n quotient UV polynomial. This scheme is based on hardness of the discrete logarithm
 /// in prime-order groups. Construction is detailed in [[XZZPD19]][xzzpd19] and [[ZGKPP18]][zgkpp18]
@@ -111,7 +109,6 @@ pub mod challenge;
 /// [zgkpp]: https://ieeexplore.ieee.org/document/8418645
 pub mod multilinear_pc;
 
-use crate::challenge::ChallengeGenerator;
 use ark_crypto_primitives::sponge::{CryptographicSponge, FieldElementSize};
 /// Multivariate polynomial commitment based on the construction in
 /// [[PST13]][pst] with batching and (optional) hiding property inspired
@@ -229,7 +226,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        sponge: &mut S,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -245,7 +242,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         point: &'a P::Point,
         values: impl IntoIterator<Item = F>,
         proof: &Self::Proof,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        sponge: &mut S,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
@@ -265,7 +262,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         query_set: &QuerySet<P::Point>,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        sponge: &mut S,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::BatchProof, Self::Error>
@@ -337,7 +334,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
                 query_polys,
                 query_comms,
                 &point,
-                challenge_generator,
+                sponge,
                 query_states,
                 Some(rng),
             )?;
@@ -370,7 +367,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         query_set: &QuerySet<P::Point>,
         evaluations: &Evaluations<P::Point, F>,
         proof: &Self::BatchProof,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        sponge: &mut S,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where
@@ -428,15 +425,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
 
             // Verify all proofs referring to the current point simultaneously
             // with a single call to `check`
-            result &= Self::check(
-                vk,
-                comms,
-                &point,
-                values,
-                &proof,
-                challenge_generator,
-                Some(rng),
-            )?;
+            result &= Self::check(vk, comms, &point, values, &proof, sponge, Some(rng))?;
             end_timer!(proof_time);
         }
         Ok(result)
@@ -450,7 +439,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         query_set: &QuerySet<P::Point>,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        sponge: &mut S,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         rng: Option<&mut dyn RngCore>,
     ) -> Result<BatchLCProof<F, Self::BatchProof>, Self::Error>
@@ -476,7 +465,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
             polynomials,
             commitments,
             &poly_query_set,
-            challenge_generator,
+            sponge,
             states,
             rng,
         )?;
@@ -495,7 +484,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
         eqn_query_set: &QuerySet<P::Point>,
         eqn_evaluations: &Evaluations<P::Point, F>,
         proof: &BatchLCProof<F, Self::BatchProof>,
-        challenge_generator: &mut ChallengeGenerator<F, S>,
+        sponge: &mut S,
         rng: &mut R,
     ) -> Result<bool, Self::Error>
     where
@@ -566,7 +555,7 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
             &poly_query_set,
             &poly_evals,
             proof,
-            challenge_generator,
+            sponge,
             rng,
         )?;
         if !pc_result {
@@ -678,12 +667,9 @@ pub mod tests {
         PC: PolynomialCommitment<F, P, S>,
         S: CryptographicSponge,
     {
-        let challenge_generators = vec![
-            ChallengeGenerator::new_multivariate(sponge()),
-            ChallengeGenerator::new_univariate(&mut sponge()),
-        ];
+        let sponge = sponge();
 
-        for challenge_gen in challenge_generators {
+        for __ in 0..1 {
             let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
             let max_degree = 100;
             let pp = PC::setup(max_degree, None, rng)?;
@@ -745,7 +731,7 @@ pub mod tests {
                     &polynomials,
                     &comms,
                     &query_set,
-                    &mut (challenge_gen.clone()),
+                    &mut (sponge.clone()),
                     &states,
                     Some(rng),
                 )?;
@@ -755,7 +741,7 @@ pub mod tests {
                     &query_set,
                     &values,
                     &proof,
-                    &mut (challenge_gen.clone()),
+                    &mut (sponge.clone()),
                     rng,
                 )?;
                 assert!(result, "proof was incorrect, Query set: {:#?}", query_set);
@@ -786,12 +772,9 @@ pub mod tests {
             sponge,
         } = info;
 
-        let challenge_gens = vec![
-            ChallengeGenerator::new_multivariate(sponge()),
-            ChallengeGenerator::new_univariate(&mut sponge()),
-        ];
+        let sponge = sponge();
 
-        for challenge_gen in challenge_gens {
+        for _ in 0..1 {
             let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
             // If testing multivariate polynomials, make the max degree lower
             let max_degree = match num_vars {
@@ -800,7 +783,7 @@ pub mod tests {
             };
             let pp = PC::setup(max_degree, num_vars, rng)?;
 
-            for _ in 0..num_iters {
+            for __ in 0..num_iters {
                 let supported_degree =
                     supported_degree.unwrap_or(Uniform::from(1..=max_degree).sample(rng));
                 assert!(
@@ -881,7 +864,7 @@ pub mod tests {
                     &polynomials,
                     &comms,
                     &query_set,
-                    &mut (challenge_gen.clone()),
+                    &mut (sponge.clone()),
                     &states,
                     Some(rng),
                 )?;
@@ -891,7 +874,7 @@ pub mod tests {
                     &query_set,
                     &values,
                     &proof,
-                    &mut (challenge_gen.clone()),
+                    &mut (sponge.clone()),
                     rng,
                 )?;
                 if !result {
@@ -931,12 +914,9 @@ pub mod tests {
             sponge,
         } = info;
 
-        let challenge_gens = vec![
-            ChallengeGenerator::new_multivariate(sponge()),
-            ChallengeGenerator::new_univariate(&mut sponge()),
-        ];
+        let sponge = sponge();
 
-        for challenge_gen in challenge_gens {
+        for __ in 0..1 {
             let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
             // If testing multivariate polynomials, make the max degree lower
             let max_degree = match num_vars {
@@ -1060,7 +1040,7 @@ pub mod tests {
                     &polynomials,
                     &comms,
                     &query_set,
-                    &mut (challenge_gen.clone()),
+                    &mut (sponge.clone()),
                     &states,
                     Some(rng),
                 )?;
@@ -1072,7 +1052,7 @@ pub mod tests {
                     &query_set,
                     &values,
                     &proof,
-                    &mut (challenge_gen.clone()),
+                    &mut (sponge.clone()),
                     rng,
                 )?;
                 if !result {
