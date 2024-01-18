@@ -161,7 +161,10 @@ pub trait PolynomialCommitment<F: PrimeField, P: Polynomial<F>, S: Cryptographic
     type VerifierKey: PCVerifierKey;
     /// The commitment to a polynomial.
     type Commitment: PCCommitment + Default;
-    /// The state of commitment
+    /// Auxiliary state of the commitment, output by the `commit` phase.
+    /// It contains information that can be reused by the committer
+    /// during the `open` phase, such as the commitment randomness.
+    /// Not to be shared with the verifier.
     type CommitmentState: PCCommitmentState;
     /// The evaluation proof for a single point.
     type Proof: Clone;
@@ -708,7 +711,7 @@ pub mod tests {
             )?;
             println!("Trimmed");
 
-            let (comms, states) = PC::commit(&ck, &polynomials, Some(rng))?;
+            let (comms, rands) = PC::commit(&ck, &polynomials, Some(rng))?;
 
             let mut query_set = QuerySet::new();
             let mut values = Evaluations::new();
@@ -726,7 +729,7 @@ pub mod tests {
                 &comms,
                 &query_set,
                 &mut (sponge.clone()),
-                &states,
+                &rands,
                 Some(rng),
             )?;
             let result = PC::batch_check(
@@ -836,7 +839,7 @@ pub mod tests {
             )?;
             println!("Trimmed");
 
-            let (comms, states) = PC::commit(&ck, &polynomials, Some(rng))?;
+            let (comms, rands) = PC::commit(&ck, &polynomials, Some(rng))?;
 
             // Construct query set
             let mut query_set = QuerySet::new();
@@ -857,7 +860,7 @@ pub mod tests {
                 &comms,
                 &query_set,
                 &mut (sponge.clone()),
-                &states,
+                &rands,
                 Some(rng),
             )?;
             let result = PC::batch_check(
@@ -881,6 +884,7 @@ pub mod tests {
             }
             assert!(result, "proof was incorrect, Query set: {:#?}", query_set);
         }
+
         Ok(())
     }
 
@@ -979,7 +983,7 @@ pub mod tests {
             )?;
             println!("Trimmed");
 
-            let (comms, states) = PC::commit(&ck, &polynomials, Some(rng))?;
+            let (comms, rands) = PC::commit(&ck, &polynomials, Some(rng))?;
 
             // Let's construct our equations
             let mut linear_combinations = Vec::new();
@@ -1031,7 +1035,7 @@ pub mod tests {
                 &comms,
                 &query_set,
                 &mut (sponge.clone()),
-                &states,
+                &rands,
                 Some(rng),
             )?;
             println!("Generated proof");
@@ -1061,6 +1065,7 @@ pub mod tests {
                 linear_combinations
             );
         }
+
         Ok(())
     }
 
