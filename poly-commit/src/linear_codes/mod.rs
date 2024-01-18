@@ -1,12 +1,15 @@
-use crate::utils::{inner_product, IOPTranscript, Matrix};
+use crate::utils::{inner_product, Matrix};
 use crate::{
-    Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
-    PolynomialCommitment,
+    to_bytes, Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams,
+    PCVerifierKey, PolynomialCommitment,
 };
 
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
 use ark_crypto_primitives::merkle_tree::MerkleTree;
-use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
+use ark_crypto_primitives::{
+    merkle_tree::Config,
+    sponge::{Absorb, CryptographicSponge},
+};
 use ark_ff::PrimeField;
 use ark_poly::Polynomial;
 use ark_std::borrow::Borrow;
@@ -32,7 +35,7 @@ use data_structures::*;
 
 pub use data_structures::{LigeroPCParams, LinCodePCProof};
 
-use utils::{calculate_t, get_indices_from_transcript};
+use utils::{calculate_t, get_indices_from_sponge};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
@@ -153,7 +156,7 @@ where
 impl<L, F, P, S, C, H> PolynomialCommitment<F, P, S> for LinearCodePCS<L, F, P, S, C, H>
 where
     L: LinearEncode<F, C, P, H>,
-    F: PrimeField,
+    F: PrimeField + Absorb,
     P: Polynomial<F>,
     S: CryptographicSponge,
     C: Config + 'static,
@@ -267,14 +270,8 @@ where
                 ck.two_to_one_hash_param(),
             )?;
 
-            // 3. Obtain the MT root and add it to the transcript.
+            // 3. Obtain the MT root
             let root = col_tree.root();
-
-            let mut transcript: IOPTranscript<F> = IOPTranscript::new(b"transcript");
-
-            transcript
-                .append_serializable_element(b"root", &root)
-                .map_err(|_| Error::TranscriptError)?;
 
             // 4. The commitment is just the root, but since each commitment could be to a differently-sized polynomial, we also add some metadata.
             let commitment = LinCodePCCommitment {
@@ -301,7 +298,7 @@ where
         _labeled_polynomials: impl IntoIterator<Item = &'a LabeledPolynomial<F, P>>,
         commitments: impl IntoIterator<Item = &'a LabeledCommitment<Self::Commitment>>,
         point: &'a P::Point,
-        _challenge_generator: &mut S,
+        sponge: &mut S,
         states: impl IntoIterator<Item = &'a Self::CommitmentState>,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<Self::Proof, Self::Error>
@@ -316,7 +313,6 @@ where
             let commitment = labeled_commitment.commitment();
             let n_rows = commitment.metadata.n_rows;
             let n_cols = commitment.metadata.n_cols;
-            let root = &commitment.root;
 
             // 1. Arrange the coefficients of the polynomial into a matrix,
             // and apply encoding to get `ext_mat`.
@@ -338,37 +334,21 @@ where
             // 3. Generate vector `b` to left-multiply the matrix.
             let (_, b) = L::tensor(point, n_cols, n_rows);
 
-            let mut transcript = IOPTranscript::new(b"transcript");
-            transcript
-                .append_serializable_element(b"root", root)
-                .map_err(|_| Error::TranscriptError)?;
+            sponge.absorb(&to_bytes!(&commitment.root).map_err(|_| Error::TranscriptError)?);
 
             // If we are checking well-formedness, we need to compute the well-formedness proof (which is just r.M) and append it to the transcript.
             let well_formedness = if ck.check_well_formedness() {
-                let mut r = Vec::new();
-                for _ in 0..n_rows {
-                    r.push(
-                        transcript
-                            .get_and_append_challenge(b"r")
-                            .map_err(|_| Error::TranscriptError)?,
-                    );
-                }
+                let r = sponge.squeeze_field_elements::<F>(n_rows);
                 let v = mat.row_mul(&r);
 
-                transcript
-                    .append_serializable_element(b"v", &v)
-                    .map_err(|_| Error::TranscriptError)?;
+                sponge.absorb(&v);
                 Some(v)
             } else {
                 None
             };
 
             let point_vec = L::point_to_vec(point.clone());
-            for element in point_vec.iter() {
-                transcript
-                    .append_serializable_element(b"point", element)
-                    .map_err(|_| Error::TranscriptError)?;
-            }
+            sponge.absorb(&point_vec);
 
             proof_array.push(LinCodePCProof {
                 // Compute the opening proof and append b.M to the transcript.
@@ -379,7 +359,7 @@ where
                     &mat,
                     &ext_mat,
                     &col_tree,
-                    &mut transcript,
+                    sponge,
                 )?,
                 well_formedness,
             });
@@ -394,7 +374,7 @@ where
         point: &'a P::Point,
         values: impl IntoIterator<Item = F>,
         proof_array: &Self::Proof,
-        _challenge_generator: &mut S,
+        sponge: &mut S,
         _rng: Option<&mut dyn RngCore>,
     ) -> Result<bool, Self::Error>
     where
@@ -414,31 +394,19 @@ where
             let root = &commitment.root;
             let t = calculate_t::<F>(vk.sec_param(), vk.distance(), n_ext_cols)?;
 
-            let mut transcript = IOPTranscript::new(b"transcript");
-            transcript
-                .append_serializable_element(b"root", &commitment.root)
-                .map_err(|_| Error::TranscriptError)?;
+            sponge.absorb(&to_bytes!(&commitment.root).map_err(|_| Error::TranscriptError)?);
 
             let out = if vk.check_well_formedness() {
                 if proof.well_formedness.is_none() {
                     return Err(Error::InvalidCommitment);
                 }
                 let tmp = &proof.well_formedness.as_ref();
-                let well_formedness = tmp.unwrap();
-                let mut r = Vec::with_capacity(n_rows);
-                for _ in 0..n_rows {
-                    r.push(
-                        transcript
-                            .get_and_append_challenge(b"r")
-                            .map_err(|_| Error::TranscriptError)?,
-                    );
-                }
+                let v = tmp.unwrap();
+                let r = sponge.squeeze_field_elements::<F>(n_rows);
                 // Upon sending `v` to the Verifier, add it to the sponge. The claim is that v = r.M.
-                transcript
-                    .append_serializable_element(b"v", well_formedness)
-                    .map_err(|_| Error::TranscriptError)?;
+                sponge.absorb(&v);
 
-                (Some(well_formedness), Some(r))
+                (Some(v), Some(r))
             } else {
                 (None, None)
             };
@@ -446,17 +414,11 @@ where
             // 1. Seed the transcript with the point and the recieved vector
             // TODO Consider removing the evaluation point from the transcript.
             let point_vec = L::point_to_vec(point.clone());
-            for element in point_vec.iter() {
-                transcript
-                    .append_serializable_element(b"point", element)
-                    .map_err(|_| Error::TranscriptError)?;
-            }
-            transcript
-                .append_serializable_element(b"v", &proof.opening.v)
-                .map_err(|_| Error::TranscriptError)?;
+            sponge.absorb(&point_vec);
+            sponge.absorb(&proof.opening.v);
 
             // 2. Ask random oracle for the `t` indices where the checks happen.
-            let indices = get_indices_from_transcript::<F>(n_ext_cols, t, &mut transcript)?;
+            let indices = get_indices_from_sponge(n_ext_cols, t, sponge)?;
 
             // 3. Hash the received columns into leaf hashes.
             let col_hashes: Vec<C::Leaf> = proof
@@ -554,30 +516,28 @@ where
         .map_err(|_| Error::HashingError)
 }
 
-fn generate_proof<F, C>(
+fn generate_proof<F, C, S>(
     sec_param: usize,
     distance: (usize, usize),
     b: &[F],
     mat: &Matrix<F>,
     ext_mat: &Matrix<F>,
     col_tree: &MerkleTree<C>,
-    transcript: &mut IOPTranscript<F>,
+    sponge: &mut S,
 ) -> Result<LinCodePCProofSingle<F, C>, Error>
 where
-    F: PrimeField,
+    F: PrimeField + Absorb,
     C: Config,
+    S: CryptographicSponge,
 {
     let t = calculate_t::<F>(sec_param, distance, ext_mat.m)?;
 
     // 1. left-multiply the matrix by `b`.
     let v = mat.row_mul(b);
-
-    transcript
-        .append_serializable_element(b"v", &v)
-        .map_err(|_| Error::TranscriptError)?;
+    sponge.absorb(&v);
 
     // 2. Generate t column indices to test the linear combination on.
-    let indices = get_indices_from_transcript(ext_mat.m, t, transcript)?;
+    let indices = get_indices_from_sponge(ext_mat.m, t, sponge)?;
 
     // 3. Compute Merkle tree paths for the requested columns.
     let mut queried_columns = Vec::with_capacity(t);

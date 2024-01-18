@@ -1,6 +1,6 @@
-use crate::utils::IOPTranscript;
 use crate::{utils::ceil_div, Error};
 
+use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_std::string::ToString;
@@ -36,18 +36,16 @@ pub(crate) fn get_num_bytes(n: usize) -> usize {
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`
 /// using the current state of the `transcript`.
-pub(crate) fn get_indices_from_transcript<F: PrimeField>(
+pub(crate) fn get_indices_from_sponge<S: CryptographicSponge>(
     n: usize,
     t: usize,
-    transcript: &mut IOPTranscript<F>,
+    sponge: &mut S,
 ) -> Result<Vec<usize>, Error> {
     let bytes_to_squeeze = get_num_bytes(n);
     let mut indices = Vec::with_capacity(t);
     for _ in 0..t {
-        let mut bytes: Vec<u8> = vec![0; bytes_to_squeeze];
-        transcript
-            .get_and_append_byte_challenge(b"i", &mut bytes)
-            .map_err(|_| Error::TranscriptError)?;
+        let bytes = sponge.squeeze_bytes(bytes_to_squeeze);
+        sponge.absorb(&bytes);
 
         // get the usize from Vec<u8>:
         let ind = bytes.iter().fold(0, |acc, &x| (acc << 8) + x as usize);
