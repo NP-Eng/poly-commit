@@ -3,12 +3,13 @@ use crate::tests::*;
 use crate::utils::test_sponge;
 use crate::{LabeledPolynomial, PolynomialCommitment};
 use ark_bls12_377::G1Affine;
-use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+// use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ec::AffineRepr;
 use ark_ed_on_bls12_381::EdwardsAffine;
 use ark_ff::PrimeField;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 use ark_std::test_rng;
+use merlin::Transcript;
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
 // The test structure is largely taken from the multilinear_ligero module
@@ -17,10 +18,10 @@ use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 // ****************** types ******************
 
 type Fq = <G1Affine as AffineRepr>::ScalarField;
-type Hyrax377 = HyraxPC<G1Affine, DenseMultilinearExtension<Fq>, PoseidonSponge<Fq>>;
+type Hyrax377 = HyraxPC<G1Affine, DenseMultilinearExtension<Fq>, Transcript>;
 
 type Fr = <EdwardsAffine as AffineRepr>::ScalarField;
-type Hyrax381 = HyraxPC<EdwardsAffine, DenseMultilinearExtension<Fr>, PoseidonSponge<Fr>>;
+type Hyrax381 = HyraxPC<EdwardsAffine, DenseMultilinearExtension<Fr>, Transcript>;
 
 // ******** auxiliary test functions ********
 
@@ -210,4 +211,28 @@ fn hyrax_full_end_to_end_equation_test() {
         poseidon_sponge_for_test,
     )
     .expect("test failed for bls12-381");
+}
+
+// #[test]
+// fn test_group() {
+//     use ark_crypto_primitives::sponge::Absorb;
+//     use ark_crypto_primitives::sponge::CryptographicSponge;
+//     use ark_std::UniformRand;
+//     let chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+//     let g = G1Affine::rand(chacha);
+//     let mut s = poseidon_sponge_for_test::<<G1Affine as AffineRepr>::ScalarField>();
+//     let mut dest = Vec::<<G1Affine as AffineRepr>::BaseField>::new();
+//     g.to_sponge_field_elements(&mut dest);
+//     s.absorb(&g);
+//     let x = <G1Affine as AffineRepr>::BaseField::rand(chacha);
+//     s.absorb(&x);
+// }
+
+#[test]
+fn test_from_flat_to_column() {
+    use super::utils::flat_to_matrix_column_major;
+
+    let x = vec![1, 2, 3, 4, 5, 6];
+    let y = flat_to_matrix_column_major(&x, 2, 3);
+    eprintln!("{:?}", y);
 }
