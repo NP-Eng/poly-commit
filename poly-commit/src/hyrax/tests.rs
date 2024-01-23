@@ -213,26 +213,14 @@ fn hyrax_full_end_to_end_equation_test() {
     .expect("test failed for bls12-381");
 }
 
-// #[test]
-// fn test_group() {
-//     use ark_crypto_primitives::sponge::Absorb;
-//     use ark_crypto_primitives::sponge::CryptographicSponge;
-//     use ark_std::UniformRand;
-//     let chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-//     let g = G1Affine::rand(chacha);
-//     let mut s = poseidon_sponge_for_test::<<G1Affine as AffineRepr>::ScalarField>();
-//     let mut dest = Vec::<<G1Affine as AffineRepr>::BaseField>::new();
-//     g.to_sponge_field_elements(&mut dest);
-//     s.absorb(&g);
-//     let x = <G1Affine as AffineRepr>::BaseField::rand(chacha);
-//     s.absorb(&x);
-// }
-
 #[test]
-fn test_from_flat_to_column() {
-    use super::utils::flat_to_matrix_column_major;
-
-    let x = vec![1, 2, 3, 4, 5, 6];
-    let y = flat_to_matrix_column_major(&x, 2, 3);
-    eprintln!("{:?}", y);
+fn test_group() {
+    use ark_crypto_primitives::sponge::CryptographicSponge;
+    use ark_std::UniformRand;
+    let chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+    let g = G1Affine::rand(chacha);
+    let mut s = test_sponge::<<G1Affine as AffineRepr>::ScalarField>();
+    s.absorb(&g);
+    let x = <G1Affine as AffineRepr>::BaseField::rand(chacha);
+    s.absorb(&x);
 }

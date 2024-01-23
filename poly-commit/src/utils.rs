@@ -94,9 +94,9 @@ pub(crate) fn vector_sum<F: Field>(v1: &[F], v2: &[F]) -> Vec<F> {
 
 // TODO: replace by https://github.com/arkworks-rs/crypto-primitives/issues/112.
 #[cfg(test)]
-use merlin::Transcript;
-#[cfg(test)]
 use ark_ff::PrimeField;
+#[cfg(test)]
+use merlin::Transcript;
 
 #[cfg(test)]
 pub(crate) fn test_sponge<F: PrimeField>() -> Transcript {

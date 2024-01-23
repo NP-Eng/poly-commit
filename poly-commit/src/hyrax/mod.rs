@@ -98,7 +98,7 @@ where
 
 impl<G, P, S> PolynomialCommitment<G::ScalarField, P, S> for HyraxPC<G, P, S>
 where
-    G: AffineRepr,
+    G: Absorb + AffineRepr,
     G::ScalarField: Absorb,
     P: MultilinearExtension<G::ScalarField>,
     S: CryptographicSponge,
@@ -343,7 +343,7 @@ where
             );
 
             // Absorbing the commitment to the polynomial
-            sponge.absorb(&serialize_to_vec!(com.row_coms).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&com.row_coms);
 
             // Absorbing the point
             sponge.absorb(point);
@@ -385,11 +385,11 @@ where
             let com_b = (ck.com_key[0] * b + ck.h * r_b).into();
 
             // Absorbing the commitment to the evaluation
-            sponge.absorb(&serialize_to_vec!(com_eval).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&com_eval);
 
             // Absorbing the two auxiliary commitments
-            sponge.absorb(&serialize_to_vec!(com_d).map_err(|_| Error::TranscriptError)?);
-            sponge.absorb(&serialize_to_vec!(com_b).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&com_d);
+            sponge.absorb(&com_b);
 
             // Receive the random challenge c from the verifier, i.e. squeeze
             // it from the transcript.
@@ -487,17 +487,17 @@ where
             );
 
             // Absorbing the commitment to the polynomial
-            sponge.absorb(&serialize_to_vec!(*row_coms).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(row_coms);
 
             // Absorbing the point
             sponge.absorb(point);
 
             // Absorbing the commitment to the evaluation
-            sponge.absorb(&serialize_to_vec!(*com_eval).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&com_eval);
 
             // Absorbing the two auxiliary commitments
-            sponge.absorb(&serialize_to_vec!(*com_d).map_err(|_| Error::TranscriptError)?);
-            sponge.absorb(&serialize_to_vec!(*com_b).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&com_d);
+            sponge.absorb(&com_b);
 
             // Receive the random challenge c from the verifier, i.e. squeeze
             // it from the transcript.

@@ -108,7 +108,6 @@ macro_rules! println {
 /// [xzzpd19]: https://eprint.iacr.org/2019/317
 /// [zgkpp]: https://ieeexplore.ieee.org/document/8418645
 // pub mod multilinear_pc;
-
 use ark_crypto_primitives::sponge::{CryptographicSponge, FieldElementSize};
 /// Multivariate polynomial commitment based on the construction in
 /// [[PST13]][pst] with batching and (optional) hiding property inspired
@@ -657,13 +656,13 @@ pub mod tests {
         num_equations: Option<usize>,
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     }
 
     pub fn bad_degree_bound_test<F, P, PC, S>(
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1079,7 +1078,7 @@ pub mod tests {
         num_vars: Option<usize>,
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1106,7 +1105,7 @@ pub mod tests {
     pub fn linear_poly_degree_bound_test<F, P, PC, S>(
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1133,7 +1132,7 @@ pub mod tests {
     pub fn single_poly_degree_bound_test<F, P, PC, S>(
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1160,7 +1159,7 @@ pub mod tests {
     pub fn quadratic_poly_degree_bound_multiple_queries_test<F, P, PC, S>(
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1187,7 +1186,7 @@ pub mod tests {
     pub fn single_poly_degree_bound_multiple_queries_test<F, P, PC, S>(
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1214,7 +1213,7 @@ pub mod tests {
     pub fn two_polys_degree_bound_single_query_test<F, P, PC, S>(
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1242,7 +1241,7 @@ pub mod tests {
         num_vars: Option<usize>,
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1270,7 +1269,7 @@ pub mod tests {
         num_vars: Option<usize>,
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1298,7 +1297,7 @@ pub mod tests {
         num_vars: Option<usize>,
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1326,7 +1325,7 @@ pub mod tests {
         num_vars: Option<usize>,
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
@@ -1353,7 +1352,7 @@ pub mod tests {
     pub fn two_equation_degree_bound_test<F, P, PC, S>(
         rand_poly: fn(usize, Option<usize>, &mut ChaCha20Rng) -> P,
         rand_point: fn(Option<usize>, &mut ChaCha20Rng) -> P::Point,
-        sponge: fn(&'static[u8]) -> S,
+        sponge: fn(&'static [u8]) -> S,
     ) -> Result<(), PC::Error>
     where
         F: PrimeField,
