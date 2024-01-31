@@ -6,7 +6,7 @@ use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
 
 /// Apply reed-solomon encoding to msg.
