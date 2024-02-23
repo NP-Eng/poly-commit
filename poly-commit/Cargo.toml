@@ -48,8 +48,6 @@ ark-bn254 = { version = "^0.4.0", default-features = false, features = [ "curve"
 blake2 = { version = "0.10", default-features = false }
 rand_chacha = { version = "0.3.0", default-features = false }
 ark-pcs-bench-templates = { path = "../bench-templates" }
-
-[target.'cfg(target_arch = "aarch64")'.dependencies]
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 
 [features]
