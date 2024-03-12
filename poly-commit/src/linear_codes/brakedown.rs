@@ -12,7 +12,7 @@ use ark_ff::PrimeField;
 use ark_std::log2;
 use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
 
 impl<F, C, H> PCUniversalParams for BrakedownPCParams<F, C, H>
@@ -78,12 +78,14 @@ where
         (self.n, self.m)
     }
 
-    fn leaf_hash_params(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters {
-        &self.leaf_hash_params
+    fn leaf_hash_param(&self) -> &<<C as Config>::LeafHash as CRHScheme>::Parameters {
+        &self.leaf_hash_param
     }
 
-    fn two_to_one_params(&self) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters {
-        &self.two_to_one_params
+    fn two_to_one_hash_param(
+        &self,
+    ) -> &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters {
+        &self.two_to_one_hash_param
     }
 
     fn col_hash_params(&self) -> &<H as CRHScheme>::Parameters {
@@ -102,8 +104,8 @@ where
         rng: &mut R,
         poly_len: usize,
         check_well_formedness: bool,
-        leaf_hash_params: LeafParam<C>,
-        two_to_one_params: TwoToOneParam<C>,
+        leaf_hash_param: LeafParam<C>,
+        two_to_one_hash_param: TwoToOneParam<C>,
         col_hash_params: H::Parameters,
     ) -> Self {
         let sec_param = 128;
@@ -134,8 +136,8 @@ where
             a_mats,
             b_mats,
             check_well_formedness,
-            leaf_hash_params,
-            two_to_one_params,
+            leaf_hash_param,
+            two_to_one_hash_param,
             col_hash_params,
         )
     }
@@ -154,8 +156,8 @@ where
         a_mats: Vec<SprsMat<F>>,
         b_mats: Vec<SprsMat<F>>,
         check_well_formedness: bool,
-        leaf_hash_params: LeafParam<C>,
-        two_to_one_params: TwoToOneParam<C>,
+        leaf_hash_param: LeafParam<C>,
+        two_to_one_hash_param: TwoToOneParam<C>,
         col_hash_params: H::Parameters,
     ) -> Self {
         let m_ext = if a_dims.is_empty() {
@@ -194,8 +196,8 @@ where
             a_mats,
             b_mats,
             check_well_formedness,
-            leaf_hash_params,
-            two_to_one_params,
+            leaf_hash_param,
+            two_to_one_hash_param,
             col_hash_params,
         }
     }

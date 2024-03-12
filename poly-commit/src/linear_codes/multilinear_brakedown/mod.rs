@@ -13,7 +13,7 @@ use ark_std::vec::Vec;
 
 mod tests;
 
-/// The univariate Brakedown polynomial commitment scheme based on [[Brakedown]][bd].
+/// The multilinear Brakedown polynomial commitment scheme based on [[Brakedown]][bd].
 /// The scheme defaults to the naive batching strategy.
 ///
 /// Note: The scheme currently does not support hiding.
@@ -44,16 +44,16 @@ where
         _max_degree: usize,
         num_vars: Option<usize>,
         rng: &mut R,
-        leaf_hash_params: <<C as Config>::LeafHash as CRHScheme>::Parameters,
-        two_to_one_params: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
+        leaf_hash_param: <<C as Config>::LeafHash as CRHScheme>::Parameters,
+        two_to_one_hash_param: <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
         col_hash_params: H::Parameters,
     ) -> Self::LinCodePCParams {
         Self::LinCodePCParams::default(
             rng,
             1 << num_vars.unwrap(),
             true,
-            leaf_hash_params,
-            two_to_one_params,
+            leaf_hash_param,
+            two_to_one_hash_param,
             col_hash_params,
         )
     }
