@@ -254,7 +254,7 @@ where
             let ext_mat_cols = ext_mat.cols();
             let leaves: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
                 .map(|col| {
-                    H::evaluate(ck.col_hash_params(), col)
+                    H::evaluate(ck.col_hash_params(), col.clone())
                         .map_err(|_| Error::HashingError)
                         .unwrap()
                 })
