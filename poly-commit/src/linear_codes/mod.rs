@@ -19,7 +19,7 @@ use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
 #[cfg(feature = "parallel")]
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 mod utils;
 
@@ -252,9 +252,9 @@ where
 
             // 2. Create the Merkle tree from the hashes of each column.
             let ext_mat_cols = ext_mat.cols();
-            let leaves: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
+            let leaves: Vec<H::Output> = cfg_iter!(ext_mat_cols)
                 .map(|col| {
-                    H::evaluate(ck.col_hash_params(), col.clone())
+                    H::evaluate(ck.col_hash_params(), col.borrow())
                         .map_err(|_| Error::HashingError)
                         .unwrap()
                 })
