@@ -2,7 +2,7 @@ use super::utils::SprsMat;
 use crate::{utils::Matrix, PCCommitment, PCCommitmentState};
 use ark_crypto_primitives::{
     crh::CRHScheme,
-    merkle_tree::{Config, LeafParam, Path, TwoToOneParam},
+    merkle_tree::{Config, LeafParam, MultiPath, TwoToOneParam},
 };
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -129,7 +129,7 @@ where
     C: Config,
 {
     /// For each of the indices in q, `paths` contains the path from the root of the merkle tree to the leaf
-    pub(crate) paths: Vec<Path<C>>,
+    pub(crate) multi_path: MultiPath<C>,
 
     /// v, s.t. E(v) = w
     pub(crate) v: Vec<F>,

@@ -5,7 +5,7 @@ use crate::{
 };
 
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
-use ark_crypto_primitives::merkle_tree::MerkleTree;
+use ark_crypto_primitives::merkle_tree::{MerkleTree, MultiPath};
 use ark_crypto_primitives::{
     merkle_tree::Config,
     sponge::{Absorb, CryptographicSponge},
@@ -438,15 +438,16 @@ where
             // 4. Verify the paths for each of the leaf hashes - this is only run once,
             // even if we have a well-formedness check (i.e., we save sending and checking the columns).
             // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf).
-            for (j, (leaf, q_j)) in col_hashes.iter().zip(indices.iter()).enumerate() {
-                let path = &proof.opening.paths[j];
-                if path.leaf_index != *q_j {
-                    return Err(Error::InvalidCommitment);
-                }
+            let multi_path: &MultiPath<C> = &proof.opening.multi_path;
 
-                path.verify(leaf_hash_param, two_to_one_hash_param, root, leaf.clone())
-                    .map_err(|_| Error::InvalidCommitment)?;
-            }
+            multi_path
+                .verify(
+                    leaf_hash_param,
+                    two_to_one_hash_param,
+                    root,
+                    col_hashes.clone(),
+                )
+                .map_err(|_| Error::InvalidCommitment)?;
 
             // Helper closure: checks if a.b = c.
             let check_inner_product = |a, b, c| -> Result<(), Error> {
@@ -543,21 +544,19 @@ where
 
     // 3. Compute Merkle tree paths for the requested columns.
     let mut queried_columns = Vec::with_capacity(t);
-    let mut paths = Vec::with_capacity(t);
 
     let ext_mat_cols = ext_mat.cols();
 
+    let multi_path = col_tree
+        .generate_multi_proof(indices.clone())
+        .map_err(|_| Error::TranscriptError)?;
+
     for i in indices {
         queried_columns.push(ext_mat_cols[i].clone());
-        paths.push(
-            col_tree
-                .generate_proof(i)
-                .map_err(|_| Error::TranscriptError)?,
-        );
     }
 
     Ok(LinCodePCProofSingle {
-        paths,
+        multi_path,
         v,
         columns: queried_columns,
     })
