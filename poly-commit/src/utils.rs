@@ -47,15 +47,22 @@ pub(crate) fn ceil_div(x: usize, y: usize) -> usize {
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub struct Matrix<F: Field> {
+pub struct RowMajorMatrix<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,
-    row_major: Vec<Vec<F>>,
-    col_major: Vec<Vec<F>>,
+    rows: Vec<Vec<F>>,
 }
 
-impl<F: Field> Matrix<F> {
-    /// Returns a Matrix of dimensions n x m given a list of n * m field elements.
+#[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
+#[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
+pub struct ColumnMajorMatrix<F: Field> {
+    pub(crate) n: usize,
+    pub(crate) m: usize,
+    cols: Vec<Vec<F>>,
+}
+
+impl<F: Field> RowMajorMatrix<F> {
+    /// Returns a RowMajorMatrix of dimensions n x m given a list of n * m field elements.
     /// The list should be ordered row-first, i.e. [a11, ..., a1m, a21, ..., a2m, ...].
     ///
     /// # Panics
@@ -71,25 +78,33 @@ impl<F: Field> Matrix<F> {
         );
 
         // TODO more efficient to run linearly?
-        let row_major: Vec<Vec<F>> = (0..n)
+        let rows: Vec<Vec<F>> = (0..n)
             .map(|row| (0..m).map(|col| entry_list[m * row + col]).collect())
             .collect();
-        let col_major = (0..m)
-            .map(|col| (0..n).map(|row| row_major[row][col]).collect())
-            .collect();
 
-        Self {
-            n,
-            m,
-            row_major,
-            col_major,
-        }
+        Self { n, m, rows }
     }
 
-    /// Returns a Matrix given a list of its rows, each in turn represented as a list of field elements.
+    /// Returns self as a list of rows
+    pub(crate) fn rows(&self) -> &Vec<Vec<F>> {
+        &self.rows
+    }
+
+    /// Returns the entry in position (i, j). **Indexing starts at 0 in both coordinates**,
+    /// i.e. the first element is in position (0, 0) and the last one in (n - 1, j - 1),
+    /// where n and m are the number of rows and columns, respectively.
+    ///
+    /// Index bound checks are waived for efficiency and behaviour under invalid indexing is undefined
+    #[cfg(test)]
+    pub(crate) fn entry(&self, i: usize, j: usize) -> F {
+        self.rows[i][j]
+    }
+
+    /// Returns a RowMajorMatrix given a list of its rows, each in turn represented as a list of field elements.
     ///
     /// # Panics
     /// Panics if the sub-lists do not all have the same length.
+    #[cfg(test)]
     pub(crate) fn new_from_rows(row_major: Vec<Vec<F>>) -> Self {
         let m = row_major[0].len();
 
@@ -100,40 +115,12 @@ impl<F: Field> Matrix<F> {
                 "Invalid matrix construction: not all rows have the same length"
             );
         }
-        let col_major = (0..m)
-            .map(|col| {
-                (0..row_major.len())
-                    .map(|row| row_major[row][col])
-                    .collect()
-            })
-            .collect();
 
         Self {
             n: row_major.len(),
             m,
-            row_major,
-            col_major,
+            rows: row_major,
         }
-    }
-
-    /// Returns the entry in position (i, j). **Indexing starts at 0 in both coordinates**,
-    /// i.e. the first element is in position (0, 0) and the last one in (n - 1, j - 1),
-    /// where n and m are the number of rows and columns, respectively.
-    ///
-    /// Index bound checks are waived for efficiency and behaviour under invalid indexing is undefined
-    #[cfg(test)]
-    pub(crate) fn entry(&self, i: usize, j: usize) -> F {
-        self.row_major[i][j]
-    }
-
-    /// Returns self as a list of rows
-    pub(crate) fn rows(&self) -> &Vec<Vec<F>> {
-        &self.row_major
-    }
-
-    /// Returns self as a list of columns
-    pub(crate) fn cols(&self) -> &Vec<Vec<F>> {
-        &self.col_major
     }
 
     /// Returns the product v * self, where v is interpreted as a row vector. In other words,
@@ -150,8 +137,51 @@ impl<F: Field> Matrix<F> {
         );
 
         (0..self.m)
-            .map(|col| inner_product(v, &self.col_major[col]))
+            .map(|col| {
+                inner_product(
+                    v,
+                    &(0..self.n)
+                        .map(|row| self.rows[row][col])
+                        .collect::<Vec<F>>(),
+                )
+            })
             .collect()
+    }
+}
+
+impl<F: Field> ColumnMajorMatrix<F> {
+    /// Returns a ColumnMajorMatrix given a list of its rows, each in turn represented as a list of field elements.
+    ///
+    /// # Panics
+    /// Panics if the sub-lists do not all have the same length.
+    pub(crate) fn new_from_rows(row_major: Vec<Vec<F>>) -> Self {
+        let m = row_major[0].len();
+
+        for row in row_major.iter().skip(1) {
+            assert_eq!(
+                row.len(),
+                m,
+                "Invalid matrix construction: not all rows have the same length"
+            );
+        }
+        let cols = (0..m)
+            .map(|col| {
+                (0..row_major.len())
+                    .map(|row| row_major[row][col])
+                    .collect()
+            })
+            .collect();
+
+        Self {
+            n: row_major.len(),
+            m,
+            cols,
+        }
+    }
+
+    /// Returns self as a list of columns
+    pub(crate) fn cols(&self) -> &Vec<Vec<F>> {
+        &self.cols
     }
 }
 
@@ -215,14 +245,14 @@ pub(crate) mod tests {
     #[test]
     fn test_matrix_constructor_flat() {
         let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67, 44, 50]);
-        let mat = Matrix::new_from_flat(2, 3, &entries);
+        let mat = RowMajorMatrix::new_from_flat(2, 3, &entries);
         assert_eq!(mat.entry(1, 2), Fr::from(50));
     }
 
     #[test]
     fn test_matrix_constructor_flat_square() {
         let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67]);
-        let mat = Matrix::new_from_flat(2, 2, &entries);
+        let mat = RowMajorMatrix::new_from_flat(2, 2, &entries);
         assert_eq!(mat.entry(1, 1), Fr::from(67));
     }
 
@@ -230,7 +260,7 @@ pub(crate) mod tests {
     #[should_panic(expected = "dimensions are 2 x 3 but entry vector has 5 entries")]
     fn test_matrix_constructor_flat_panic() {
         let entries: Vec<Fr> = to_field(vec![10, 100, 4, 67, 44]);
-        Matrix::new_from_flat(2, 3, &entries);
+        RowMajorMatrix::new_from_flat(2, 3, &entries);
     }
 
     #[test]
@@ -240,7 +270,7 @@ pub(crate) mod tests {
             to_field(vec![23, 1, 0]),
             to_field(vec![55, 58, 9]),
         ];
-        let mat = Matrix::new_from_rows(rows);
+        let mat = RowMajorMatrix::new_from_rows(rows);
         assert_eq!(mat.entry(2, 0), Fr::from(55));
     }
 
@@ -252,7 +282,7 @@ pub(crate) mod tests {
             to_field(vec![23, 1, 0]),
             to_field(vec![55, 58]),
         ];
-        Matrix::new_from_rows(rows);
+        ColumnMajorMatrix::new_from_rows(rows);
     }
 
     #[test]
@@ -263,7 +293,7 @@ pub(crate) mod tests {
             to_field(vec![17, 89]),
         ];
 
-        let mat = Matrix::new_from_rows(rows);
+        let mat = ColumnMajorMatrix::new_from_rows(rows);
 
         assert_eq!(mat.cols()[1], to_field(vec![76, 92, 89]));
     }
@@ -276,7 +306,7 @@ pub(crate) mod tests {
             to_field(vec![55, 58, 9]),
         ];
 
-        let mat = Matrix::new_from_rows(rows);
+        let mat = RowMajorMatrix::new_from_rows(rows);
         let v: Vec<Fr> = to_field(vec![12, 41, 55]);
         // by giving the result in the integers and then converting to Fr
         // we ensure the test will still pass even if Fr changes
