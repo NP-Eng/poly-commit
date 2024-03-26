@@ -48,6 +48,9 @@ pub fn bench_pcs_method<
         let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
         let (ck, vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
 
+        // Modify to alter sample size and/or significance level
+        group.significance_level(0.1).sample_size(10);
+
         group.bench_with_input(
             BenchmarkId::from_parameter(num_vars),
             &num_vars,

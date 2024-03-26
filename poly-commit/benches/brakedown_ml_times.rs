@@ -53,7 +53,7 @@ fn rand_point_brakedown_ml<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng
 }
 
 const MIN_NUM_VARS: usize = 12;
-const MAX_NUM_VARS: usize = 22;
+const MAX_NUM_VARS: usize = 22; // 30
 
 bench!(
     Brakedown<Fr>,

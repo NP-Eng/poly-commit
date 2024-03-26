@@ -1,4 +1,4 @@
-use crate::utils::{inner_product, Matrix};
+use crate::utils::{inner_product, ColumnMajorMatrix, RowMajorMatrix};
 use crate::{
     to_bytes, Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams,
     PCVerifierKey, PolynomialCommitment,
@@ -19,7 +19,7 @@ use ark_std::string::ToString;
 use ark_std::vec::Vec;
 
 #[cfg(feature = "parallel")]
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 mod utils;
 
@@ -111,7 +111,10 @@ where
     /// Arrange the coefficients of the polynomial into a matrix,
     /// and apply encoding to each row.
     /// Returns the tuple (original_matrix, encoded_matrix).
-    fn compute_matrices(polynomial: &P, param: &Self::LinCodePCParams) -> (Matrix<F>, Matrix<F>) {
+    fn compute_matrices(
+        polynomial: &P,
+        param: &Self::LinCodePCParams,
+    ) -> (RowMajorMatrix<F>, ColumnMajorMatrix<F>) {
         let mut coeffs = Self::poly_to_vec(polynomial);
 
         // 1. Computing the matrix dimensions.
@@ -120,11 +123,11 @@ where
         // padding the coefficient vector with zeroes
         coeffs.resize(n_rows * n_cols, F::zero());
 
-        let mat = Matrix::new_from_flat(n_rows, n_cols, &coeffs);
+        let mat = RowMajorMatrix::new_from_flat(n_rows, n_cols, &coeffs);
 
         // 2. Apply encoding row-wise
         let rows = mat.rows();
-        let ext_mat = Matrix::new_from_rows(
+        let ext_mat = ColumnMajorMatrix::new_from_rows(
             cfg_iter!(rows)
                 .map(|r| Self::encode(r, param).unwrap())
                 .collect(),
@@ -252,9 +255,9 @@ where
 
             // 2. Create the Merkle tree from the hashes of each column.
             let ext_mat_cols = ext_mat.cols();
-            let leaves: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
+            let leaves: Vec<H::Output> = cfg_iter!(ext_mat_cols)
                 .map(|col| {
-                    H::evaluate(ck.col_hash_params(), col)
+                    H::evaluate(ck.col_hash_params(), col.borrow())
                         .map_err(|_| Error::HashingError)
                         .unwrap()
                 })
@@ -522,8 +525,8 @@ fn generate_proof<F, C, S>(
     sec_param: usize,
     distance: (usize, usize),
     b: &[F],
-    mat: &Matrix<F>,
-    ext_mat: &Matrix<F>,
+    mat: &RowMajorMatrix<F>,
+    ext_mat: &ColumnMajorMatrix<F>,
     col_tree: &MerkleTree<C>,
     sponge: &mut S,
 ) -> Result<LinCodePCProofSingle<F, C>, Error>
