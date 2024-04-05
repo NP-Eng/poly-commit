@@ -162,7 +162,7 @@ where
     P: Polynomial<F>,
     S: CryptographicSponge,
     C: Config + 'static,
-    Vec<F>: Borrow<<H as CRHScheme>::Input>,
+    for<'a> &'a Vec<F>: Borrow<<H as CRHScheme>::Input>,
     H::Output: Into<C::Leaf> + Send,
     C::Leaf: Sized + Clone + Default + Send + AsRef<C::Leaf>,
     H: CRHScheme + 'static,
@@ -254,7 +254,7 @@ where
             let ext_mat_cols = ext_mat.cols();
             let leaves: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
                 .map(|col| {
-                    H::evaluate(ck.col_hash_params(), col)
+                    H::evaluate(ck.col_hash_params(), &col)
                         .map_err(|_| Error::HashingError)
                         .unwrap()
                 })
@@ -428,7 +428,7 @@ where
                 .columns
                 .iter()
                 .map(|c| {
-                    H::evaluate(vk.col_hash_params(), c.clone())
+                    H::evaluate(vk.col_hash_params(), c)
                         .map_err(|_| Error::HashingError)
                         .unwrap()
                         .into()
