@@ -92,7 +92,7 @@ where
         polynomial.to_evaluations()
     }
 
-    fn point_to_vec(point: <P as Polynomial<F>>::Point) -> Vec<F> {
+    fn point_to_vec(point: &<P as Polynomial<F>>::Point) -> &Vec<F> {
         point
     }
 
@@ -103,7 +103,7 @@ where
         left_len: usize,
         _right_len: usize,
     ) -> (Vec<F>, Vec<F>) {
-        let point: Vec<F> = Self::point_to_vec(point.clone());
+        let point: &Vec<F> = Self::point_to_vec(point);
 
         let split = log2(left_len) as usize;
         let left = &point[..split];

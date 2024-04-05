@@ -106,7 +106,7 @@ where
     fn poly_to_vec(polynomial: &P) -> Vec<F>;
 
     /// Represent the query point as a vector of Field elements.
-    fn point_to_vec(point: P::Point) -> Vec<F>;
+    fn point_to_vec(point: &P::Point) -> &Vec<F>;
 
     /// Arrange the coefficients of the polynomial into a matrix,
     /// and apply encoding to each row.
@@ -349,7 +349,7 @@ where
                 None
             };
 
-            let point_vec = L::point_to_vec(point.clone());
+            let point_vec = L::point_to_vec(point);
             sponge.absorb(&point_vec);
 
             proof_array.push(LinCodePCProof {
@@ -415,7 +415,7 @@ where
 
             // 1. Seed the transcript with the point and the recieved vector
             // TODO Consider removing the evaluation point from the transcript.
-            let point_vec = L::point_to_vec(point.clone());
+            let point_vec = L::point_to_vec(&point);
             sponge.absorb(&point_vec);
             sponge.absorb(&proof.opening.v);
 
