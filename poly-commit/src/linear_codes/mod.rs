@@ -193,8 +193,7 @@ where
     ) -> Result<Self::UniversalParams, Self::Error> {
         let leaf_hash_param = <C::LeafHash as CRHScheme>::setup(rng).unwrap();
         let two_to_one_hash_param = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
-            .unwrap()
-            .clone();
+            .unwrap();
         let col_hash_params = <H as CRHScheme>::setup(rng).unwrap();
         let pp = L::setup::<R>(
             max_degree,
