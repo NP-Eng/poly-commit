@@ -6,7 +6,6 @@ use crate::{
 use crate::{BatchLCProof, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
 use crate::{PCCommitmentState, PCUniversalParams, PolynomialCommitment};
-use crate::{ToString, Vec};
 use ark_ec::AffineRepr;
 use ark_ec::{
     pairing::Pairing,

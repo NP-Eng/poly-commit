@@ -1,6 +1,5 @@
 use ark_ff::Field;
 use ark_std::borrow::Borrow;
-use ark_std::vec::Vec;
 
 use ark_std::iterable::Iterable;
 

@@ -3,7 +3,7 @@ use ark_crypto_primitives::sponge::Absorb;
 use ark_ec::pairing::Pairing;
 use ark_ec::AdditiveGroup;
 use ark_ec::AffineRepr;
-use ark_ff::{PrimeField, ToConstraintField};
+use ark_ff::ToConstraintField;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };

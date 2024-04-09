@@ -4,7 +4,6 @@ use ark_ff::{PrimeField, Zero};
 use ark_poly::Polynomial;
 use ark_std::borrow::Borrow;
 use ark_std::collections::VecDeque;
-use ark_std::vec::Vec;
 
 use crate::streaming_kzg::{vanishing_polynomial, FoldedPolynomialTree};
 use crate::utils::ceil_div;
