@@ -26,7 +26,6 @@ use ark_std::{
     fmt::Debug,
     hash::Hash,
     iter::FromIterator,
-    string::String,
     vec::Vec,
 };
 
