@@ -245,7 +245,6 @@ mod tests {
     };
     use ark_std::rand::RngCore;
     use ark_std::test_rng;
-    use ark_std::vec::Vec;
     type E = Bls12_381;
     type Fr = <E as Pairing>::ScalarField;
 

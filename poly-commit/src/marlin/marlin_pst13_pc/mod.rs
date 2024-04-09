@@ -711,7 +711,6 @@ mod tests {
         multivariate::{SparsePolynomial as SparsePoly, SparseTerm},
         DenseMVPolynomial,
     };
-    use ark_std::vec::Vec;
     use rand_chacha::ChaCha20Rng;
 
     type MVPoly_381 = SparsePoly<<Bls12_381 as Pairing>::ScalarField, SparseTerm>;
