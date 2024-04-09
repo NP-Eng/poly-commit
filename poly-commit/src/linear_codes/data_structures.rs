@@ -1,7 +1,8 @@
 use crate::{utils::Matrix, PCCommitment, PCCommitmentState};
 use ark_crypto_primitives::{
     crh::CRHScheme,
-    merkle_tree::{Config, LeafParam, Path, TwoToOneParam}, sponge::Absorb,
+    merkle_tree::{Config, LeafParam, Path, TwoToOneParam},
+    sponge::Absorb,
 };
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
