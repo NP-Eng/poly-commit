@@ -1,6 +1,6 @@
 use crate::{
     DenseUVPolynomial, PCCommitment, PCCommitmentState, PCCommitterKey, PCPreparedCommitment,
-    PCPreparedVerifierKey, PCVerifierKey, Vec,
+    PCPreparedVerifierKey, PCVerifierKey,
 };
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ec::pairing::Pairing;

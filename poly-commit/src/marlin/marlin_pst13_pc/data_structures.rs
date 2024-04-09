@@ -1,4 +1,4 @@
-use crate::{BTreeMap, Vec};
+use crate::BTreeMap;
 use crate::{
     PCCommitmentState, PCCommitterKey, PCPreparedVerifierKey, PCUniversalParams, PCVerifierKey,
 };
