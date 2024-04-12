@@ -1,5 +1,3 @@
-use crate::String;
-
 /// The error type for `PolynomialCommitment`.
 #[derive(Debug)]
 pub enum Error {

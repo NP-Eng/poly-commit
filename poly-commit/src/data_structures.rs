@@ -1,4 +1,4 @@
-use crate::{Polynomial, String, Vec};
+use crate::Polynomial;
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::{Field, PrimeField, ToConstraintField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};

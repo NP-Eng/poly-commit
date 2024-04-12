@@ -1,6 +1,6 @@
 use crate::CHALLENGE_SIZE;
 use crate::{kzg10, Error};
-use crate::{BTreeMap, BTreeSet, Debug, RngCore, String, ToString, Vec};
+use crate::{BTreeMap, BTreeSet, Debug, RngCore};
 use crate::{BatchLCProof, LabeledPolynomial, LinearCombination};
 use crate::{Evaluations, LabeledCommitment, QuerySet};
 use crate::{PCCommitmentState, Polynomial, PolynomialCommitment};

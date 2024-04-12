@@ -1,5 +1,5 @@
 use crate::{kzg10, PCCommitterKey, CHALLENGE_SIZE};
-use crate::{BTreeMap, BTreeSet, String, ToString, Vec};
+use crate::{BTreeMap, BTreeSet};
 use crate::{BatchLCProof, DenseUVPolynomial, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
 use crate::{PCCommitmentState, PCUniversalParams, PolynomialCommitment};

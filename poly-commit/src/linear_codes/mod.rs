@@ -15,8 +15,6 @@ use ark_poly::Polynomial;
 use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
-use ark_std::string::ToString;
-use ark_std::vec::Vec;
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};

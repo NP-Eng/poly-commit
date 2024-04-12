@@ -3,8 +3,6 @@ use crate::{utils::ceil_div, Error};
 use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
-use ark_std::string::ToString;
-use ark_std::vec::Vec;
 
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -113,10 +111,7 @@ pub(crate) mod tests {
 
     use ark_bls12_377::Fq;
     use ark_bls12_377::Fr;
-    use ark_poly::{
-        domain::general::GeneralEvaluationDomain, univariate::DensePolynomial, DenseUVPolynomial,
-        Polynomial,
-    };
+    use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial, Polynomial};
     use ark_std::test_rng;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
