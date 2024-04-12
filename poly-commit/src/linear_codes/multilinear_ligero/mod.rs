@@ -13,6 +13,8 @@ use ark_poly::{MultilinearExtension, Polynomial};
 use ark_std::log2;
 use ark_std::marker::PhantomData;
 
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
 mod tests;
 
 /// The multilinear Ligero polynomial commitment scheme based on [[Ligero]][ligero].

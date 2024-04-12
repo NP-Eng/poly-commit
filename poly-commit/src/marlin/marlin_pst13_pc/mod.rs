@@ -6,6 +6,7 @@ use crate::{
 use crate::{BatchLCProof, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
 use crate::{PCCommitmentState, PCUniversalParams, PolynomialCommitment};
+
 use ark_ec::AffineRepr;
 use ark_ec::{
     pairing::Pairing,
@@ -14,8 +15,11 @@ use ark_ec::{
 };
 use ark_ff::{One, PrimeField, UniformRand, Zero};
 use ark_poly::{multivariate::Term, DenseMVPolynomial};
-use ark_std::rand::RngCore;
-use ark_std::{marker::PhantomData, ops::Index, ops::Mul, vec};
+use ark_std::{marker::PhantomData, ops::Index, ops::Mul, rand::RngCore};
+#[cfg(not(feature = "std"))]
+use ark_std::{string::ToString, vec::Vec};
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 mod data_structures;
 pub use data_structures::*;
@@ -24,8 +28,6 @@ mod combinations;
 use combinations::*;
 
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 
 /// Multivariate polynomial commitment based on the construction in [[PST13]][pst]
 /// with batching and (optional) hiding property inspired by the univariate scheme
@@ -711,6 +713,8 @@ mod tests {
         multivariate::{SparsePolynomial as SparsePoly, SparseTerm},
         DenseMVPolynomial,
     };
+    #[cfg(not(feature = "std"))]
+    use ark_std::vec::Vec;
     use rand_chacha::ChaCha20Rng;
 
     type MVPoly_381 = SparsePoly<<Bls12_381 as Pairing>::ScalarField, SparseTerm>;

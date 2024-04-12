@@ -9,6 +9,8 @@ use crate::streaming_kzg::{vanishing_polynomial, VerifierKey};
 use ark_ff::Field;
 use ark_std::borrow::Borrow;
 use ark_std::iterable::{Iterable, Reverse};
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
 
 /// Polynomial evaluation, assuming that the
 /// coefficients are in little-endian.

@@ -9,6 +9,9 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
+
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]
 /// The public parameters for Ligero PCS.

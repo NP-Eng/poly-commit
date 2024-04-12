@@ -16,6 +16,9 @@ use ark_std::borrow::Borrow;
 use ark_std::marker::PhantomData;
 use ark_std::rand::RngCore;
 
+#[cfg(not(feature = "std"))]
+use ark_std::{string::ToString, vec::Vec};
+
 #[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 

@@ -3,13 +3,15 @@ use crate::{BTreeMap, BTreeSet};
 use crate::{BatchLCProof, DenseUVPolynomial, Error, Evaluations, QuerySet};
 use crate::{LabeledCommitment, LabeledPolynomial, LinearCombination};
 use crate::{PCCommitmentState, PCUniversalParams, PolynomialCommitment};
-use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
 
-use ark_ec::pairing::Pairing;
+use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use ark_ff::{One, UniformRand, Zero};
-use ark_std::rand::RngCore;
-use ark_std::{convert::TryInto, marker::PhantomData, ops::Div, ops::Mul, vec};
+use ark_std::{convert::TryInto, marker::PhantomData, ops::Div, ops::Mul, rand::RngCore};
+#[cfg(not(feature = "std"))]
+use ark_std::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 mod data_structures;
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};

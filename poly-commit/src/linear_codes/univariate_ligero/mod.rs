@@ -6,6 +6,10 @@ use ark_crypto_primitives::{merkle_tree::Config, sponge::CryptographicSponge};
 use ark_ff::PrimeField;
 use ark_poly::DenseUVPolynomial;
 use ark_std::marker::PhantomData;
+
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
+
 mod tests;
 
 /// The univariate Ligero polynomial commitment scheme based on [[Ligero]][ligero].

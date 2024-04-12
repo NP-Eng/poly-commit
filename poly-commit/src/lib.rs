@@ -26,6 +26,11 @@ use ark_std::{
     fmt::Debug,
     hash::Hash,
     iter::FromIterator,
+};
+
+#[cfg(not(feature = "std"))]
+use ark_std::{
+    string::{String, ToString},
     vec::Vec,
 };
 

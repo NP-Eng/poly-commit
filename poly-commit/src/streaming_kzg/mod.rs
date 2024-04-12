@@ -88,6 +88,8 @@ mod time;
 
 use ark_ec::CurveGroup;
 use ark_serialize::{CanonicalSerialize, Compress};
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
 pub use data_structures::*;
 pub use space::CommitterKeyStream;
 pub use time::CommitterKey;

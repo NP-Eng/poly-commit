@@ -9,6 +9,8 @@ use crate::streaming_kzg::{vanishing_polynomial, FoldedPolynomialTree};
 use crate::utils::ceil_div;
 use ark_ec::scalar_mul::variable_base::{ChunkedPippenger, HashMapPippenger, VariableBaseMSM};
 use ark_std::iterable::{Iterable, Reverse};
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
 
 use super::{time::CommitterKey, VerifierKey};
 use super::{Commitment, EvaluationProof};

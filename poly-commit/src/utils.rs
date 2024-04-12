@@ -1,6 +1,9 @@
 use ark_ff::Field;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
+#[cfg(not(feature = "std"))]
+use ark_std::vec::Vec;
+
 #[cfg(feature = "parallel")]
 use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},

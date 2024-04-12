@@ -8,6 +8,8 @@ use ark_std::{
     marker::PhantomData,
     ops::{AddAssign, MulAssign, SubAssign},
 };
+#[cfg(not(feature = "std"))]
+use ark_std::{string::String, vec::Vec};
 
 /// Labels a `LabeledPolynomial` or a `LabeledCommitment`.
 pub type PolynomialLabel = String;
