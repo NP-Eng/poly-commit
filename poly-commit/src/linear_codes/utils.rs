@@ -1,6 +1,8 @@
 use core::convert::TryInto;
 use std::collections::HashSet;
 
+#[cfg(test)]
+use crate::utils::ceil_div;
 use crate::Error;
 use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, Field, PrimeField};
@@ -131,6 +133,12 @@ impl<F: Field> SprsMat<F> {
             val,
         }
     }
+}
+
+#[inline]
+#[cfg(test)]
+pub(crate) fn get_num_bytes(n: usize) -> usize {
+    ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
 }
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`
