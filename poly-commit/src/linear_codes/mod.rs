@@ -44,6 +44,8 @@ use utils::{calculate_t, get_indices_from_sponge};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 
+const CHACHA_SEED_BYTES: usize = 256 / 8;
+
 /// For linear code PC schemes, the universal parameters, committer key
 /// and verifier key are all the same. This trait abstracts the common
 /// information contained in these.
