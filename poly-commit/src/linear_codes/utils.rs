@@ -1,7 +1,7 @@
 use core::convert::TryInto;
 use std::collections::HashSet;
 
-use crate::{utils::ceil_div, Error};
+use crate::Error;
 use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, Field, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
