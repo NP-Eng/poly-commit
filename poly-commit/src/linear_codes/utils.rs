@@ -1,3 +1,6 @@
+use core::convert::TryInto;
+use std::collections::HashSet;
+
 use crate::{utils::ceil_div, Error};
 use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, Field, PrimeField};
@@ -8,6 +11,10 @@ use ark_std::vec::Vec;
 
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaChaRng;
+
+use super::CHACHA_SEED_BYTES;
 
 #[cfg(test)]
 use {
@@ -126,30 +133,25 @@ impl<F: Field> SprsMat<F> {
     }
 }
 
-#[inline]
-pub(crate) fn get_num_bytes(n: usize) -> usize {
-    ceil_div((usize::BITS - n.leading_zeros()) as usize, 8)
-}
-
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`
-/// using the current state of the `transcript`.
+/// using the current state of the `transcript`. Duplicates are removed (leading
+/// to possibly fewer than `t` points being returned).
 pub(crate) fn get_indices_from_sponge<S: CryptographicSponge>(
     n: usize,
     t: usize,
     sponge: &mut S,
 ) -> Result<Vec<usize>, Error> {
-    let bytes_to_squeeze = get_num_bytes(n);
-    let mut indices = Vec::with_capacity(t);
-    for _ in 0..t {
-        let bytes = sponge.squeeze_bytes(bytes_to_squeeze);
-        sponge.absorb(&bytes);
+    // Squeeze 256 bits from the sponge and use them to seed a ChaCha20 PRNG
+    let seed = sponge.squeeze_bytes(CHACHA_SEED_BYTES);
+    let mut rng = ChaChaRng::from_seed(seed.try_into().unwrap());
 
-        // get the usize from Vec<u8>:
-        let ind = bytes.iter().fold(0, |acc, &x| (acc << 8) + x as usize);
-        // modulo the number of columns in the encoded matrix
-        indices.push(ind % n);
-    }
-    Ok(indices)
+    // Squeeze t elements, then removing duplicates. Crucially, this must be
+    // done deterministically to ensure prover-verifier consistency.
+    let mut seen = HashSet::new();
+    Ok((0..t)
+        .map(|_| rng.gen_range(0..n))
+        .filter(|x| seen.insert(*x))
+        .collect())
 }
 
 #[inline]
