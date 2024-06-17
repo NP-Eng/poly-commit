@@ -7,15 +7,11 @@ use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, Field, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{
-    string::ToString,
-    vec::Vec,
-    collections::BTreeSet,
-};
+use ark_std::{collections::BTreeSet, string::ToString, vec::Vec};
 
+use ark_std::rand::{Rng, SeedableRng};
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
-use ark_std::rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use super::CHACHA_SEED_BYTES;
