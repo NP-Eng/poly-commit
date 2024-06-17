@@ -15,7 +15,7 @@ use ark_std::{
 
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
-use rand::{Rng, SeedableRng};
+use ark_std::rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use super::CHACHA_SEED_BYTES;
