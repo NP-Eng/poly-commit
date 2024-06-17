@@ -1,5 +1,4 @@
 use core::convert::TryInto;
-use std::collections::HashSet;
 
 #[cfg(test)]
 use crate::utils::ceil_div;
@@ -8,8 +7,11 @@ use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ff::{FftField, Field, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::string::ToString;
-use ark_std::vec::Vec;
+use ark_std::{
+    string::ToString,
+    vec::Vec,
+    collections::BTreeSet,
+};
 
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
@@ -155,7 +157,7 @@ pub(crate) fn get_indices_from_sponge<S: CryptographicSponge>(
 
     // Squeeze t elements, then removing duplicates. Crucially, this must be
     // done deterministically to ensure prover-verifier consistency.
-    let mut seen = HashSet::new();
+    let mut seen = BTreeSet::new();
     Ok((0..t)
         .map(|_| rng.gen_range(0..n))
         .filter(|x| seen.insert(*x))
