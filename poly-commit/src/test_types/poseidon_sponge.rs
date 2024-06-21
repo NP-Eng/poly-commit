@@ -4,6 +4,7 @@ use ark_crypto_primitives::sponge::{poseidon::PoseidonConfig, CryptographicSpong
 use ark_ff::PrimeField;
 use ark_std::test_rng;
 
+/// Constructs a Poseidon sponge for testing.
 pub fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {
     let full_rounds = 8;
     let partial_rounds = 31;

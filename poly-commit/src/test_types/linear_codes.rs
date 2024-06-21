@@ -81,6 +81,7 @@ impl Config for TestMerkleTreeParams {
     type TwoToOneHash = CompressH;
 }
 
+/// Univariate Ligero
 pub type TestUVLigero<F> = LinearCodePCS<
     UnivariateLigero<F, TestMerkleTreeParams, DensePolynomial<F>, ColHasher<F, Blake2s256>>,
     F,
@@ -89,6 +90,7 @@ pub type TestUVLigero<F> = LinearCodePCS<
     ColHasher<F, Blake2s256>,
 >;
 
+/// Multilinear Ligero
 pub type TestMLLigero<F> = LinearCodePCS<
     MultilinearLigero<
         F,
@@ -102,6 +104,7 @@ pub type TestMLLigero<F> = LinearCodePCS<
     ColHasher<F, Blake2s256>,
 >;
 
+/// Multilinear Brakedown
 pub type TestMLBrakedown<F> = LinearCodePCS<
     MultilinearBrakedown<
         F,
