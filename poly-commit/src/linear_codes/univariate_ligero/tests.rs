@@ -3,7 +3,7 @@ mod tests {
 
     use crate::ark_std::UniformRand;
     use crate::linear_codes::LinearCodePCS;
-    use crate::utils::test_sponge;
+    use crate::test_types::test_sponge;
     use crate::PolynomialCommitment;
     use crate::{
         linear_codes::{LigeroPCParams, UnivariateLigero},

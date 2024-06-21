@@ -1,5 +1,5 @@
+use crate::test_types::test_sponge;
 use crate::tests::*;
-use crate::utils::test_sponge;
 use crate::LabeledPolynomial;
 use crate::{hyrax::HyraxPC, PolynomialCommitment};
 use ark_bls12_377::G1Affine;
