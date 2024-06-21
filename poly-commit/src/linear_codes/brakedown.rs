@@ -1,7 +1,14 @@
 use super::{utils::SprsMat, BrakedownPCParams, LinCodeParametersInfo};
-use crate::{linear_codes::utils::calculate_t, utils::{ceil_mul,ceil_div,  ent}, PCCommitterKey, PCUniversalParams, PCVerifierKey};
+use crate::{
+    linear_codes::utils::calculate_t,
+    utils::{ceil_div, ceil_mul, ent},
+    PCCommitterKey, PCUniversalParams, PCVerifierKey,
+};
 
-use ark_crypto_primitives::{crh::{CRHScheme, TwoToOneCRHScheme}, merkle_tree::{Config, LeafParam, TwoToOneParam}};
+use ark_crypto_primitives::{
+    crh::{CRHScheme, TwoToOneCRHScheme},
+    merkle_tree::{Config, LeafParam, TwoToOneParam},
+};
 use ark_ff::PrimeField;
 use ark_std::{log2, rand::RngCore, vec::Vec};
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]

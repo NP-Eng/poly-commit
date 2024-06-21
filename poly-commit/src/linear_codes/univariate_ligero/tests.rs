@@ -11,7 +11,7 @@ mod tests {
 
     use ark_bls12_377::Fr;
     use ark_bls12_381::Fr as Fr381;
-    use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme, sha256::Sha256}; 
+    use ark_crypto_primitives::crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme};
     use ark_ff::{Field, PrimeField, UniformRand};
     use ark_poly::{univariate::DensePolynomial, DenseUVPolynomial};
     use ark_std::test_rng;

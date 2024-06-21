@@ -1,10 +1,13 @@
 use crate::Error;
 
 use super::{utils::tensor_vec, BrakedownPCParams, LinearEncode};
-use ark_crypto_primitives::{crh::{CRHScheme, TwoToOneCRHScheme}, merkle_tree::Config};
+use ark_crypto_primitives::{
+    crh::{CRHScheme, TwoToOneCRHScheme},
+    merkle_tree::Config,
+};
 use ark_ff::{Field, PrimeField};
 use ark_poly::{MultilinearExtension, Polynomial};
-use ark_std::{ log2, marker::PhantomData, vec::Vec, rand::RngCore};
+use ark_std::{log2, marker::PhantomData, rand::RngCore, vec::Vec};
 
 mod tests;
 

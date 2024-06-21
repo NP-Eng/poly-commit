@@ -1,15 +1,14 @@
-use super::{
-    LigeroPCParams,
-    LinCodeParametersInfo
-};
+use super::{LigeroPCParams, LinCodeParametersInfo};
 
 use crate::{
-    linear_codes::utils::calculate_t,
-    utils::ceil_div,
-    PCCommitterKey, PCUniversalParams, PCVerifierKey
+    linear_codes::utils::calculate_t, utils::ceil_div, PCCommitterKey, PCUniversalParams,
+    PCVerifierKey,
 };
 
-use ark_crypto_primitives::{crh::{CRHScheme, TwoToOneCRHScheme}, merkle_tree::{Config, LeafParam, TwoToOneParam}};
+use ark_crypto_primitives::{
+    crh::{CRHScheme, TwoToOneCRHScheme},
+    merkle_tree::{Config, LeafParam, TwoToOneParam},
+};
 use ark_ff::PrimeField;
 use ark_std::{log2, marker::PhantomData};
 #[cfg(not(feature = "std"))]
