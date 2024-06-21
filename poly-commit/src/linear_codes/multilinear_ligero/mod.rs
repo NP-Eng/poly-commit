@@ -10,9 +10,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::{FftField, PrimeField};
 use ark_poly::{MultilinearExtension, Polynomial};
-use ark_std::log2;
-use ark_std::marker::PhantomData;
-use ark_std::vec::Vec;
+use ark_std::{log2, marker::PhantomData, vec::Vec};
 
 mod tests;
 

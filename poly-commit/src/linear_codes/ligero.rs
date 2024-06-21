@@ -1,14 +1,17 @@
-use super::LigeroPCParams;
-use super::LinCodeParametersInfo;
-use crate::linear_codes::utils::calculate_t;
-use crate::utils::ceil_div;
-use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
+use super::{
+    LigeroPCParams,
+    LinCodeParametersInfo
+};
 
-use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
-use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
+use crate::{
+    linear_codes::utils::calculate_t,
+    utils::ceil_div,
+    PCCommitterKey, PCUniversalParams, PCVerifierKey
+};
+
+use ark_crypto_primitives::{crh::{CRHScheme, TwoToOneCRHScheme}, merkle_tree::{Config, LeafParam, TwoToOneParam}};
 use ark_ff::PrimeField;
-use ark_std::log2;
-use ark_std::marker::PhantomData;
+use ark_std::{log2, marker::PhantomData};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 

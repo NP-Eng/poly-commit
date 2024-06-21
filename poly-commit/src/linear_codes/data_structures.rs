@@ -7,9 +7,7 @@ use ark_crypto_primitives::{
 };
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::marker::PhantomData;
-use ark_std::rand::RngCore;
-use ark_std::vec::Vec;
+use ark_std::{marker::PhantomData, rand::RngCore, vec::Vec};
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Clone(bound = ""), Debug(bound = ""))]

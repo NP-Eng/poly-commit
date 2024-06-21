@@ -1,13 +1,10 @@
-use super::utils::reed_solomon;
-use super::{LigeroPCParams, LinearEncode};
+use super::{utils::reed_solomon, LigeroPCParams, LinearEncode};
 
 use crate::Error;
-use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
-use ark_crypto_primitives::merkle_tree::Config;
+use ark_crypto_primitives::{crh::{CRHScheme, TwoToOneCRHScheme}, merkle_tree::Config};
 use ark_ff::PrimeField;
 use ark_poly::DenseUVPolynomial;
-use ark_std::marker::PhantomData;
-use ark_std::vec::Vec;
+use ark_std::{marker::PhantomData, vec::Vec};
 
 mod tests;
 

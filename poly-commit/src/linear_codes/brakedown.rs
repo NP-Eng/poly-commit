@@ -1,17 +1,9 @@
-use super::utils::SprsMat;
-use super::BrakedownPCParams;
-use super::LinCodeParametersInfo;
-use crate::linear_codes::utils::calculate_t;
-use crate::utils::ceil_div;
-use crate::utils::{ceil_mul, ent};
-use crate::{PCCommitterKey, PCUniversalParams, PCVerifierKey};
+use super::{utils::SprsMat, BrakedownPCParams, LinCodeParametersInfo};
+use crate::{linear_codes::utils::calculate_t, utils::{ceil_mul,ceil_div,  ent}, PCCommitterKey, PCUniversalParams, PCVerifierKey};
 
-use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
-use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
+use ark_crypto_primitives::{crh::{CRHScheme, TwoToOneCRHScheme}, merkle_tree::{Config, LeafParam, TwoToOneParam}};
 use ark_ff::PrimeField;
-use ark_std::log2;
-use ark_std::rand::RngCore;
-use ark_std::vec::Vec;
+use ark_std::{log2, rand::RngCore, vec::Vec};
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
 

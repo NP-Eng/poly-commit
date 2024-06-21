@@ -309,6 +309,8 @@ macro_rules! bench {
 
 /**** Auxiliary methods for linear-code-based PCSs ****/
 
+// TODO: This is code duplicated in test_types/linear_code.rs.
+
 /// Needed for benches and tests.
 pub struct LeafIdentityHasher;
 

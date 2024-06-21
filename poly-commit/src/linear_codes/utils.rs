@@ -11,10 +11,8 @@ use num_traits::Float;
 
 #[cfg(test)]
 use {
-    crate::to_bytes,
     ark_crypto_primitives::crh::CRHScheme,
-    ark_std::{borrow::Borrow, marker::PhantomData, rand::RngCore},
-    digest::Digest,
+    ark_std::{borrow::Borrow, rand::RngCore},
 };
 
 /// Apply reed-solomon encoding to msg.
@@ -201,39 +199,6 @@ impl CRHScheme for LeafIdentityHasher {
         input: T,
     ) -> Result<Self::Output, ark_crypto_primitives::Error> {
         Ok(input.borrow().to_vec().into())
-    }
-}
-
-#[cfg(test)]
-pub(crate) struct FieldToBytesColHasher<F, D>
-where
-    F: PrimeField + CanonicalSerialize,
-    D: Digest,
-{
-    _phantom: PhantomData<(F, D)>,
-}
-
-#[cfg(test)]
-impl<F, D> CRHScheme for FieldToBytesColHasher<F, D>
-where
-    F: PrimeField + CanonicalSerialize,
-    D: Digest,
-{
-    type Input = Vec<F>;
-    type Output = Vec<u8>;
-    type Parameters = ();
-
-    fn setup<R: RngCore>(_rng: &mut R) -> Result<Self::Parameters, ark_crypto_primitives::Error> {
-        Ok(())
-    }
-
-    fn evaluate<T: Borrow<Self::Input>>(
-        _parameters: &Self::Parameters,
-        input: T,
-    ) -> Result<Self::Output, ark_crypto_primitives::Error> {
-        let mut dig = D::new();
-        dig.update(to_bytes!(input.borrow()).unwrap());
-        Ok(dig.finalize().to_vec())
     }
 }
 
