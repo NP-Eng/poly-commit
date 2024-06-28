@@ -8,6 +8,7 @@ use crate::{
 use ark_crypto_primitives::{
     crh::{CRHScheme, TwoToOneCRHScheme},
     merkle_tree::{Config, LeafParam, TwoToOneParam},
+    sponge::Absorb,
 };
 use ark_ff::PrimeField;
 use ark_std::{log2, marker::PhantomData};
@@ -93,6 +94,23 @@ where
 
     fn supported_degree(&self) -> usize {
         <LigeroPCParams<F, C, H> as PCVerifierKey>::max_degree(self)
+    }
+}
+
+impl<F, C, H> Absorb for LigeroPCParams<F, C, H>
+where
+    F: PrimeField,
+    C: Config,
+    H: CRHScheme,
+{
+    fn to_sponge_bytes(&self, dest: &mut Vec<u8>) {
+        self.sec_param.to_sponge_bytes(dest);
+        self.rho_inv.to_sponge_bytes(dest);
+    }
+
+    fn to_sponge_field_elements<F2: PrimeField>(&self, dest: &mut Vec<F2>) {
+        self.sec_param.to_sponge_field_elements(dest);
+        self.rho_inv.to_sponge_field_elements(dest);
     }
 }
 
