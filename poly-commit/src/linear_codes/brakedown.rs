@@ -65,6 +65,10 @@ where
         self.check_well_formedness
     }
 
+    fn set_well_formedness(&mut self, set: bool) {
+        self.check_well_formedness = set;
+    }
+
     fn distance(&self) -> (usize, usize) {
         (self.rho_inv.1 * self.beta.0, self.rho_inv.0 * self.beta.1)
     }
