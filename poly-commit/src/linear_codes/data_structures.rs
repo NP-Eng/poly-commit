@@ -145,7 +145,7 @@ where
 /// Proof of an individual linear code well-formedness check or opening
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub(crate) struct LinCodePCProofSingle<F, C>
+pub struct LinCodePCProofSingle<F, C>
 where
     F: PrimeField,
     C: Config,
@@ -167,7 +167,9 @@ where
     F: PrimeField,
     C: Config,
 {
+    /// The opening proof
     pub opening: LinCodePCProofSingle<F, C>,
+    
     pub(crate) well_formedness: Option<Vec<F>>,
 }
 
