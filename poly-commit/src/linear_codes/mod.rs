@@ -61,6 +61,9 @@ where
     /// See whether there should be a well-formedness check.
     fn check_well_formedness(&self) -> bool;
 
+    /// Set whether there should be a well-formedness check.
+    fn set_well_formedness(&mut self, set: bool);
+
     /// Compute the dimensions of the coefficient matrix.
     fn compute_dimensions(&self, n: usize) -> (usize, usize);
 
