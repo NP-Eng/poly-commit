@@ -1,7 +1,7 @@
 use crate::utils::{inner_product, Matrix};
 use crate::{
-    to_bytes, Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams,
-    PCVerifierKey, PolynomialCommitment,
+    Error, LabeledCommitment, LabeledPolynomial, PCCommitterKey, PCUniversalParams, PCVerifierKey,
+    PolynomialCommitment,
 };
 
 use ark_crypto_primitives::crh::{CRHScheme, TwoToOneCRHScheme};
@@ -344,7 +344,7 @@ where
             // 3. Generate vector `b` to left-multiply the matrix.
             let (_, b) = L::tensor(point, n_cols, n_rows);
 
-            sponge.absorb(&to_bytes!(&commitment.root).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&commitment.root);
 
             // If we are checking well-formedness, we need to compute the well-formedness proof (which is just r.M) and append it to the transcript.
             let well_formedness = if ck.check_well_formedness() {
@@ -404,7 +404,7 @@ where
             let root = &commitment.root;
             let t = calculate_t::<F>(vk.sec_param(), vk.distance(), n_ext_cols)?;
 
-            sponge.absorb(&to_bytes!(&commitment.root).map_err(|_| Error::TranscriptError)?);
+            sponge.absorb(&commitment.root);
 
             let out = if vk.check_well_formedness() {
                 if proof.well_formedness.is_none() {
