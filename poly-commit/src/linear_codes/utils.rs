@@ -4,7 +4,7 @@ use ark_ff::{FftField, Field, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::string::ToString;
-use ark_std::vec::Vec;
+use ark_std::{collections::BTreeSet, vec::Vec};
 
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
@@ -136,17 +136,39 @@ pub(crate) fn get_indices_from_sponge<S: CryptographicSponge>(
     t: usize,
     sponge: &mut S,
 ) -> Result<Vec<usize>, Error> {
-    let bytes_to_squeeze = get_num_bytes(n);
+    let bytes_per_index = get_num_bytes(n);
+    let indices_per_squeeze = 32 / bytes_per_index;
+    let num_squeezes = (t + indices_per_squeeze - 1) / indices_per_squeeze;
     let mut indices = Vec::with_capacity(t);
-    for _ in 0..t {
-        let bytes = sponge.squeeze_bytes(bytes_to_squeeze);
-        sponge.absorb(&bytes);
+    for i in 0..num_squeezes {
+        let i_as_bytes: [u8; 2] = (i as u16).to_be_bytes();
+        let tag = "index_".to_string().as_bytes().to_vec();
+        let tag = [tag, i_as_bytes.to_vec()].concat();
 
-        // get the usize from Vec<u8>:
-        let ind = bytes.iter().fold(0, |acc, &x| (acc << 8) + x as usize);
-        // modulo the number of columns in the encoded matrix
-        indices.push(ind % n);
+        sponge.absorb(&tag);
+
+        let bytes = sponge.squeeze_bytes(32);
+
+        let bytes_to_take = if i == num_squeezes - 1 {
+            t % indices_per_squeeze
+        } else {
+            indices_per_squeeze
+        };
+
+        let squeeze_indices = bytes
+            .chunks(bytes_per_index)
+            .take(bytes_to_take)
+            .filter(|x| x.len() == bytes_per_index)
+            .map(|x| x.iter().fold(0, |acc, &x| ((acc << 8) + x as usize) % n));
+
+        indices.extend(squeeze_indices);
     }
+    let mut set = BTreeSet::new();
+    let indices = indices
+        .into_iter()
+        .filter(|x| set.insert(*x))
+        .take(t)
+        .collect::<Vec<usize>>();
     Ok(indices)
 }
 
@@ -231,12 +253,63 @@ pub(crate) mod tests {
 
     use ark_bls12_377::Fq;
     use ark_bls12_377::Fr;
+    use ark_crypto_primitives::sponge::Absorb;
+    use ark_crypto_primitives::sponge::FieldElementSize;
     use ark_poly::{
         domain::general::GeneralEvaluationDomain, univariate::DensePolynomial, DenseUVPolynomial,
         Polynomial,
     };
     use ark_std::test_rng;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+    use tiny_keccak::Hasher;
+    use tiny_keccak::Keccak;
+
+    #[derive(Clone)]
+    struct TestSponge {
+        pub(crate) state: Vec<u8>,
+    }
+
+    trait CustomCryptographicSponge: CryptographicSponge {
+        fn set_state(&mut self, state: Vec<u8>);
+    }
+
+    impl CryptographicSponge for TestSponge {
+        type Config = ();
+
+        fn new(_params: &Self::Config) -> Self {
+            TestSponge { state: vec![] }
+        }
+
+        fn absorb(&mut self, input: &impl Absorb) {
+            let mut input_bytes = vec![];
+            input.to_sponge_bytes(&mut input_bytes);
+            self.state.extend_from_slice(&input_bytes);
+        }
+
+        fn squeeze_bytes(&mut self, num_bytes: usize) -> Vec<u8> {
+            let mut keccak = Keccak::v256();
+            let mut output = vec![0u8; num_bytes];
+            keccak.update(&self.state);
+            keccak.finalize(&mut output);
+            self.state = output.clone();
+            output
+        }
+
+        fn squeeze_bits(&mut self, _num_bits: usize) -> Vec<bool> {
+            unimplemented!("squeeze_bits is not implemented for TestSponge")
+        }
+
+        fn squeeze_field_elements_with_sizes<F: PrimeField>(
+            &mut self,
+            sizes: &[FieldElementSize],
+        ) -> Vec<F> {
+            unimplemented!("squeeze_field_elements_with_sizes is not implemented for TestSponge")
+        }
+    }
+
+    fn test_sponge() -> TestSponge {
+        TestSponge::new(&())
+    }
 
     #[test]
     fn test_reed_solomon() {
@@ -323,5 +396,40 @@ pub(crate) mod tests {
         )
         .unwrap_err();
         calculate_t::<Fq>(400, (3, 4), 2_usize.pow(32)).unwrap_err();
+    }
+
+    #[test]
+    fn test_get_indices_from_sponge() {
+        let expected_indices: Vec<usize> = vec![
+            12828, 10294, 5381, 4213, 2882, 4840, 16057, 6998, 649, 485, 5488, 10443, 9616, 6686,
+            8535, 1221, 6420, 11745, 5346, 11735, 9150, 127, 4286, 14291, 4079, 12212, 15017, 2227,
+            13677, 9465, 993, 5775, 8407, 3513, 5573, 15504, 834, 8782, 12879, 6655, 2583, 3490,
+            589, 5376, 5677, 12096, 12047, 2821, 15565, 6221, 10275, 1528, 12274, 819, 14782, 6792,
+            116, 3241, 5430, 4516, 3339, 935, 4125, 7446, 999, 14910, 5166, 9430, 11872, 9944,
+            3104, 4597, 14666, 57, 7824, 1599, 12663, 2079, 11938, 10533, 13653, 12674, 7435, 4997,
+            6673, 10856, 13988, 5413, 14721, 8174, 12869, 13075, 12398, 7079, 3672, 10020, 12003,
+            2988, 7038, 6553, 9777, 9533, 7171, 9530, 11512, 16147, 9769, 8116, 3703, 2758, 9342,
+            2382, 13165, 11855, 12514, 4396, 910, 15236, 1079, 4606, 12979, 9489, 1310, 343, 1930,
+            8772, 3418, 13781, 3541, 3485, 8599, 15356, 15457, 13185, 10404, 7389, 535, 5974, 5866,
+            6132, 9321, 3586, 7027, 12394, 6097, 15669, 2811, 11237, 5221, 14039, 15331, 12991,
+            10820, 2638, 6677, 446, 9666, 13817, 3208, 4196, 1440, 1497, 13098, 4861, 9306, 8135,
+            14593, 1272, 7798, 12619, 9930, 5663, 14015, 2485, 13160, 2534, 15355, 14777, 15539,
+            5081, 8804, 1199, 12574, 12789, 9701, 15640, 2278, 7275, 115, 11158, 7382, 712, 11337,
+            14868, 2576, 12443, 3353, 8358, 16337, 3008, 10849, 578, 3615, 3265, 7557, 3345, 6186,
+            6267, 2789, 6094, 16197, 12200, 13326, 7272, 3700, 9594, 16341, 11324, 798, 11222,
+            5390, 987, 13510, 13606, 498, 7586, 15550, 14803, 918, 1154, 1436, 6864, 10938, 4025,
+            6707, 9708, 3315, 10495, 2226, 4164, 15231, 6272, 16374, 470, 11139, 592, 2490, 5447,
+            12739, 9509, 9256, 11578, 1970, 90, 12346, 1881, 2540, 13989, 7663, 15811, 7532, 7860,
+            15573, 12884, 2604, 6255, 15991, 7342, 3912, 14151, 10575, 374, 9997, 3895, 12253,
+            12547, 13724, 14325, 11730, 10397, 15268, 6630, 2028, 6422, 6269, 16156, 4123, 15443,
+            15492, 4001, 12452, 2062, 1657, 5411, 15597, 10761, 12235, 12595, 11059, 8638, 13444,
+            15038, 14506, 9839, 13217, 12752, 11534, 15461, 13322,
+        ];
+
+        let mut sponge = test_sponge();
+        let n_ext_cols = 16384;
+        let t = 311;
+        let indices = get_indices_from_sponge(n_ext_cols, t, &mut sponge).unwrap();
+        assert_eq!(indices, expected_indices);
     }
 }
