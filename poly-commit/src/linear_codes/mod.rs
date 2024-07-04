@@ -10,6 +10,7 @@ use ark_crypto_primitives::{
     merkle_tree::Config,
     sponge::{Absorb, CryptographicSponge},
 };
+use ark_ff::BigInteger;
 use ark_ff::PrimeField;
 use ark_poly::Polynomial;
 use ark_std::borrow::Borrow;
@@ -358,7 +359,12 @@ where
             };
 
             let point_vec = L::point_to_vec(point.clone());
-            sponge.absorb(&point_vec);
+            sponge.absorb(
+                &point_vec
+                    .iter()
+                    .map(|x| x.into_bigint().to_bytes_be())
+                    .collect::<Vec<Vec<u8>>>(),
+            );
 
             proof_array.push(LinCodePCProof {
                 // Compute the opening proof and append b.M to the transcript.
@@ -423,8 +429,20 @@ where
 
             // 1. Seed the transcript with the point and the recieved vector
             let point_vec = L::point_to_vec(point.clone());
-            sponge.absorb(&point_vec);
-            sponge.absorb(&proof.opening.v);
+            sponge.absorb(
+                &point_vec
+                    .iter()
+                    .map(|x| x.into_bigint().to_bytes_be())
+                    .collect::<Vec<Vec<u8>>>(),
+            );
+            sponge.absorb(
+                &proof
+                    .opening
+                    .v
+                    .iter()
+                    .map(|x| x.into_bigint().to_bytes_be())
+                    .collect::<Vec<Vec<u8>>>(),
+            );
 
             // 2. Ask random oracle for the `t` indices where the checks happen.
             let indices = get_indices_from_sponge(n_ext_cols, t, sponge)?;
@@ -531,7 +549,11 @@ where
 
     // 1. left-multiply the matrix by `b`.
     let v = mat.row_mul(b);
-    sponge.absorb(&v);
+    sponge.absorb(
+        &v.iter()
+            .map(|x| x.into_bigint().to_bytes_be())
+            .collect::<Vec<Vec<u8>>>(),
+    );
 
     // 2. Generate t column indices to test the linear combination on.
     let indices = get_indices_from_sponge(ext_mat.m, t, sponge)?;
