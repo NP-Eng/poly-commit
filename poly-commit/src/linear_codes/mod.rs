@@ -497,7 +497,8 @@ where
 }
 
 // TODO maybe this can go to utils
-fn create_merkle_tree<C>(
+/// Doc
+pub fn create_merkle_tree<C>(
     leaves: &mut Vec<C::Leaf>,
     leaf_hash_param: &<<C as Config>::LeafHash as CRHScheme>::Parameters,
     two_to_one_hash_param: &<<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters,
