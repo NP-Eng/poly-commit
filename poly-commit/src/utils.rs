@@ -60,6 +60,7 @@ pub(crate) fn vector_sum<F: Field>(v1: &[F], v2: &[F]) -> Vec<F> {
 
 #[derive(Derivative, CanonicalSerialize, CanonicalDeserialize)]
 #[derivative(Default(bound = ""), Clone(bound = ""), Debug(bound = ""))]
+/// Doc
 pub struct Matrix<F: Field> {
     pub(crate) n: usize,
     pub(crate) m: usize,
