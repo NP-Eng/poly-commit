@@ -40,7 +40,7 @@ use data_structures::*;
 
 pub use data_structures::LinCodePCProof;
 
-use utils::{calculate_t, get_indices_from_sponge};
+pub use utils::{calculate_t, get_indices_from_sponge};
 
 const FIELD_SIZE_ERROR: &str = "This field is not suitable for the proposed parameters";
 

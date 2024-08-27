@@ -37,7 +37,7 @@ pub mod data_structures;
 pub use data_structures::*;
 
 /// Useful functions
-pub(crate) mod utils;
+pub mod utils;
 
 /// Types used for testing polynomial commitment schemes.
 #[cfg(any(test, feature = "test-types"))]

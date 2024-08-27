@@ -131,7 +131,7 @@ pub(crate) fn get_num_bytes(n: usize) -> usize {
 
 /// Generate `t` (not necessarily distinct) random points in `[0, n)`
 /// using the current state of the `transcript`.
-pub(crate) fn get_indices_from_sponge<S: CryptographicSponge>(
+pub fn get_indices_from_sponge<S: CryptographicSponge>(
     n: usize,
     t: usize,
     sponge: &mut S,
@@ -151,7 +151,8 @@ pub(crate) fn get_indices_from_sponge<S: CryptographicSponge>(
 }
 
 #[inline]
-pub(crate) fn calculate_t<F: PrimeField>(
+/// Doc
+pub fn calculate_t<F: PrimeField>(
     sec_param: usize,
     distance: (usize, usize),
     codeword_len: usize,
