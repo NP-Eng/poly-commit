@@ -110,7 +110,7 @@ where
     fn poly_to_vec(polynomial: &P) -> Vec<F>;
 
     /// Represent the query point as a vector of Field elements.
-    fn point_to_vec(point: P::Point) -> Vec<F>;
+    fn point_to_vec(point: &P::Point) -> &Vec<F>;
 
     /// Arrange the coefficients of the polynomial into a matrix,
     /// and apply encoding to each row.
@@ -164,7 +164,7 @@ where
     F: PrimeField + Absorb,
     P: Polynomial<F>,
     C: Config + 'static,
-    Vec<F>: Borrow<<H as CRHScheme>::Input>,
+    for<'a> &'a Vec<F>: Borrow<<H as CRHScheme>::Input>,
     H::Output: Into<C::Leaf> + Send,
     C::Leaf: Sized + Clone + Default + Send + AsRef<C::Leaf>,
     H: CRHScheme + 'static,
@@ -194,9 +194,7 @@ where
         rng: &mut R,
     ) -> Result<Self::UniversalParams, Self::Error> {
         let leaf_hash_param = <C::LeafHash as CRHScheme>::setup(rng).unwrap();
-        let two_to_one_hash_param = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng)
-            .unwrap()
-            .clone();
+        let two_to_one_hash_param = <C::TwoToOneHash as TwoToOneCRHScheme>::setup(rng).unwrap();
         let col_hash_params = <H as CRHScheme>::setup(rng).unwrap();
         let pp = L::setup::<R>(
             max_degree,
@@ -256,7 +254,7 @@ where
             let ext_mat_cols = ext_mat.cols();
             let leaves: Vec<H::Output> = cfg_into_iter!(ext_mat_cols)
                 .map(|col| {
-                    H::evaluate(ck.col_hash_params(), col)
+                    H::evaluate(ck.col_hash_params(), &col)
                         .map_err(|_| Error::HashingError)
                         .unwrap()
                 })
@@ -351,7 +349,7 @@ where
                 None
             };
 
-            let point_vec = L::point_to_vec(point.clone());
+            let point_vec = L::point_to_vec(point);
             sponge.absorb(&point_vec);
 
             proof_array.push(LinCodePCProof {
@@ -417,7 +415,7 @@ where
 
             // 1. Seed the transcript with the point and the recieved vector
             // TODO Consider removing the evaluation point from the transcript.
-            let point_vec = L::point_to_vec(point.clone());
+            let point_vec = L::point_to_vec(&point);
             sponge.absorb(&point_vec);
             sponge.absorb(&proof.opening.v);
 
@@ -430,7 +428,7 @@ where
                 .columns
                 .iter()
                 .map(|c| {
-                    H::evaluate(vk.col_hash_params(), c.clone())
+                    H::evaluate(vk.col_hash_params(), c)
                         .map_err(|_| Error::HashingError)
                         .unwrap()
                         .into()
@@ -440,13 +438,13 @@ where
             // 4. Verify the paths for each of the leaf hashes - this is only run once,
             // even if we have a well-formedness check (i.e., we save sending and checking the columns).
             // See "Concrete optimizations to the commitment scheme", p.12 of [Brakedown](https://eprint.iacr.org/2021/1043.pdf).
-            for (j, (leaf, q_j)) in col_hashes.iter().zip(indices.iter()).enumerate() {
+            for (j, (leaf, q_j)) in col_hashes.into_iter().zip(indices.iter()).enumerate() {
                 let path = &proof.opening.paths[j];
                 if path.leaf_index != *q_j {
                     return Err(Error::InvalidCommitment);
                 }
 
-                path.verify(leaf_hash_param, two_to_one_hash_param, root, leaf.clone())
+                path.verify(leaf_hash_param, two_to_one_hash_param, root, leaf)
                     .map_err(|_| Error::InvalidCommitment)?;
             }
 
